@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.6.2 (2026-05-09)
 
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged. The user-visible segment-detection wizard text in the admin UI also remains localized.
 
@@ -148,11 +148,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Segment-detection wizard no longer spams "has no existing object" WARN for indices above the real strip length — echo packets are filtered against `segmentCount` (Issue #8).
 - Command before cloud-init (e.g. cloud-only device right after restart) is silent now instead of warning "No channel available".
-
-### 2.5.2 (2026-05-04)
-
-- Stops the `groups.*.info.membersUnreachable` WARN spam every 2 min — the group state stays present with an empty value when all members are reachable instead of being deleted/recreated.
-- Verified H61A8 Outdoor Neon LED Strip 10m (reported by tukey42 in Issue #11).
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
