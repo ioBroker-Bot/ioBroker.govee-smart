@@ -33,7 +33,6 @@ __export(sku_cache_exports, {
 module.exports = __toCommonJS(sku_cache_exports);
 var fs = __toESM(require("node:fs"));
 var path = __toESM(require("node:path"));
-var import_i18n_logs = require("./i18n-logs");
 var import_types = require("./types");
 class SkuCache {
   cacheDir;
@@ -52,7 +51,7 @@ class SkuCache {
       this.dataAvailable = true;
     } catch (e) {
       this.dataAvailable = false;
-      this.log.warn((0, import_i18n_logs.tLog)("cacheNotWritable", { path: this.cacheDir, error: (0, import_types.errMessage)(e) }));
+      this.log.warn(`Cache directory not writable (${this.cacheDir}): ${(0, import_types.errMessage)(e)}`);
     }
   }
   /** False wenn Cache-Dir nicht zugreifbar ist — save/load skipt dann. */
@@ -74,7 +73,7 @@ class SkuCache {
       }
       this.log.debug(`Cache saved for ${data.sku}`);
     } catch (e) {
-      this.log.warn((0, import_i18n_logs.tLog)("cacheWriteFailed", { sku: data.sku, error: (0, import_types.errMessage)(e) }));
+      this.log.warn(`Cache write failed for ${data.sku}: ${(0, import_types.errMessage)(e)}`);
     }
   }
   /** Load all cached devices. */
@@ -134,7 +133,7 @@ class SkuCache {
     } catch {
     }
     if (pruned > 0) {
-      this.log.info((0, import_i18n_logs.tLog)("cachePruned", { count: pruned, days: maxAgeDays }));
+      this.log.info(`Cache: pruned ${pruned} stale entries (not seen on network for ${maxAgeDays}+ days)`);
     }
     return pruned;
   }

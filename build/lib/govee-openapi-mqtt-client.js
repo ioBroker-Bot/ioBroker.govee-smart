@@ -33,7 +33,6 @@ __export(govee_openapi_mqtt_client_exports, {
 module.exports = __toCommonJS(govee_openapi_mqtt_client_exports);
 var crypto = __toESM(require("node:crypto"));
 var mqtt = __toESM(require("mqtt"));
-var import_i18n_logs = require("./i18n-logs");
 var import_types = require("./types");
 const MAX_CONNECT_FAILURES = 5;
 const BROKER_URL = "mqtts://mqtt.openapi.govee.com:8883";
@@ -95,13 +94,13 @@ class GoveeOpenapiMqttClient {
         this.reconnectAttempts = 0;
         this.connectFailCount = 0;
         if (this.lastErrorCategory) {
-          this.log.info((0, import_i18n_logs.tLog)("cloudEventsRestored"));
+          this.log.info(`Cloud-events connection restored`);
           this.lastErrorCategory = null;
         }
         (_a = this.client) == null ? void 0 : _a.subscribe(this.topic, { qos: 0 }, (err) => {
           var _a2;
           if (err) {
-            this.log.warn((0, import_i18n_logs.tLog)("cloudEventsSubscribeFailed", { error: err.message }));
+            this.log.warn(`Cloud-events subscribe failed: ${err.message}`);
           } else {
             this.log.debug("Cloud-events subscribed to event topic");
             (_a2 = this.onConnection) == null ? void 0 : _a2.call(this, true);
@@ -117,7 +116,7 @@ class GoveeOpenapiMqttClient {
         if (category === "AUTH") {
           this.connectFailCount++;
           if (this.connectFailCount >= MAX_CONNECT_FAILURES) {
-            this.log.warn((0, import_i18n_logs.tLog)("cloudEventsAuthFailed"));
+            this.log.warn(`Cloud-events auth failed repeatedly \u2014 check API key`);
             (_a = this.onConnection) == null ? void 0 : _a.call(this, false);
             this.disconnect();
             return;

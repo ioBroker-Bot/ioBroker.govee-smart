@@ -1,6 +1,5 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { tLog } from "./i18n-logs";
 import { errMessage, type CloudCapability, type CloudScene } from "./types";
 
 /** Data persisted per device in the SKU cache */
@@ -99,7 +98,7 @@ export class SkuCache {
       this.dataAvailable = true;
     } catch (e) {
       this.dataAvailable = false;
-      this.log.warn(tLog("cacheNotWritable", { path: this.cacheDir, error: errMessage(e) }));
+      this.log.warn(`Cache directory not writable (${this.cacheDir}): ${errMessage(e)}`);
     }
   }
 
@@ -128,7 +127,7 @@ export class SkuCache {
       }
       this.log.debug(`Cache saved for ${data.sku}`);
     } catch (e) {
-      this.log.warn(tLog("cacheWriteFailed", { sku: data.sku, error: errMessage(e) }));
+      this.log.warn(`Cache write failed for ${data.sku}: ${errMessage(e)}`);
     }
   }
 
@@ -195,7 +194,7 @@ export class SkuCache {
       // cache dir doesn't exist yet
     }
     if (pruned > 0) {
-      this.log.info(tLog("cachePruned", { count: pruned, days: maxAgeDays }));
+      this.log.info(`Cache: pruned ${pruned} stale entries (not seen on network for ${maxAgeDays}+ days)`);
     }
     return pruned;
   }

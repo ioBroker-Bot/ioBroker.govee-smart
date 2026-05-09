@@ -124,13 +124,21 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ---
 
 ## Changelog
+<!--
+    Placeholder for the next version (at the beginning of the line):
+    ### **WORK IN PROGRESS**
+-->
+### **WORK IN PROGRESS**
+
+- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged. The user-visible segment-detection wizard text in the admin UI also remains localized.
+
 ### 2.6.1 (2026-05-06)
 
 - Documentation: changelog entries (v2.5.x–v2.6.0) restored to English — a few bullets had been left in German. No code changes.
 
 ### 2.6.0 (2026-05-06)
 
-- Multi-language: info/warn/error logs and state names/descriptions are now in your ioBroker system language (11 languages). Debug logs and stack traces stay English.
+- Multi-language: state names, descriptions and dropdown labels are now in your ioBroker system language (11 languages).
 
 ### 2.5.4 (2026-05-04)
 

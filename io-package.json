@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.6.1",
     "news": {
+      "NEXT": {
+        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) and the segment-detection wizard text remain unchanged.",
+        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen, Beschreibungen und Dropdown-Labels (11 Sprachen) sowie der Segment-Erkennungs-Wizard bleiben erhalten.",
+        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний, описания и подписи (11 языков), а также мастер обнаружения сегментов сохраняются.",
+        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Nomes de estados, descrições e rótulos localizados (11 idiomas) e o assistente de deteção de segmentos permanecem inalterados.",
+        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen, beschrijvingen en dropdown-labels (11 talen) en de segmentdetectie-wizard blijven ongewijzigd.",
+        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états, descriptions et libellés localisés (11 langues) ainsi que l'assistant de détection de segments restent inchangés.",
+        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati, descrizioni ed etichette localizzati (11 lingue) e la procedura guidata di rilevamento dei segmenti rimangono invariati.",
+        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados, descripciones y etiquetas localizados (11 idiomas) y el asistente de detección de segmentos permanecen sin cambios.",
+        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów, opisy i etykiety (11 języków) oraz kreator wykrywania segmentów pozostają bez zmian.",
+        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів, описи та мітки (11 мов) і майстер виявлення сегментів залишаються без змін.",
+        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称、描述和下拉标签（11 种语言）以及段检测向导保持不变。"
+      },
       "2.6.1": {
         "en": "Documentation: changelog entries (v2.5.x–v2.6.0) restored to English — a few bullets had been left in German. No code changes.",
         "de": "Dokumentation: Changelog-Einträge (v2.5.x–v2.6.0) auf Englisch korrigiert — einige Bullets waren auf Deutsch geblieben. Keine Code-Änderungen.",
@@ -80,19 +93,6 @@
         "pl": "Komunikat o limicie Cloud przy 429 teraz pokazuje 'rate-limited by Govee' zamiast generycznego bledu. Plus 33 mock-testy dla cloud + MQTT-login.",
         "uk": "Повідомлення про ліміт Cloud при 429 тепер показує 'rate-limited by Govee' замість загальної помилки. Плюс 33 mock-тести для cloud + MQTT-login.",
         "zh-cn": "Cloud 限流提示：429 现在正确显示 'rate-limited by Govee' 而非通用 Cloud 错误。新增 33 个 cloud + MQTT 登录路径 mock 测试。"
-      },
-      "2.5.0": {
-        "en": "Code-hygiene: onMessage handler (sendTo from admin UI) is now its own class with host-interface. main.ts shrinks; behaviour unchanged.",
-        "de": "Code-Hygiene: onMessage-Handler (sendTo aus dem Admin-UI) ist jetzt eigene Klasse mit Host-Interface. main.ts wird kleiner; Verhalten identisch.",
-        "ru": "Гигиена кода: onMessage-обработчик (sendTo из admin UI) теперь в отдельном классе с host-интерфейсом. main.ts уменьшается; поведение неизменно.",
-        "pt": "Higiene de codigo: onMessage handler agora vive em classe propria com host-interface. main.ts encolhe; comportamento inalterado.",
-        "nl": "Code-hygiene: onMessage handler heeft nu een eigen klasse met host-interface. main.ts wordt kleiner; gedrag ongewijzigd.",
-        "fr": "Hygiene de code : onMessage handler vit maintenant dans sa propre classe avec host-interface. main.ts retrecit; comportement inchange.",
-        "it": "Igiene del codice: onMessage handler ora vive nella propria classe con host-interface. main.ts si riduce; comportamento invariato.",
-        "es": "Higiene de codigo: onMessage handler vive ahora en su propia clase con host-interface. main.ts se reduce; comportamiento sin cambios.",
-        "pl": "Higiena kodu: onMessage handler zyskal wlasna klase z host-interface. main.ts maleje; zachowanie bez zmian.",
-        "uk": "Гігієна коду: onMessage handler тепер у власному класі з host-інтерфейсом. main.ts зменшується; поведінка без змін.",
-        "zh-cn": "代码卫生：onMessage 处理器现已拆为独立类，使用 host 接口。main.ts 缩小；行为不变。"
       }
     },
     "titleLang": {

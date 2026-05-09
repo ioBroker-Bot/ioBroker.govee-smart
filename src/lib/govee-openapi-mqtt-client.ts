@@ -1,6 +1,5 @@
 import * as crypto from "node:crypto";
 import * as mqtt from "mqtt";
-import { tLog } from "./i18n-logs";
 import {
   classifyError,
   type ErrorCategory,
@@ -95,13 +94,13 @@ export class GoveeOpenapiMqttClient {
           // first-connect message is redundant with the adapter-level
           // "Govee adapter ready — N devices, M groups (channels: …)"
           // line and was just noise.
-          this.log.info(tLog("cloudEventsRestored"));
+          this.log.info(`Cloud-events connection restored`);
           this.lastErrorCategory = null;
         }
 
         this.client?.subscribe(this.topic, { qos: 0 }, err => {
           if (err) {
-            this.log.warn(tLog("cloudEventsSubscribeFailed", { error: err.message }));
+            this.log.warn(`Cloud-events subscribe failed: ${err.message}`);
           } else {
             this.log.debug("Cloud-events subscribed to event topic");
             this.onConnection?.(true);
@@ -118,7 +117,7 @@ export class GoveeOpenapiMqttClient {
         if (category === "AUTH") {
           this.connectFailCount++;
           if (this.connectFailCount >= MAX_CONNECT_FAILURES) {
-            this.log.warn(tLog("cloudEventsAuthFailed"));
+            this.log.warn(`Cloud-events auth failed repeatedly — check API key`);
             this.onConnection?.(false);
             this.disconnect();
             return;

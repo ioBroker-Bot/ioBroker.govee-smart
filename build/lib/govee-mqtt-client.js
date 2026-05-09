@@ -36,7 +36,6 @@ var forge = __toESM(require("node-forge"));
 var mqtt = __toESM(require("mqtt"));
 var import_http_client = require("./http-client");
 var import_govee_constants = require("./govee-constants");
-var import_i18n_logs = require("./i18n-logs");
 var import_types = require("./types");
 const MAX_AUTH_FAILURES = 3;
 const LOGIN_URL = "https://app2.govee.com/account/rest/account/v2/login";
@@ -312,7 +311,7 @@ class GoveeMqttClient {
         const isNew = this.lastErrorCategory !== category;
         this.lastErrorCategory = category;
         if (isNew) {
-          this.log.warn((0, import_i18n_logs.tLog)("mqttVerificationNeeded"));
+          this.log.warn(`MQTT not connected: Govee asked for verification \u2014 request a code in adapter settings`);
         } else {
           this.log.debug("MQTT verification still pending (Govee returned 454 again)");
         }
@@ -325,7 +324,7 @@ class GoveeMqttClient {
         const isNew = this.lastErrorCategory !== category;
         this.lastErrorCategory = category;
         if (isNew) {
-          this.log.warn((0, import_i18n_logs.tLog)("mqttVerificationRejected"));
+          this.log.warn(`MQTT not connected: verification code rejected \u2014 request a fresh code`);
         } else {
           this.log.debug("MQTT verification code rejected again (Govee returned 455)");
         }
@@ -337,7 +336,7 @@ class GoveeMqttClient {
       if (category === "AUTH") {
         this.authFailCount++;
         if (this.authFailCount >= MAX_AUTH_FAILURES) {
-          this.log.warn((0, import_i18n_logs.tLog)("mqttLoginRejected"));
+          this.log.warn(`MQTT not connected: login rejected \u2014 check email/password`);
           return;
         }
       } else {
@@ -496,15 +495,15 @@ class GoveeMqttClient {
       this.reconnectAttempts = 0;
       this.authFailCount = 0;
       if (this.lastErrorCategory) {
-        this.log.info((0, import_i18n_logs.tLog)("mqttConnectionRestored"));
+        this.log.info(`MQTT connection restored`);
         this.lastErrorCategory = null;
       } else {
-        this.log.info((0, import_i18n_logs.tLog)("mqttConnected"));
+        this.log.info(`MQTT connected`);
       }
       (_a = this.client) == null ? void 0 : _a.subscribe(this.accountTopic, { qos: 0 }, (err) => {
         var _a2;
         if (err) {
-          this.log.warn((0, import_i18n_logs.tLog)("mqttSubscribeFailed", { error: err.message }));
+          this.log.warn(`MQTT subscribe failed: ${err.message}`);
         } else {
           this.log.debug("MQTT subscribed to account topic");
           (_a2 = this.onConnection) == null ? void 0 : _a2.call(this, true);

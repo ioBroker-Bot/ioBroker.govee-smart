@@ -7,7 +7,7 @@
 
 **ioBroker Govee Smart Adapter** — Steuert Govee WiFi-Geräte: Lights (LED-Strips, Lampen, Panels), Sensoren (Thermometer/Hygrometer), Appliances (Heater, Humidifier, Kettle, Ice Maker, Fan, Purifier). LAN first für Lights, App-API + OpenAPI-MQTT für Sensoren/Appliances, Cloud REST v2 für Capabilities + Steuer-Fallback.
 
-- **Version:** 2.6.0 (released 2026-05-06, npm latest). Multi-Language-Welle: info/warn/error-Logs (`lib/i18n-logs.ts` 42 Keys × 11 Sprachen, Module-State `setActiveLang` aus `system.config.language`) + State-Namen / -Beschreibungen / Dropdown-Werte (`lib/i18n-states.ts` mit `STATE_NAMES`/`STATE_DESCS`/`STATE_LABELS`, ioBroker liest Translation-Object aus `common.name`/`.desc`/`.states`). Debug-Logs + Stack-Traces bleiben EN.
+- **Version:** 2.6.1 (released 2026-05-07, npm latest) — Patch: README changelog English + @tsconfig/node22 bump. v2.6.0 (2026-05-06) Multi-Language-Welle: info/warn/error-Logs (`lib/i18n-logs.ts` 42 Keys × 11 Sprachen, Module-State `setActiveLang` aus `system.config.language`) + State-Namen / -Beschreibungen / Dropdown-Werte (`lib/i18n-states.ts` mit `STATE_NAMES`/`STATE_DESCS`/`STATE_LABELS`, ioBroker liest Translation-Object aus `common.name`/`.desc`/`.states`). Debug-Logs + Stack-Traces bleiben EN.
 - **GitHub:** https://github.com/krobipd/ioBroker.govee-smart
 - **npm:** https://www.npmjs.com/package/iobroker.govee-smart
 - **Runtime-Deps:** `@iobroker/adapter-core`, `mqtt`, `node-forge`

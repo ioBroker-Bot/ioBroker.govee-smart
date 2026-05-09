@@ -1,5 +1,4 @@
 import * as dgram from "node:dgram";
-import { tLog } from "./i18n-logs";
 import type { LanDevice, LanMessage, LanStatus, TimerAdapter } from "./types";
 
 const MULTICAST_ADDR = "239.255.255.250";
@@ -63,7 +62,7 @@ export class GoveeLanClient {
 
     const bindAddr = networkInterface && networkInterface !== "0.0.0.0" ? networkInterface : undefined;
     if (bindAddr) {
-      this.log.info(tLog("lanBindingInterface", { bindAddr }));
+      this.log.info(`LAN binding to network interface ${bindAddr}`);
     }
 
     this.multicastBind = bindAddr;
@@ -85,7 +84,7 @@ export class GoveeLanClient {
       // geht, Status-Antworten verloren).
       const code = (err as NodeJS.ErrnoException).code;
       if (code === "EADDRINUSE") {
-        this.log.warn(tLog("lanPortInUse", { port: LISTEN_PORT }));
+        this.log.warn(`LAN listen port ${LISTEN_PORT} already in use — second instance? Status updates will be lost.`);
       } else {
         this.log.debug(`LAN listen socket error: ${err.message}`);
       }
