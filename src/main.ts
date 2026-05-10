@@ -17,6 +17,7 @@ import { SnapshotHandler, type SnapshotHandlerHost } from "./lib/snapshot-handle
 import { GroupFanoutHandler, type GroupFanoutHost } from "./lib/group-fanout";
 import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
+import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import { RateLimiter } from "./lib/rate-limiter";
 import { SegmentWizard, wizardIdleText, type WizardHost, type WizardResult } from "./lib/segment-wizard";
 import { SkuCache } from "./lib/sku-cache";
@@ -353,7 +354,7 @@ class GoveeAdapter extends utils.Adapter {
       // clear the field automatically once Govee has accepted it.
       this.mqttClient.setVerificationCode(config.mqttVerificationCode ?? "");
       this.mqttClient.setOnVerificationConsumed(() => {
-        this.clearVerificationCodeSetting().catch(e => {
+        cloudCreds.clearVerificationCodeSetting(this).catch(e => {
           this.log.warn(`Could not clear mqttVerificationCode: ${errMessage(e)}`);
         });
       });
@@ -362,7 +363,7 @@ class GoveeAdapter extends utils.Adapter {
         // doesn't keep retrying with a stale value. On 'pending' (454 + no
         // code) we leave the field as-is — the user is about to fill it.
         if (reason === "failed") {
-          this.clearVerificationCodeSetting().catch(() => {});
+          cloudCreds.clearVerificationCodeSetting(this).catch(() => {});
         }
       });
 
@@ -374,13 +375,13 @@ class GoveeAdapter extends utils.Adapter {
       //
       // One-shot: clean up legacy v2.1.0/v2.1.1/v2.1.2 native fields
       // that contained plaintext credentials. Best-effort.
-      await this.cleanupLegacyMqttNativeOnce();
-      const cachedCreds = await this.loadPersistedCredsFromState();
+      await cloudCreds.cleanupLegacyMqttNativeOnce(this);
+      const cachedCreds = await cloudCreds.loadPersistedCredsFromState(this);
       if (cachedCreds) {
         this.mqttClient.setPersistedCredentials(cachedCreds);
       }
       this.mqttClient.setOnCredentialsRefresh(creds => {
-        this.persistCredsToState(creds).catch(e => {
+        cloudCreds.persistCredsToState(this, creds).catch(e => {
           this.log.warn(`Could not persist MQTT credentials: ${errMessage(e)}`);
         });
       });
@@ -1621,148 +1622,6 @@ class GoveeAdapter extends utils.Adapter {
    * wird (Memory v2.1.3-Bug). Vorher gab es nach jedem 2FA-Login einen
    * unnötigen Restart.
    */
-  private async clearVerificationCodeSetting(): Promise<void> {
-    try {
-      const obj = await this.getForeignObjectAsync(`system.adapter.${this.namespace}`);
-      const native = (obj?.native ?? {}) as Record<string, unknown>;
-      // Skip wenn das Feld eh schon leer (oder undefined) — kein dirty write,
-      // kein Restart-Trigger.
-      if (typeof native.mqttVerificationCode !== "string" || native.mqttVerificationCode === "") {
-        return;
-      }
-      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-        native: { mqttVerificationCode: "" },
-      });
-    } catch (e) {
-      this.log.warn(`Could not clear mqttVerificationCode: ${errMessage(e)}`);
-    }
-  }
-
-  /**
-   * Read persisted MQTT credentials from `info.mqttCredentials`. The
-   * sensitive fields (bearer + cert + pass) are encrypted with the
-   * system secret on save and decrypted here. Returns null if no
-   * credentials are stored or the JSON is unparseable.
-   *
-   * State-based persistence (since v2.1.3) — writes to a state instead
-   * of `system.adapter.X.native` so saving doesn't trigger an adapter
-   * restart. The earlier native-based design caused an endless
-   * login → save → restart → login loop.
-   */
-  private async loadPersistedCredsFromState(): Promise<PersistedMqttCredentials | null> {
-    try {
-      const s = await this.getStateAsync("info.mqttCredentials");
-      const raw = typeof s?.val === "string" ? s.val : "";
-      if (!raw) {
-        return null;
-      }
-      const obj = JSON.parse(raw) as {
-        bearerToken?: unknown;
-        iotEndpoint?: unknown;
-        p12Cert?: unknown;
-        p12Pass?: unknown;
-        accountId?: unknown;
-        accountTopic?: unknown;
-        tokenExpiresAt?: unknown;
-      };
-      // typeof-Guards — JSON.parse liefert raw, this.decrypt() wirft auf
-      // non-string-Input. Defensive: wenn das State-Blob durch ein Tool
-      // editiert wurde und falsche Typen drin hat, returnen wir null.
-      const safeStr = (v: unknown): string => (typeof v === "string" ? v : "");
-      const bearerToken = this.decrypt(safeStr(obj.bearerToken));
-      const p12Cert = this.decrypt(safeStr(obj.p12Cert));
-      const p12Pass = this.decrypt(safeStr(obj.p12Pass));
-      const iotEndpoint = safeStr(obj.iotEndpoint);
-      const accountId = safeStr(obj.accountId);
-      const accountTopic = safeStr(obj.accountTopic);
-      const tokenExpiresAt = typeof obj.tokenExpiresAt === "number" ? obj.tokenExpiresAt : 0;
-      if (!bearerToken || !iotEndpoint || !p12Cert || !accountId || !accountTopic || !tokenExpiresAt) {
-        return null;
-      }
-      return { bearerToken, iotEndpoint, p12Cert, p12Pass, accountId, accountTopic, tokenExpiresAt };
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Persist freshly-issued MQTT credentials into `info.mqttCredentials`.
-   * Sensitive fields go through `this.encrypt()` so the JSON blob is
-   * useless without the system secret. State writes do NOT trigger an
-   * adapter restart.
-   *
-   * @param creds The freshly-issued MQTT bundle from a successful login
-   */
-  private async persistCredsToState(creds: PersistedMqttCredentials): Promise<void> {
-    const blob = JSON.stringify({
-      bearerToken: this.encrypt(creds.bearerToken),
-      iotEndpoint: creds.iotEndpoint,
-      p12Cert: this.encrypt(creds.p12Cert),
-      p12Pass: this.encrypt(creds.p12Pass),
-      accountId: creds.accountId,
-      accountTopic: creds.accountTopic,
-      tokenExpiresAt: creds.tokenExpiresAt,
-    });
-    await this.setStateAsync("info.mqttCredentials", { val: blob, ack: true });
-  }
-
-  /**
-   * One-shot cleanup of legacy v2.1.0/v2.1.1/v2.1.2 plaintext credentials
-   * sitting in `system.adapter.X.native`.
-   *
-   * Doppelte Idempotenz:
-   * 1. State-Marker `info.legacyMqttCleaned=true` wird NACH erfolgreichem
-   *    Wipe gesetzt. Bei späteren Starts wird die Funktion über den Marker
-   *    sofort verlassen — auch wenn das native irgendwie wieder dirty wird.
-   * 2. Nur wenn KEINER der Legacy-Marker gesetzt ist UND das native dirty,
-   *    wird der einmalige extendForeignObjectAsync (Restart-Trigger) gemacht.
-   *
-   * Dieser Aufruf triggert genau einmal pro Adapter-Lifetime einen
-   * Restart — das ist unvermeidlich, weil die Plaintext-Bytes weg müssen.
-   * Aber: nach erfolgreichem Cleanup bleibt der Marker, kein erneuter
-   * Restart bei flaky writes.
-   */
-  private async cleanupLegacyMqttNativeOnce(): Promise<void> {
-    try {
-      // Marker-State zuerst prüfen — wenn schon gecleant, sofort raus.
-      const markerState = await this.getStateAsync("info.legacyMqttCleaned");
-      if (markerState?.val === true) {
-        return;
-      }
-      const obj = await this.getForeignObjectAsync(`system.adapter.${this.namespace}`);
-      const native = (obj?.native ?? {}) as Record<string, unknown>;
-      const legacy = [
-        "mqttBearerToken",
-        "mqttIotEndpoint",
-        "mqttP12Cert",
-        "mqttP12Pass",
-        "mqttAccountId",
-        "mqttAccountTopic",
-        "mqttTokenExpiresAt",
-      ];
-      const dirty = legacy.some(k => k in native && native[k] !== "" && native[k] !== 0);
-      if (!dirty) {
-        // Native ist clean (z.B. neue Installation oder schon migriert
-        // ohne Marker). Marker setzen damit nächster Start gar nicht erst
-        // den Native-Read macht.
-        await this.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => undefined);
-        return;
-      }
-      this.log.info(`Removing legacy plaintext MQTT credentials from native (one-time migration)`);
-      const wipe: Record<string, unknown> = {};
-      for (const k of legacy) {
-        wipe[k] = k === "mqttTokenExpiresAt" ? 0 : "";
-      }
-      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, { native: wipe });
-      // Marker setzen NACHDEM der Wipe erfolgreich war — bei einem etwaigen
-      // Crash zwischen extend und setState läuft der Cleanup beim nächsten
-      // Start nochmal (idempotent: native ist dann eh schon clean).
-      await this.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => undefined);
-    } catch (e) {
-      this.log.debug(`legacy MQTT cleanup skipped: ${errMessage(e)}`);
-    }
-  }
-
   private sendMessageResponse(obj: ioBroker.Message, data: unknown): void {
     if (obj.callback && obj.from) {
       this.sendTo(obj.from, obj.command, data as Record<string, unknown>, obj.callback);
