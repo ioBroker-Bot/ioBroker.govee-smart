@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.6.3 (2026-05-10)
 
 - Real-time status push (`info.mqttConnected`, `info.openapiMqttConnected`) now recovers automatically after a brief Govee outage. Previously, a rare subscribe rejection could leave the indicator stuck on `false` until the next adapter restart.
 - Restoring a local snapshot on a multi-segment LED strip is fast again — a 30-segment snapshot replays in well under a second instead of about nine.
@@ -153,11 +153,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.5.4 (2026-05-04)
 
 - Test-coverage expansion: `mqtt.connect` is now an injectable constructor parameter (like `httpsRequest` in v2.5.1), and 7 new mock tests cover the getIotKey path and persisted-credentials reuse.
-
-### 2.5.3 (2026-05-04)
-
-- Segment-detection wizard no longer spams "has no existing object" WARN for indices above the real strip length — echo packets are filtered against `segmentCount` (Issue #8).
-- Command before cloud-init (e.g. cloud-only device right after restart) is silent now instead of warning "No channel available".
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

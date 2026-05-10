@@ -1,4 +1,9 @@
 # Older Changes
+## 2.5.3 (2026-05-04)
+
+- Segment-detection wizard no longer spams "has no existing object" WARN for indices above the real strip length — echo packets are filtered against `segmentCount` (Issue #8).
+- Command before cloud-init (e.g. cloud-only device right after restart) is silent now instead of warning "No channel available".
+
 ## 2.5.2 (2026-05-04)
 
 - Stops the `groups.*.info.membersUnreachable` WARN spam every 2 min — the group state stays present with an empty value when all members are reachable instead of being deleted/recreated.

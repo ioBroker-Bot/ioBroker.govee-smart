@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.6.2",
+    "version": "2.6.3",
     "news": {
-      "NEXT": {
+      "2.6.3": {
         "en": "Status indicators recover automatically after a Govee outage, multi-segment snapshot restore is fast again, invalid manual pairing IP and silent Cloud errors are now reported.",
         "de": "Statusanzeigen erholen sich nach einem Govee-Ausfall automatisch, Snapshot-Wiederherstellung mit Segmenten ist wieder schnell, falsche Pairing-IP und stille Cloud-Fehler werden jetzt gemeldet.",
         "ru": "Индикаторы статуса автоматически восстанавливаются после сбоя Govee, восстановление снапшота с сегментами снова быстрое, неверный IP сопряжения и тихие Cloud-ошибки теперь сообщаются.",
