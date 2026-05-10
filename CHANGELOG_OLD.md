@@ -1,4 +1,8 @@
 # Older Changes
+## 2.6.2 (2026-05-09)
+
+- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged. The user-visible segment-detection wizard text in the admin UI also remains localized.
+
 ## 2.6.1 (2026-05-06)
 
 - Documentation: changelog entries (v2.5.x–v2.6.0) restored to English — a few bullets had been left in German. No code changes.

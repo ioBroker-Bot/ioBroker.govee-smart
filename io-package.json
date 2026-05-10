@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.6.6",
+    "version": "2.6.7",
     "news": {
-      "NEXT": {
+      "2.6.7": {
         "en": "Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.",
         "de": "Aufgeräumter Ready-Log: Die Geräte-/Sensor-/Gruppen-Online-Zusammenfassung ist raus — sie lief bevor der LAN-Scan fertig war und konnte fälschlich alle Lichter als offline anzeigen.",
         "ru": "Чище лог готовности: убрана сводка устройств/сенсоров/групп онлайн — она запускалась до завершения LAN-сканирования и могла ошибочно показывать все лампы как offline.",
@@ -93,19 +93,6 @@
         "pl": "Dokumentacja: wpisy changelog (v2.5.x–v2.6.0) przywrócone na angielski — kilka punktów pozostało po niemiecku. Bez zmian w kodzie.",
         "uk": "Документація: записи changelog (v2.5.x–v2.6.0) відновлено англійською — деякі пункти лишалися німецькою. Без змін у коді.",
         "zh-cn": "文档：将 v2.5.x–v2.6.0 的 changelog 条目恢复为英文 — 之前部分条目残留为德文。无代码更改。"
-      },
-      "2.6.0": {
-        "en": "Multi-language: info/warn/error logs and state names/descriptions are now in your ioBroker system language (11 languages). Debug logs and stack traces stay English.",
-        "de": "Mehrsprachig: info/warn/error-Logs sowie Datenpunkt-Namen und -Beschreibungen sind jetzt in der ioBroker-Systemsprache (11 Sprachen). Debug-Logs und Stack-Traces bleiben englisch.",
-        "ru": "Многоязычность: info/warn/error-логи и имена/описания состояний теперь на языке системы ioBroker (11 языков). Debug и stack-trace остаются английскими.",
-        "pt": "Multilíngua: logs info/warn/error e nomes/descrições de estados agora no idioma do sistema ioBroker (11 idiomas). Debug e stack-traces ficam em inglês.",
-        "nl": "Meertalig: info/warn/error-logs en statusnamen/-beschrijvingen nu in de ioBroker-systeemtaal (11 talen). Debug en stacktraces blijven Engels.",
-        "fr": "Multilingue : logs info/warn/error et noms/descriptions d'états désormais dans la langue système ioBroker (11 langues). Debug et stack-traces restent en anglais.",
-        "it": "Multilingua: log info/warn/error e nomi/descrizioni degli stati ora nella lingua di sistema ioBroker (11 lingue). Debug e stack-trace restano in inglese.",
-        "es": "Multilenguaje: logs info/warn/error y nombres/descripciones de estados ahora en el idioma del sistema ioBroker (11 idiomas). Debug y stack-traces permanecen en inglés.",
-        "pl": "Wielojęzyczność: logi info/warn/error oraz nazwy/opisy stanów teraz w języku systemu ioBroker (11 języków). Debug i stack-trace pozostają po angielsku.",
-        "uk": "Багатомовність: info/warn/error-логи та імена/описи станів тепер мовою системи ioBroker (11 мов). Debug та stack-traces лишаються англійськими.",
-        "zh-cn": "多语言：info/warn/error 日志以及状态名称/描述现在使用 ioBroker 系统语言（11 种）。Debug 日志与堆栈跟踪保持英文。"
       }
     },
     "titleLang": {

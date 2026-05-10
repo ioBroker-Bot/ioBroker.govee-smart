@@ -120,12 +120,6 @@ function checkAllReady(adapter) {
 }
 function logDeviceSummary(adapter) {
   var _a, _b;
-  if (!adapter.deviceManager) {
-    return;
-  }
-  const all = adapter.deviceManager.getDevices();
-  const devices = all.filter((d) => d.sku !== "BaseGroup");
-  const groups = all.filter((d) => d.sku === "BaseGroup");
   const channels = ["LAN"];
   if (adapter.cloudWasConnected) {
     channels.push("Cloud");
@@ -136,28 +130,7 @@ function logDeviceSummary(adapter) {
   if ((_b = adapter.openapiMqttClient) == null ? void 0 : _b.connected) {
     channels.push("Cloud-events");
   }
-  const lightDevices = devices.filter((d) => d.type === "devices.types.light");
-  const onlineDevices = devices.filter((d) => d.state.online === true);
-  const parts = [];
-  if (devices.length > 0) {
-    const onlineLights = lightDevices.filter((d) => d.state.online === true).length;
-    const totalLights = lightDevices.length;
-    if (totalLights > 0) {
-      parts.push(
-        totalLights === onlineLights ? `${totalLights} light${totalLights > 1 ? "s" : ""} online` : `${totalLights} light${totalLights > 1 ? "s" : ""} (${onlineLights} online, ${totalLights - onlineLights} offline)`
-      );
-    }
-    const sensors = devices.length - lightDevices.length;
-    if (sensors > 0) {
-      const onlineSensors = onlineDevices.filter((d) => d.type !== "devices.types.light").length;
-      parts.push(`${sensors} sensor${sensors > 1 ? "s" : ""} (${onlineSensors} with data)`);
-    }
-  }
-  if (groups.length > 0) {
-    parts.push(`${groups.length} group${groups.length > 1 ? "s" : ""}`);
-  }
-  const summary = parts.length > 0 ? parts.join(", ") : "no devices found";
-  adapter.log.info(`Govee adapter ready \u2014 ${summary} \u2014 channels: ${channels.join("+")}`);
+  adapter.log.info(`Govee adapter ready \u2014 channels: ${channels.join("+")}`);
   if (adapter.cloudClient && !adapter.cloudWasConnected) {
     const reason = adapter.cloudClient.getFailureReason();
     adapter.log.warn(reason ? `Cloud not connected \u2014 ${reason}` : `Cloud not connected \u2014 see earlier errors`);
