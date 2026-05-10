@@ -14,6 +14,7 @@ import {
   cloudDeviceToGoveeDevice as cloudDeviceToGoveeDeviceHelper,
 } from "./device-manager/mapping";
 import * as cacheHelpers from "./device-manager/cache";
+import * as cloudMergeHelpers from "./device-manager/cloud-merge";
 import type { AppDeviceEntry, GoveeApiClient } from "./govee-api-client";
 import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
@@ -67,7 +68,8 @@ export class DeviceManager {
   private apiClient: GoveeApiClient | null = null;
   /** Public for sub-module helpers (cache). */
   public skuCache: SkuCache | null = null;
-  private onDeviceUpdate: ((device: GoveeDevice, state: Partial<DeviceState>) => void) | null = null;
+  /** Public for sub-module helpers (cloud-merge). */
+  public onDeviceUpdate: ((device: GoveeDevice, state: Partial<DeviceState>) => void) | null = null;
   private onDeviceListChanged: ((devices: GoveeDevice[]) => void) | null = null;
   private onCloudCapabilities: ((device: GoveeDevice, caps: CloudStateCapability[]) => void) | null = null;
   /** Per-source dedup so a Cloud NETWORK error doesn't shadow an App-API one. */
@@ -452,35 +454,7 @@ export class DeviceManager {
    * @returns true if any new devices were added
    */
   private mergeCloudDevices(cloudDevices: CloudDevice[]): boolean {
-    let changed = false;
-    if (!Array.isArray(cloudDevices)) {
-      return false;
-    }
-    for (const cd of cloudDevices) {
-      // Defensive guard against malformed cloud entries
-      if (!cd || typeof cd.sku !== "string" || typeof cd.device !== "string") {
-        continue;
-      }
-      const existing = this.devices.get(this.deviceKey(cd.sku, cd.device));
-      if (existing) {
-        existing.name = cd.deviceName || existing.name;
-        existing.capabilities = Array.isArray(cd.capabilities) ? cd.capabilities : [];
-        existing.type = cd.type;
-        existing.channels.cloud = true;
-      } else {
-        const device = cloudDeviceToGoveeDeviceHelper(cd);
-        this.devices.set(this.deviceKey(cd.sku, cd.device), device);
-        changed = true;
-        this.log.debug(`Cloud: New device ${cd.deviceName} (${cd.sku})`);
-        this.maybeNudgeSeedSku(cd.sku, cd.deviceName);
-      }
-
-      const quirks = getDeviceQuirks(cd.sku);
-      if (quirks?.brokenPlatformApi) {
-        this.log.debug(`${cd.sku} has known broken platform API metadata — capabilities may be incomplete`);
-      }
-    }
-    return changed;
+    return cloudMergeHelpers.mergeCloudDevices(this, cloudDevices);
   }
 
   /**
@@ -850,7 +824,8 @@ export class DeviceManager {
    * @param sku Govee SKU
    * @param displayName Device name as shown in Govee Home
    */
-  private maybeNudgeSeedSku(sku: string, displayName: string | undefined): void {
+  /** Public for sub-module helpers (cloud-merge). */
+  public maybeNudgeSeedSku(sku: string, displayName: string | undefined): void {
     const upper = (typeof sku === "string" ? sku : "").toUpperCase();
     if (!upper || this.nudgedSeedSkus.has(upper)) {
       return;
@@ -1228,38 +1203,7 @@ export class DeviceManager {
    * @param caps Capability list from the source pipeline
    */
   private applyOnlineCap(device: GoveeDevice, caps: CloudStateCapability[]): void {
-    let online: boolean | undefined;
-    for (const c of caps) {
-      if (
-        c &&
-        typeof c.type === "string" &&
-        (c.type === "devices.capabilities.online" || c.type === "online") &&
-        c.state &&
-        typeof c.state.value === "boolean"
-      ) {
-        online = c.state.value;
-        break;
-      }
-    }
-    // Fresh data with no online flag → assume online (LAN/MQTT use the
-    // same "we just heard from the device" convention).
-    if (online === undefined && caps.length > 0) {
-      online = true;
-    }
-    if (online === undefined) {
-      return;
-    }
-    if (device.state.online === online && online === true) {
-      // Already online + still online — only refresh the lastSeen ts
-      // and skip the onDeviceUpdate noise.
-      device.lastSeenOnNetwork = Date.now();
-      return;
-    }
-    device.state.online = online;
-    if (online) {
-      device.lastSeenOnNetwork = Date.now();
-    }
-    this.onDeviceUpdate?.(device, { online });
+    cloudMergeHelpers.applyOnlineCap(this, device, caps);
   }
 
   /**
