@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.7.0",
     "news": {
+      "NEXT": {
+        "en": "Cleaner start-up log: the 'Starting' line now hints to wait for the 'ready' message, and the 'MQTT connected' info line is dropped (the ready summary lists all active channels anyway).",
+        "de": "Aufgeräumter Start-Log: die 'Starting'-Zeile weist jetzt darauf hin auf die 'ready'-Meldung zu warten, und die 'MQTT connected'-Info ist raus (die Ready-Zusammenfassung listet eh alle aktiven Kanäle).",
+        "ru": "Чище стартовый лог: строка 'Starting' теперь подсказывает дождаться сообщения 'ready', а 'MQTT connected' убрана из info-уровня (ready-сводка и так показывает все активные каналы).",
+        "pt": "Log de arranque mais limpo: a linha 'Starting' agora indica esperar pela mensagem 'ready', e o info 'MQTT connected' foi removido (o resumo ready já lista os canais ativos).",
+        "nl": "Schoner startup-log: de 'Starting'-regel verwijst nu naar het 'ready'-bericht, en 'MQTT connected' is geen info-regel meer (de ready-samenvatting toont toch alle actieve kanalen).",
+        "fr": "Log de démarrage plus propre : la ligne 'Starting' indique d'attendre le message 'ready', et l'info 'MQTT connected' est supprimée (le résumé ready liste de toute façon les canaux actifs).",
+        "it": "Log di avvio più pulito: la riga 'Starting' ora indica di attendere il messaggio 'ready', e l'info 'MQTT connected' è rimossa (il riepilogo ready elenca comunque i canali attivi).",
+        "es": "Log de arranque más limpio: la línea 'Starting' ahora indica esperar al mensaje 'ready', y el info 'MQTT connected' se eliminó (el resumen ready ya lista los canales activos).",
+        "pl": "Czystszy log startowy: linia 'Starting' wskazuje teraz, by czekać na komunikat 'ready', a info 'MQTT connected' usunięto (podsumowanie ready i tak listuje aktywne kanały).",
+        "uk": "Чистіший стартовий лог: рядок 'Starting' тепер вказує дочекатися повідомлення 'ready', а 'MQTT connected' прибрано з info (ready-зведення й так показує активні канали).",
+        "zh-cn": "更干净的启动日志：'Starting' 行现在提示等待 'ready' 消息，'MQTT connected' info 行已移除（ready 摘要本来就会列出所有活动通道）。"
+      },
       "2.7.0": {
         "en": "Snapshots created in the Govee Home app now appear in the dropdown (Issue #13). The refresh button is per-device under snapshots.refresh_cloud; info.refresh_cloud_data is removed.",
         "de": "In der Govee Home App erstellte Snapshots erscheinen jetzt im Dropdown (Issue #13). Der Refresh-Button liegt pro Gerät unter snapshots.refresh_cloud; info.refresh_cloud_data ist entfernt.",

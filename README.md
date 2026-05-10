@@ -128,6 +128,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Cleaner start-up log: the `Starting` line now hints to wait for the `ready` message, and the redundant `MQTT connected` info line is gone (the ready summary already lists all active channels).
+
 ### 2.7.0 (2026-05-10)
 
 - Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after an adapter restart and via the refresh button. Previously the cache held the old list forever (Issue #13).

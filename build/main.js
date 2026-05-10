@@ -276,7 +276,9 @@ class GoveeAdapter extends utils.Adapter {
     if (config.goveeEmail && config.goveePassword) {
       startChannels.push("MQTT");
     }
-    this.log.info(`Starting (${startChannels.join(", ")})`);
+    this.log.info(
+      `Starting (${startChannels.join(", ")}) \u2014 please wait, a "ready" message will follow when all channels are up`
+    );
     this.lanClient = new import_govee_lan_client.GoveeLanClient(this.log, this);
     this.deviceManager.setLanClient(this.lanClient);
     this.lanClient.start(

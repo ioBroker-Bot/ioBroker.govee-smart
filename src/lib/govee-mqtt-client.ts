@@ -607,7 +607,10 @@ export class GoveeMqttClient {
         this.log.info(`MQTT connection restored`);
         this.lastErrorCategory = null;
       } else {
-        this.log.info(`MQTT connected`);
+        // Initial connect is implicit in the ready-message ("channels:
+        // LAN+Cloud+MQTT+..."), so this stays debug — only the recovery
+        // path above earns an info-level event.
+        this.log.debug(`MQTT connected`);
       }
       this.client?.subscribe(this.accountTopic, { qos: 0 }, err => {
         if (err) {

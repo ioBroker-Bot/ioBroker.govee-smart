@@ -505,7 +505,7 @@ class GoveeMqttClient {
         this.log.info(`MQTT connection restored`);
         this.lastErrorCategory = null;
       } else {
-        this.log.info(`MQTT connected`);
+        this.log.debug(`MQTT connected`);
       }
       (_a = this.client) == null ? void 0 : _a.subscribe(this.accountTopic, { qos: 0 }, (err) => {
         var _a2, _b;
