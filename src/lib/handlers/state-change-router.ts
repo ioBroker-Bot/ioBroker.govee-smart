@@ -4,13 +4,7 @@ import type { GoveeLanClient } from "../govee-lan-client";
 import type { GroupFanoutHandler } from "../group-fanout";
 import type { SnapshotHandler } from "../snapshot-handler";
 import type { StateManager } from "../state-manager";
-import {
-  errMessage,
-  hexToRgb,
-  parseSegmentList,
-  resolveStatesValue,
-  type GoveeDevice,
-} from "../types";
+import { errMessage, hexToRgb, parseSegmentList, resolveStatesValue, type GoveeDevice } from "../types";
 import * as cloudRetryHandler from "./cloud-retry-handler";
 import * as diagnosticsHandler from "./diagnostics-handler";
 import * as groupStateHelpers from "./group-state-helpers";
@@ -41,6 +35,9 @@ export interface StateChangeRouterAdapter {
  * Locate a device by the state-tree prefix it owns. Linear scan because the
  * device count is small (typical Govee account has 5-30 devices) and the
  * call is cheap relative to the surrounding `setStateAsync`.
+ *
+ * @param adapter
+ * @param localId
  */
 export function findDeviceForState(adapter: StateChangeRouterAdapter, localId: string): GoveeDevice | undefined {
   if (!adapter.deviceManager || !adapter.stateManager) {
@@ -66,6 +63,10 @@ export function findDeviceForState(adapter: StateChangeRouterAdapter, localId: s
  * non-string/number inputs are passed through unchanged. A dropdown input
  * that doesn't match any key or label returns ok=false so the caller can
  * warn and skip the command.
+ *
+ * @param adapter
+ * @param id
+ * @param raw
  */
 export async function resolveDropdownInput(
   adapter: StateChangeRouterAdapter,
@@ -96,6 +97,12 @@ export async function resolveDropdownInput(
 /**
  * Build and send a music_setting STRUCT command. Reads sibling music state
  * values and combines them into one API call.
+ *
+ * @param adapter
+ * @param device
+ * @param prefix
+ * @param changedSuffix
+ * @param newValue
  */
 export async function sendMusicCommand(
   adapter: StateChangeRouterAdapter,
@@ -111,9 +118,7 @@ export async function sendMusicCommand(
   const autoState = await adapter.getStateAsync(`${musicBase}.music_auto_color`);
 
   const musicMode =
-    changedSuffix === "music.music_mode"
-      ? parseInt(String(newValue), 10)
-      : parseInt(String(modeState?.val ?? 0), 10);
+    changedSuffix === "music.music_mode" ? parseInt(String(newValue), 10) : parseInt(String(modeState?.val ?? 0), 10);
   const sensitivity =
     changedSuffix === "music.music_sensitivity" ? (newValue as number) : ((sensState?.val as number) ?? 100);
   const autoColor = changedSuffix === "music.music_auto_color" ? (newValue ? 1 : 0) : autoState?.val ? 1 : 0;
@@ -156,6 +161,11 @@ export async function sendMusicCommand(
  * {@link StateChangeRouterAdapter.applyManualSegments}. On parse error
  * disables manual mode so the rejected value doesn't survive in the state
  * tree.
+ *
+ * @param adapter
+ * @param device
+ * @param suffix
+ * @param newValue
  */
 export async function handleManualSegmentsChange(
   adapter: StateChangeRouterAdapter,
@@ -180,9 +190,7 @@ export async function handleManualSegmentsChange(
   }
 
   const maxIndex =
-    typeof device.segmentCount === "number" && device.segmentCount > 0
-      ? device.segmentCount - 1
-      : SEGMENT_HARD_MAX;
+    typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount - 1 : SEGMENT_HARD_MAX;
   const parsed = parseSegmentList(listVal, maxIndex);
   if (parsed.error) {
     adapter.log.warn(`${device.name}: manual_list invalid (${parsed.error}) — disabling manual mode`);
@@ -190,9 +198,7 @@ export async function handleManualSegmentsChange(
     return;
   }
 
-  adapter.log.debug(
-    `${device.name}: manual segments active — ${parsed.indices.length} physical indices (${listVal})`,
-  );
+  adapter.log.debug(`${device.name}: manual segments active — ${parsed.indices.length} physical indices (${listVal})`);
   await adapter.applyManualSegments(device, true, parsed.indices);
 }
 
@@ -200,6 +206,12 @@ export async function handleManualSegmentsChange(
  * Generic Capability-Routing path for states not in STATE_TO_COMMAND.
  * Reads `native.capabilityType`/`capabilityInstance` from the state object
  * and routes via the Cloud API.
+ *
+ * @param adapter
+ * @param device
+ * @param id
+ * @param stateSuffix
+ * @param val
  */
 export async function handleGenericCapabilityCommand(
   adapter: StateChangeRouterAdapter,
@@ -235,6 +247,10 @@ export async function handleGenericCapabilityCommand(
  * store; manual segments → handler; diagnostics → diag handler; otherwise
  * route via STATE_TO_COMMAND or generic capability path. Optimistic ack on
  * success; warn on errors.
+ *
+ * @param adapter
+ * @param id
+ * @param state
  */
 export async function onStateChange(
   adapter: StateChangeRouterAdapter,

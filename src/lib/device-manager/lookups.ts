@@ -158,7 +158,12 @@ export function resolveSegmentCount(device: GoveeDevice): number {
 /** Protocol limit: Govee's segment bitmask is 7 bytes × 8 bits = 56 slots (0..55). */
 export const SEGMENT_HARD_MAX = 55;
 
-/** Generate stable map key for a device. */
+/**
+ * Generate stable map key for a device.
+ *
+ * @param sku
+ * @param deviceId
+ */
 export function deviceKey(sku: string, deviceId: string): string {
   return `${sku}_${normalizeDeviceId(deviceId)}`;
 }
@@ -168,6 +173,10 @@ export function deviceKey(sku: string, deviceId: string): string {
  * fallback. Direct key-hit first; if that misses, scan for a normalized
  * match (device IDs come from multiple sources with different
  * colon/case conventions).
+ *
+ * @param devices
+ * @param sku
+ * @param deviceId
  */
 export function findDeviceBySkuAndId(
   devices: Map<string, GoveeDevice>,

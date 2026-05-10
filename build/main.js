@@ -34,7 +34,13 @@ var import_local_snapshots = require("./lib/local-snapshots");
 var import_snapshot_handler = require("./lib/snapshot-handler");
 var import_group_fanout = require("./lib/group-fanout");
 var import_message_router = require("./lib/message-router");
-var import_cloud_retry = require("./lib/cloud-retry");
+var cloudCreds = __toESM(require("./lib/handlers/cloud-creds-handler"));
+var cloudRetryHandler = __toESM(require("./lib/handlers/cloud-retry-handler"));
+var groupFanoutHandler = __toESM(require("./lib/handlers/group-fanout-handler"));
+var groupStateHelpers = __toESM(require("./lib/handlers/group-state-helpers"));
+var snapshotHandlerGlue = __toESM(require("./lib/handlers/snapshot-handler-glue"));
+var stateChangeRouter = __toESM(require("./lib/handlers/state-change-router"));
+var wizardHandler = __toESM(require("./lib/handlers/wizard-handler"));
 var import_rate_limiter = require("./lib/rate-limiter");
 var import_segment_wizard = require("./lib/segment-wizard");
 var import_sku_cache = require("./lib/sku-cache");
@@ -43,28 +49,16 @@ var import_types = require("./lib/types");
 var import_timing_constants = require("./lib/timing-constants");
 var import_govee_constants = require("./lib/govee-constants");
 var import_http_client = require("./lib/http-client");
-const STATE_TO_COMMAND = {
-  "control.power": "power",
-  "control.brightness": "brightness",
-  "control.colorRgb": "colorRgb",
-  "control.colorTemperature": "colorTemperature",
-  "control.scene": "scene",
-  "control.gradient_toggle": "gradientToggle",
-  "scenes.light_scene": "lightScene",
-  "scenes.diy_scene": "diyScene",
-  "scenes.scene_speed": "sceneSpeed",
-  "music.music_mode": "music",
-  "music.music_sensitivity": "music",
-  "music.music_auto_color": "music",
-  "snapshots.snapshot_cloud": "snapshot",
-  "segments.command": "segmentBatch"
-};
 class GoveeAdapter extends utils.Adapter {
+  /** Public for handler modules (state-change-router, group-fanout, wizard, snapshot, diagnostics). */
   deviceManager = null;
+  /** Public for handler modules. */
   stateManager = null;
+  /** Public for handler modules. */
   lanClient = null;
   mqttClient = null;
   openapiMqttClient = null;
+  /** Public for handler modules. */
   cloudClient = null;
   rateLimiter = null;
   /** Repeating timer for the App-API poll (sensor-state pull). */
@@ -75,6 +69,7 @@ class GoveeAdapter extends utils.Adapter {
    */
   appApiInitialTimer;
   /** One-shot timer for cloud-init 60s safety timeout — gleiches Pattern. */
+  /** Public for handler modules. */
   cloudInitTimer;
   /**
    * Letzter info.connection-Wert — Cache damit nicht jeder device-update
@@ -96,26 +91,34 @@ class GoveeAdapter extends utils.Adapter {
   /** Verhindert Mehrfach-Ready-Log innerhalb derselben Adapter-Session. */
   readyLogged = false;
   /** Cloud war mindestens einmal connected — für „restored"-Log nach Down. */
+  /** Public for handler modules. */
   cloudWasConnected = false;
   /** Tägliches Interval für App-Version-Drift-Check gegen App-Store. */
   appVersionCheckTimer;
   // === Sub-Komponenten ===
   skuCache = null;
+  /** Public for handler modules. */
   localSnapshots = null;
+  /** Public for handler modules (state-change-router). */
   snapshotHandler = null;
+  /** Public for handler modules (state-change-router). */
   groupFanout = null;
   messageRouter = null;
   stateCreationQueue = [];
   lanScanTimer;
   cleanupTimer;
   readyTimer;
-  cloudRetry = null;
+  /** Public for handler modules. Undefined until first ensureCloudRetry() call. */
+  cloudRetry;
+  /** Public for handlers/wizard-handler — lazily instantiated by `runWizardStep`. */
   segmentWizard = null;
   unhandledRejectionHandler = null;
   uncaughtExceptionHandler = null;
   /** Per-device timestamp of the last diagnostics export — throttle gate */
+  /** Public for handler modules (state-change-router, diagnostics). */
   diagnosticsLastRun = /* @__PURE__ */ new Map();
   /** Cached admin language from system.config — used for wizard UI text */
+  /** Public for handler modules. */
   adminLanguage = "en";
   /** Last time `requestCode` was triggered via onMessage — guards against double-click email spam. */
   lastVerificationRequestMs = 0;
@@ -124,6 +127,7 @@ class GoveeAdapter extends utils.Adapter {
    * applyCloudCapabilities, retrySceneData, …) check this between awaits
    * and bail before further setStateAsync against a torn-down adapter.
    */
+  /** Public for handler modules (state-change-router). */
   unloading = false;
   /** Initial app-version-check timer (2 min after start) — kept so onUnload can clear it. */
   appVersionInitialTimer;
@@ -141,7 +145,7 @@ class GoveeAdapter extends utils.Adapter {
     );
     this.on(
       "stateChange",
-      (id, state) => this.onStateChange(id, state).catch((e) => this.log.warn(`onStateChange crashed for ${id}: ${(0, import_types.errMessage)(e)}`))
+      (id, state) => stateChangeRouter.onStateChange(this, id, state).catch((e) => this.log.warn(`onStateChange crashed for ${id}: ${(0, import_types.errMessage)(e)}`))
     );
     this.on("message", (obj) => {
       var _a;
@@ -198,8 +202,8 @@ class GoveeAdapter extends utils.Adapter {
     });
     this.skuCache = new import_sku_cache.SkuCache(dataDir, this.log);
     this.localSnapshots = new import_local_snapshots.LocalSnapshotStore(dataDir, this.log);
-    this.snapshotHandler = new import_snapshot_handler.SnapshotHandler(this.buildSnapshotHost());
-    this.groupFanout = new import_group_fanout.GroupFanoutHandler(this.buildGroupFanoutHost());
+    this.snapshotHandler = new import_snapshot_handler.SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
+    this.groupFanout = new import_group_fanout.GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
     this.messageRouter = new import_message_router.MessageRouter(this.buildMessageRouterHost());
     this.deviceManager.setSkuCache(this.skuCache);
     const apiClient = new import_govee_api_client.GoveeApiClient();
@@ -301,23 +305,23 @@ class GoveeAdapter extends utils.Adapter {
       });
       this.mqttClient.setVerificationCode((_b = config.mqttVerificationCode) != null ? _b : "");
       this.mqttClient.setOnVerificationConsumed(() => {
-        this.clearVerificationCodeSetting().catch((e) => {
+        cloudCreds.clearVerificationCodeSetting(this).catch((e) => {
           this.log.warn(`Could not clear mqttVerificationCode: ${(0, import_types.errMessage)(e)}`);
         });
       });
       this.mqttClient.setOnVerificationFailed((reason) => {
         if (reason === "failed") {
-          this.clearVerificationCodeSetting().catch(() => {
+          cloudCreds.clearVerificationCodeSetting(this).catch(() => {
           });
         }
       });
-      await this.cleanupLegacyMqttNativeOnce();
-      const cachedCreds = await this.loadPersistedCredsFromState();
+      await cloudCreds.cleanupLegacyMqttNativeOnce(this);
+      const cachedCreds = await cloudCreds.loadPersistedCredsFromState(this);
       if (cachedCreds) {
         this.mqttClient.setPersistedCredentials(cachedCreds);
       }
       this.mqttClient.setOnCredentialsRefresh((creds) => {
-        this.persistCredsToState(creds).catch((e) => {
+        cloudCreds.persistCredsToState(this, creds).catch((e) => {
           this.log.warn(`Could not persist MQTT credentials: ${(0, import_types.errMessage)(e)}`);
         });
       });
@@ -381,9 +385,9 @@ class GoveeAdapter extends utils.Adapter {
       this.appApiPollTimer = this.setInterval(triggerAppApiPoll, import_timing_constants.APP_API_POLL_INTERVAL_MS);
       this.appApiInitialTimer = this.setTimeout(triggerAppApiPoll, import_timing_constants.APP_API_INITIAL_DELAY_MS);
       if (!cachedOk) {
-        const result = await this.cloudInitWithTimeout();
+        const result = await cloudRetryHandler.cloudInitWithTimeout(this);
         this.cloudWasConnected = result.ok;
-        this.ensureCloudRetry().setConnected(result.ok);
+        cloudRetryHandler.ensureCloudRetry(this).setConnected(result.ok);
         this.setStateAsync("info.cloudConnected", {
           val: result.ok,
           ack: true
@@ -394,12 +398,12 @@ class GoveeAdapter extends utils.Adapter {
         if (result.ok) {
           await this.loadCloudStates();
         } else {
-          this.handleCloudFailure(result);
+          cloudRetryHandler.handleCloudFailure(this, result);
         }
       } else {
         this.log.info(`Using cached device data \u2014 no Cloud calls needed`);
         this.cloudWasConnected = true;
-        this.ensureCloudRetry().setConnected(true);
+        cloudRetryHandler.ensureCloudRetry(this).setConnected(true);
         this.setStateAsync("info.cloudConnected", {
           val: true,
           ack: true
@@ -447,91 +451,6 @@ class GoveeAdapter extends utils.Adapter {
         this.logDeviceSummary();
       }
     }, 6e4);
-  }
-  /**
-   * Initial Cloud-Load mit 60-Sekunden-Hardtimeout.
-   * Blockiert nicht länger — wenn Cloud hängt, geht Adapter mit LAN+MQTT weiter,
-   * und der Retry-Loop probiert's passend zum Fehlergrund erneut.
-   */
-  async cloudInitWithTimeout() {
-    if (!this.deviceManager) {
-      return { ok: false, reason: "transient" };
-    }
-    const loadPromise = this.deviceManager.loadFromCloud();
-    const timeoutPromise = new Promise((resolve) => {
-      this.cloudInitTimer = this.setTimeout(() => resolve({ ok: false, reason: "transient" }), import_timing_constants.READY_TIMEOUT_MS);
-    });
-    try {
-      const result = await Promise.race([loadPromise, timeoutPromise]);
-      if (this.cloudInitTimer) {
-        this.clearTimeout(this.cloudInitTimer);
-        this.cloudInitTimer = void 0;
-      }
-      return result;
-    } catch {
-      if (this.cloudInitTimer) {
-        this.clearTimeout(this.cloudInitTimer);
-        this.cloudInitTimer = void 0;
-      }
-      return { ok: false, reason: "transient" };
-    }
-  }
-  /** Build the host object for {@link CloudRetryLoop}. */
-  buildCloudRetryHost() {
-    return {
-      log: this.log,
-      setTimeout: (cb, ms) => this.setTimeout(cb, ms),
-      clearTimeout: (h) => this.clearTimeout(h),
-      loadFromCloud: () => this.cloudInitWithTimeout(),
-      onCloudRestored: async () => {
-        var _a;
-        this.cloudWasConnected = true;
-        this.setStateAsync("info.cloudConnected", {
-          val: true,
-          ack: true
-        }).catch(() => {
-        });
-        (_a = this.stateManager) == null ? void 0 : _a.updateGroupsOnline(true).catch(() => {
-        });
-        await this.loadCloudStates();
-      }
-    };
-  }
-  /** Lazy-initialise the retry loop on first use. */
-  ensureCloudRetry() {
-    if (!this.cloudRetry) {
-      this.cloudRetry = new import_cloud_retry.CloudRetryLoop(this.buildCloudRetryHost());
-      this.cloudRetry.setConnected(this.cloudWasConnected);
-    }
-    return this.cloudRetry;
-  }
-  /**
-   * React to a Cloud-load outcome — delegates to {@link CloudRetryLoop}.
-   *
-   * @param result CloudLoadResult from initial load or retry attempt
-   */
-  handleCloudFailure(result) {
-    this.ensureCloudRetry().handleResult(result);
-  }
-  /**
-   * React to the user writing `info.refresh_cloud_data = true`. Performs one
-   * full Cloud reload cycle so newly created scenes/snapshots from the Govee
-   * Home app show up without an adapter restart.
-   */
-  async handleManualCloudRefresh() {
-    if (!this.deviceManager || !this.cloudClient) {
-      this.log.info(`Refresh cloud data: no Cloud client configured (API key missing) \u2014 nothing to do`);
-      return;
-    }
-    this.log.info(`Refresh cloud data: re-fetching scenes and snapshots for all devices`);
-    try {
-      const changed = await this.deviceManager.refreshSceneData();
-      if (changed) {
-        await this.loadCloudStates();
-      }
-    } catch (e) {
-      this.log.warn(`Refresh cloud data failed: ${(0, import_types.errMessage)(e)}`);
-    }
   }
   /**
    * Adapter stopping — MUST be synchronous.
@@ -601,194 +520,15 @@ class GoveeAdapter extends utils.Adapter {
     callback();
   }
   /**
-   * Handle state changes from user (write operations).
+   * Public delegate to stateChangeRouter — required by GroupFanoutHandlerAdapter interface.
    *
-   * @param id State ID
-   * @param state New state value
-   */
-  async onStateChange(id, state) {
-    var _a;
-    if (!state || state.ack || !this.deviceManager || !this.stateManager || this.unloading) {
-      return;
-    }
-    if (id === `${this.namespace}.info.refresh_cloud_data` && state.val) {
-      await this.handleManualCloudRefresh();
-      await this.setStateAsync(id, { val: false, ack: true });
-      return;
-    }
-    const localId = id.replace(`${this.namespace}.`, "");
-    if (!localId.startsWith("devices.") && !localId.startsWith("groups.")) {
-      return;
-    }
-    const device = this.findDeviceForState(localId);
-    if (!device) {
-      return;
-    }
-    const prefix = this.stateManager.devicePrefix(device);
-    const stateSuffix = localId.slice(prefix.length + 1);
-    const resolved = await this.resolveDropdownInput(id, state.val);
-    if (!resolved.ok) {
-      this.log.warn(`Unknown dropdown value for ${id}: ${String(state.val)} \u2014 ignoring`);
-      return;
-    }
-    const val = resolved.val;
-    if (device.sku === "BaseGroup" && device.groupMembers) {
-      await this.groupFanout.fanOut(device, stateSuffix, val);
-      await this.setStateAsync(id, { val, ack: true });
-      if (stateSuffix === "scenes.light_scene" || stateSuffix === "music.music_mode") {
-        await this.resetRelatedDropdowns(prefix, stateSuffix === "scenes.light_scene" ? "lightScene" : "music");
-      }
-      return;
-    }
-    if (stateSuffix === "snapshots.snapshot_save" && typeof val === "string" && val.trim()) {
-      await this.snapshotHandler.save(device, val.trim());
-      await this.setStateAsync(id, { val: "", ack: true });
-      return;
-    }
-    if (stateSuffix === "snapshots.snapshot_local") {
-      if (val !== "0" && val !== 0) {
-        await this.snapshotHandler.restore(device, val);
-        await this.resetRelatedDropdowns(prefix, "snapshotLocal");
-      }
-      await this.setStateAsync(id, { val, ack: true });
-      return;
-    }
-    if (stateSuffix === "snapshots.snapshot_delete" && typeof val === "string" && val.trim()) {
-      this.snapshotHandler.delete(device, val.trim());
-      await this.setStateAsync(id, { val: "", ack: true });
-      return;
-    }
-    if (stateSuffix === "segments.manual_mode" || stateSuffix === "segments.manual_list") {
-      await this.handleManualSegmentsChange(device, stateSuffix, val);
-      return;
-    }
-    if (stateSuffix === "diag.export" && val) {
-      await this.handleDiagnosticsExport(device, prefix, id);
-      return;
-    }
-    const command = this.stateToCommand(stateSuffix);
-    if (!command) {
-      await this.handleGenericCapabilityCommand(device, id, stateSuffix, val);
-      return;
-    }
-    if ((command === "lightScene" || command === "diyScene" || command === "snapshot") && (val === "0" || val === 0)) {
-      await this.setStateAsync(id, { val, ack: true });
-      return;
-    }
-    if (command === "sceneSpeed") {
-      const level = typeof val === "number" ? val : parseInt(String(val), 10);
-      if (!isNaN(level)) {
-        device.sceneSpeed = level;
-        (_a = this.deviceManager) == null ? void 0 : _a.persistDeviceToCache(device);
-      }
-      await this.setStateAsync(id, { val, ack: true });
-      return;
-    }
-    try {
-      if (command === "music") {
-        if (stateSuffix === "music.music_mode" && (val === "0" || val === 0)) {
-          await this.setStateAsync(id, { val, ack: true });
-          return;
-        }
-        await this.sendMusicCommand(device, prefix, stateSuffix, val);
-        await this.setStateAsync(id, { val, ack: true });
-        if (stateSuffix === "music.music_mode") {
-          await this.resetRelatedDropdowns(prefix, "music");
-        }
-        return;
-      }
-      await this.deviceManager.sendCommand(device, command, val);
-      await this.setStateAsync(id, { val, ack: true });
-      if (command === "power" && val === false) {
-        await this.resetModeDropdowns(prefix, "");
-      } else {
-        await this.resetRelatedDropdowns(prefix, command);
-      }
-    } catch (err) {
-      this.log.warn(`Command failed for ${device.name}: ${(0, import_types.errMessage)(err)}`);
-    }
-  }
-  /**
-   * Resolve a dropdown-state input value against the state's common.states
-   * map. Returns the canonical key (always String form) so a user can write
-   * either the index ("1"), the index as a number (1) or the label name
-   * ("Aurora", case-insensitive) — all three land at the same canonical
-   * value for the rest of the handler.
-   *
-   * Non-dropdown states (no common.states), reset sentinels (0/"0"/"") and
-   * non-string/number inputs are passed through unchanged. A dropdown input
-   * that doesn't match any key or label returns ok=false so the caller can
-   * warn and skip the command.
-   *
-   * @param id Full state id
-   * @param raw Raw input value as provided by the user/script
-   */
-  async resolveDropdownInput(id, raw) {
-    var _a;
-    if (raw === null || raw === void 0) {
-      return { val: raw, ok: true };
-    }
-    if (raw === 0 || raw === "0" || raw === "") {
-      return { val: raw, ok: true };
-    }
-    if (typeof raw !== "number" && typeof raw !== "string") {
-      return { val: raw, ok: true };
-    }
-    const obj = await this.getObjectAsync(id);
-    const states = (_a = obj == null ? void 0 : obj.common) == null ? void 0 : _a.states;
-    if (!states || typeof states !== "object") {
-      return { val: raw, ok: true };
-    }
-    const resolved = (0, import_types.resolveStatesValue)(raw, states);
-    if (resolved) {
-      return { val: resolved.key, ok: true };
-    }
-    return { val: raw, ok: false };
-  }
-  /**
-   * Build and send a music_setting STRUCT command.
-   * Reads sibling music state values and combines them into one API call.
-   *
-   * @param device Target device
-   * @param prefix Device state prefix
-   * @param changedSuffix Which music state was changed
-   * @param newValue New value for the changed state
+   * @param device
+   * @param prefix
+   * @param changedSuffix
+   * @param newValue
    */
   async sendMusicCommand(device, prefix, changedSuffix, newValue) {
-    var _a, _b;
-    const musicBase = `${this.namespace}.${prefix}.music`;
-    const modeState = await this.getStateAsync(`${musicBase}.music_mode`);
-    const sensState = await this.getStateAsync(`${musicBase}.music_sensitivity`);
-    const autoState = await this.getStateAsync(`${musicBase}.music_auto_color`);
-    const musicMode = changedSuffix === "music.music_mode" ? parseInt(String(newValue), 10) : parseInt(String((_a = modeState == null ? void 0 : modeState.val) != null ? _a : 0), 10);
-    const sensitivity = changedSuffix === "music.music_sensitivity" ? newValue : (_b = sensState == null ? void 0 : sensState.val) != null ? _b : 100;
-    const autoColor = changedSuffix === "music.music_auto_color" ? newValue ? 1 : 0 : (autoState == null ? void 0 : autoState.val) ? 1 : 0;
-    if (!musicMode || musicMode === 0) {
-      this.log.debug("Music mode not selected, skipping command");
-      return;
-    }
-    if (device.lanIp && this.lanClient) {
-      let r = 0, g = 0, b = 0;
-      if (musicMode === 1 || musicMode === 2) {
-        const colorState = await this.getStateAsync(`${this.namespace}.${prefix}.control.colorRgb`);
-        if ((colorState == null ? void 0 : colorState.val) && typeof colorState.val === "string") {
-          ({ r, g, b } = (0, import_types.hexToRgb)(colorState.val));
-        }
-      }
-      this.lanClient.setMusicMode(device.lanIp, musicMode, r, g, b);
-      return;
-    }
-    const structValue = {
-      musicMode,
-      sensitivity,
-      autoColor
-    };
-    await this.deviceManager.sendCapabilityCommand(
-      device,
-      "devices.capabilities.music_setting",
-      "musicMode",
-      structValue
-    );
+    return stateChangeRouter.sendMusicCommand(this, device, prefix, changedSuffix, newValue);
   }
   /**
    * Called by device-manager when a device state changes
@@ -803,89 +543,12 @@ class GoveeAdapter extends utils.Adapter {
     }
     this.updateConnectionState();
     if (state.online !== void 0) {
-      this.updateGroupReachability();
+      groupFanoutHandler.updateGroupReachability(this);
     }
     const powerOff = state.power === false || state.power === 0;
     if (powerOff && this.stateManager) {
       const prefix = this.stateManager.devicePrefix(device);
-      this.resetModeDropdowns(prefix, "").catch(() => void 0);
-    }
-  }
-  /**
-   * Fan out a group command to all member devices.
-   * Basic controls (power, brightness, color) are sent directly.
-   * Scenes/music are matched by name across members.
-   *
-   * @param group BaseGroup device
-   * @param stateSuffix State path suffix (e.g. "control.power")
-   * @param value Command value
-   */
-  /** Construct host object for GroupFanoutHandler. */
-  buildGroupFanoutHost() {
-    return {
-      log: this.log,
-      namespace: this.namespace,
-      getDevices: () => {
-        var _a, _b;
-        return (_b = (_a = this.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : [];
-      },
-      sendCommand: async (device, command, value) => {
-        var _a;
-        await ((_a = this.deviceManager) == null ? void 0 : _a.sendCommand(device, command, value));
-      },
-      devicePrefix: (device) => {
-        var _a, _b;
-        return (_b = (_a = this.stateManager) == null ? void 0 : _a.devicePrefix(device)) != null ? _b : "";
-      },
-      stateToCommand: (suffix) => {
-        var _a;
-        return (_a = this.stateToCommand(suffix)) != null ? _a : void 0;
-      },
-      getObject: (id) => this.getObjectAsync(id),
-      sendMusicCommand: (device, devicePrefix, stateSuffix, value) => this.sendMusicCommand(device, devicePrefix, stateSuffix, value)
-    };
-  }
-  /**
-   * Resolve group member references to actual device objects.
-   * Bleibt in main.ts weil `updateGroupReachability` (auch in main.ts) das
-   * direkt nutzt — Helper-Pfad ist von der Fan-Out-Klasse unabhängig.
-   *
-   * @param group BaseGroup device with groupMembers
-   * @param devices Full device list to search
-   */
-  resolveGroupMembers(group, devices) {
-    if (!group.groupMembers) {
-      return [];
-    }
-    const byKey = /* @__PURE__ */ new Map();
-    for (const d of devices) {
-      byKey.set(`${d.sku}:${d.deviceId}`, d);
-    }
-    const out = [];
-    for (const m of group.groupMembers) {
-      const d = byKey.get(`${m.sku}:${m.deviceId}`);
-      if (d) {
-        out.push(d);
-      }
-    }
-    return out;
-  }
-  /**
-   * Recalculate info.membersUnreachable for all groups.
-   * Called when any device's online status changes.
-   */
-  updateGroupReachability() {
-    if (!this.deviceManager || !this.stateManager) {
-      return;
-    }
-    const devices = this.deviceManager.getDevices();
-    for (const group of devices) {
-      if (group.sku !== "BaseGroup" || !group.groupMembers) {
-        continue;
-      }
-      const memberDevices = this.resolveGroupMembers(group, devices);
-      this.stateManager.updateGroupMembersUnreachable(group, memberDevices).catch(() => {
-      });
+      groupStateHelpers.resetModeDropdowns(this, prefix, "").catch(() => void 0);
     }
   }
   /**
@@ -897,6 +560,12 @@ class GoveeAdapter extends utils.Adapter {
    * @param device Target device
    * @param allDevices Full device list (needed to resolve group members)
    */
+  /**
+   * Public for handler modules (snapshot-glue, group-fanout, state-change-router).
+   *
+   * @param device
+   * @param allDevices
+   */
   refreshDeviceStates(device, allDevices) {
     var _a;
     if (!this.stateManager) {
@@ -905,7 +574,7 @@ class GoveeAdapter extends utils.Adapter {
     const localSnaps = (_a = this.localSnapshots) == null ? void 0 : _a.getSnapshots(device.sku, device.deviceId);
     let memberDevices;
     if (device.sku === "BaseGroup" && device.groupMembers) {
-      memberDevices = this.resolveGroupMembers(device, allDevices);
+      memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
     }
     const stateDefs = (0, import_capability_mapper.buildDeviceStateDefs)(device, localSnaps, memberDevices);
     const p = this.stateManager.createDeviceStates(device, stateDefs).then(async () => {
@@ -1132,6 +801,7 @@ class GoveeAdapter extends utils.Adapter {
    * Load current state for all Cloud devices and populate state values.
    * Called once after initial Cloud device list load.
    */
+  /** Public for handler modules (cloud-retry). */
   async loadCloudStates() {
     if (!this.cloudClient || !this.deviceManager || !this.stateManager) {
       return;
@@ -1206,18 +876,6 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param localId Local state ID without namespace prefix
    */
-  findDeviceForState(localId) {
-    if (!this.deviceManager || !this.stateManager) {
-      return void 0;
-    }
-    for (const device of this.deviceManager.getDevices()) {
-      const prefix = this.stateManager.devicePrefix(device);
-      if (localId.startsWith(`${prefix}.`)) {
-        return device;
-      }
-    }
-    return void 0;
-  }
   /**
    * Map state suffix to command name.
    *
@@ -1227,20 +885,13 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param suffix State ID suffix (e.g. "power", "brightness")
    */
+  /**
+   * Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers.
+   *
+   * @param suffix
+   */
   stateToCommand(suffix) {
-    const direct = STATE_TO_COMMAND[suffix];
-    if (direct) {
-      return direct;
-    }
-    const segColorMatch = /^segments\.(\d+)\.color$/.exec(suffix);
-    if (segColorMatch) {
-      return `segmentColor:${segColorMatch[1]}`;
-    }
-    const segBrightMatch = /^segments\.(\d+)\.brightness$/.exec(suffix);
-    if (segBrightMatch) {
-      return `segmentBrightness:${segBrightMatch[1]}`;
-    }
-    return null;
+    return groupStateHelpers.stateToCommand(suffix);
   }
   /**
    * Central entry point for manual-segment updates. Sets the device flags,
@@ -1252,6 +903,13 @@ class GoveeAdapter extends utils.Adapter {
    * @param mode    Whether manual mode should be active
    * @param indices Physical indices when mode=true, ignored otherwise
    */
+  /**
+   * Public for handler modules (wizard, state-change-router).
+   *
+   * @param device
+   * @param mode
+   * @param indices
+   */
   async applyManualSegments(device, mode, indices) {
     var _a;
     if (!this.stateManager) {
@@ -1261,33 +919,6 @@ class GoveeAdapter extends utils.Adapter {
     device.manualSegments = mode && Array.isArray(indices) && indices.length > 0 ? indices.slice() : void 0;
     await this.stateManager.createSegmentStates(device);
     (_a = this.deviceManager) == null ? void 0 : _a.persistDeviceToCache(device);
-  }
-  /**
-   * React to manual-segments state changes — parses list, forwards to
-   * {@link applyManualSegments}. On parse error disables manual mode so the
-   * rejected value doesn't survive in the state tree.
-   *
-   * @param device Target device
-   * @param suffix State suffix (either "segments.manual_mode" or "segments.manual_list")
-   * @param newValue Written value
-   */
-  async handleManualSegmentsChange(device, suffix, newValue) {
-    const modeVal = suffix === "segments.manual_mode" ? Boolean(newValue) : device.manualMode === true;
-    const listVal = suffix === "segments.manual_list" ? typeof newValue === "string" ? newValue : "" : Array.isArray(device.manualSegments) ? device.manualSegments.join(",") : "";
-    if (!modeVal) {
-      this.log.info(`${device.name}: manual segments disabled \u2014 strip treated as contiguous`);
-      await this.applyManualSegments(device, false);
-      return;
-    }
-    const maxIndex = typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount - 1 : import_device_manager.SEGMENT_HARD_MAX;
-    const parsed = (0, import_types.parseSegmentList)(listVal, maxIndex);
-    if (parsed.error) {
-      this.log.warn(`${device.name}: manual_list invalid (${parsed.error}) \u2014 disabling manual mode`);
-      await this.applyManualSegments(device, false);
-      return;
-    }
-    this.log.debug(`${device.name}: manual segments active \u2014 ${parsed.indices.length} physical indices (${listVal})`);
-    await this.applyManualSegments(device, true, parsed.indices);
   }
   // ───────── Segment-Detection-Wizard ─────────
   /**
@@ -1319,11 +950,11 @@ class GoveeAdapter extends utils.Adapter {
           var _a2;
           return d.sku !== "BaseGroup" && ((_a2 = d.state) == null ? void 0 : _a2.online) === true && (0, import_device_manager.resolveSegmentCount)(d) > 0;
         }).map((d) => ({
-          value: this.deviceKeyFor(d),
+          value: wizardHandler.deviceKeyFor(d),
           label: `${d.name} (${d.sku}, bisher ${(0, import_device_manager.resolveSegmentCount)(d)} Segmente)`
         }));
       },
-      runWizardStep: (action, deviceKey) => this.runWizardStep(action, deviceKey)
+      runWizardStep: (action, deviceKey) => wizardHandler.runWizardStep(this, action, deviceKey)
     };
   }
   /**
@@ -1335,355 +966,17 @@ class GoveeAdapter extends utils.Adapter {
    * `extendForeignObjectAsync(system.adapter.X, native:...)`-Call ausgelöst
    * wird (Memory v2.1.3-Bug). Vorher gab es nach jedem 2FA-Login einen
    * unnötigen Restart.
-   */
-  async clearVerificationCodeSetting() {
-    var _a;
-    try {
-      const obj = await this.getForeignObjectAsync(`system.adapter.${this.namespace}`);
-      const native = (_a = obj == null ? void 0 : obj.native) != null ? _a : {};
-      if (typeof native.mqttVerificationCode !== "string" || native.mqttVerificationCode === "") {
-        return;
-      }
-      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-        native: { mqttVerificationCode: "" }
-      });
-    } catch (e) {
-      this.log.warn(`Could not clear mqttVerificationCode: ${(0, import_types.errMessage)(e)}`);
-    }
-  }
-  /**
-   * Read persisted MQTT credentials from `info.mqttCredentials`. The
-   * sensitive fields (bearer + cert + pass) are encrypted with the
-   * system secret on save and decrypted here. Returns null if no
-   * credentials are stored or the JSON is unparseable.
    *
-   * State-based persistence (since v2.1.3) — writes to a state instead
-   * of `system.adapter.X.native` so saving doesn't trigger an adapter
-   * restart. The earlier native-based design caused an endless
-   * login → save → restart → login loop.
+   * @param obj
+   * @param data
    */
-  async loadPersistedCredsFromState() {
-    try {
-      const s = await this.getStateAsync("info.mqttCredentials");
-      const raw = typeof (s == null ? void 0 : s.val) === "string" ? s.val : "";
-      if (!raw) {
-        return null;
-      }
-      const obj = JSON.parse(raw);
-      const safeStr = (v) => typeof v === "string" ? v : "";
-      const bearerToken = this.decrypt(safeStr(obj.bearerToken));
-      const p12Cert = this.decrypt(safeStr(obj.p12Cert));
-      const p12Pass = this.decrypt(safeStr(obj.p12Pass));
-      const iotEndpoint = safeStr(obj.iotEndpoint);
-      const accountId = safeStr(obj.accountId);
-      const accountTopic = safeStr(obj.accountTopic);
-      const tokenExpiresAt = typeof obj.tokenExpiresAt === "number" ? obj.tokenExpiresAt : 0;
-      if (!bearerToken || !iotEndpoint || !p12Cert || !accountId || !accountTopic || !tokenExpiresAt) {
-        return null;
-      }
-      return { bearerToken, iotEndpoint, p12Cert, p12Pass, accountId, accountTopic, tokenExpiresAt };
-    } catch {
-      return null;
-    }
-  }
-  /**
-   * Persist freshly-issued MQTT credentials into `info.mqttCredentials`.
-   * Sensitive fields go through `this.encrypt()` so the JSON blob is
-   * useless without the system secret. State writes do NOT trigger an
-   * adapter restart.
-   *
-   * @param creds The freshly-issued MQTT bundle from a successful login
-   */
-  async persistCredsToState(creds) {
-    const blob = JSON.stringify({
-      bearerToken: this.encrypt(creds.bearerToken),
-      iotEndpoint: creds.iotEndpoint,
-      p12Cert: this.encrypt(creds.p12Cert),
-      p12Pass: this.encrypt(creds.p12Pass),
-      accountId: creds.accountId,
-      accountTopic: creds.accountTopic,
-      tokenExpiresAt: creds.tokenExpiresAt
-    });
-    await this.setStateAsync("info.mqttCredentials", { val: blob, ack: true });
-  }
-  /**
-   * One-shot cleanup of legacy v2.1.0/v2.1.1/v2.1.2 plaintext credentials
-   * sitting in `system.adapter.X.native`.
-   *
-   * Doppelte Idempotenz:
-   * 1. State-Marker `info.legacyMqttCleaned=true` wird NACH erfolgreichem
-   *    Wipe gesetzt. Bei späteren Starts wird die Funktion über den Marker
-   *    sofort verlassen — auch wenn das native irgendwie wieder dirty wird.
-   * 2. Nur wenn KEINER der Legacy-Marker gesetzt ist UND das native dirty,
-   *    wird der einmalige extendForeignObjectAsync (Restart-Trigger) gemacht.
-   *
-   * Dieser Aufruf triggert genau einmal pro Adapter-Lifetime einen
-   * Restart — das ist unvermeidlich, weil die Plaintext-Bytes weg müssen.
-   * Aber: nach erfolgreichem Cleanup bleibt der Marker, kein erneuter
-   * Restart bei flaky writes.
-   */
-  async cleanupLegacyMqttNativeOnce() {
-    var _a;
-    try {
-      const markerState = await this.getStateAsync("info.legacyMqttCleaned");
-      if ((markerState == null ? void 0 : markerState.val) === true) {
-        return;
-      }
-      const obj = await this.getForeignObjectAsync(`system.adapter.${this.namespace}`);
-      const native = (_a = obj == null ? void 0 : obj.native) != null ? _a : {};
-      const legacy = [
-        "mqttBearerToken",
-        "mqttIotEndpoint",
-        "mqttP12Cert",
-        "mqttP12Pass",
-        "mqttAccountId",
-        "mqttAccountTopic",
-        "mqttTokenExpiresAt"
-      ];
-      const dirty = legacy.some((k) => k in native && native[k] !== "" && native[k] !== 0);
-      if (!dirty) {
-        await this.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => void 0);
-        return;
-      }
-      this.log.info(`Removing legacy plaintext MQTT credentials from native (one-time migration)`);
-      const wipe = {};
-      for (const k of legacy) {
-        wipe[k] = k === "mqttTokenExpiresAt" ? 0 : "";
-      }
-      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, { native: wipe });
-      await this.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => void 0);
-    } catch (e) {
-      this.log.debug(`legacy MQTT cleanup skipped: ${(0, import_types.errMessage)(e)}`);
-    }
-  }
   sendMessageResponse(obj, data) {
     if (obj.callback && obj.from) {
       this.sendTo(obj.from, obj.command, data, obj.callback);
     }
   }
-  /**
-   * Stable device key for wizard session tracking.
-   *
-   * @param device Target device
-   */
-  deviceKeyFor(device) {
-    return `${device.sku}:${device.deviceId}`;
-  }
-  findDeviceByKey(key) {
-    var _a, _b;
-    const devices = (_b = (_a = this.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : [];
-    return devices.find((d) => this.deviceKeyFor(d) === key);
-  }
-  /** Construct the host object passed into SegmentWizard. */
-  buildWizardHost() {
-    return {
-      log: this.log,
-      getState: (id) => this.getStateAsync(id),
-      sendCommand: async (device, command, value) => {
-        var _a;
-        await ((_a = this.deviceManager) == null ? void 0 : _a.sendCommand(device, command, value));
-      },
-      flashSegmentAtomic: (device, idx) => {
-        if (!device.lanIp || !this.lanClient) {
-          return Promise.resolve(false);
-        }
-        this.lanClient.flashSingleSegment(device.lanIp, idx);
-        return Promise.resolve(true);
-      },
-      restoreStripAtomic: (device, total, color, brightness) => {
-        if (!device.lanIp || !this.lanClient) {
-          return Promise.resolve(false);
-        }
-        const r = color >> 16 & 255;
-        const g = color >> 8 & 255;
-        const b = color & 255;
-        this.lanClient.restoreAllSegments(device.lanIp, total, r, g, b, brightness);
-        return Promise.resolve(true);
-      },
-      findDevice: (key) => this.findDeviceByKey(key),
-      namespace: this.namespace,
-      devicePrefix: (device) => {
-        var _a, _b;
-        return (_b = (_a = this.stateManager) == null ? void 0 : _a.devicePrefix(device)) != null ? _b : "";
-      },
-      setTimeout: (cb, ms) => this.setTimeout(cb, ms),
-      clearTimeout: (h) => this.clearTimeout(h),
-      applyWizardResult: (device, result) => this.applyWizardResult(device, result),
-      getLanguage: () => this.adminLanguage
-    };
-  }
-  /**
-   * Apply a finished wizard's measurement: set the real segment count, then
-   * route through {@link applyManualSegments} so the same state-tree rebuild
-   * and cache-persist path runs for both wizard results and user edits.
-   *
-   * @param device Target device
-   * @param result Wizard's measurement
-   */
-  async applyWizardResult(device, result) {
-    device.segmentCount = result.segmentCount;
-    if (result.hasGaps) {
-      const parsed = (0, import_types.parseSegmentList)(result.manualList, result.segmentCount - 1);
-      await this.applyManualSegments(device, true, parsed.error ? void 0 : parsed.indices);
-    } else {
-      await this.applyManualSegments(device, false);
-    }
-    this.log.debug(
-      `applyWizardResult: ${device.sku} \u2192 segmentCount=${result.segmentCount}, manualMode=${device.manualMode}, list="${result.manualList}"`
-    );
-  }
-  /**
-   * Execute one wizard step (start/yes/no/abort). Delegates to
-   * {@link SegmentWizard} — see `lib/segment-wizard.ts`.
-   *
-   * @param action "start" | "yes" | "no" | "abort"
-   * @param deviceKey device identifier (only required for "start")
-   */
-  async runWizardStep(action, deviceKey) {
-    if (!this.segmentWizard) {
-      this.segmentWizard = new import_segment_wizard.SegmentWizard(this.buildWizardHost());
-    }
-    const response = await this.segmentWizard.runStep(action, deviceKey);
-    const statusText = this.segmentWizard.getStatusText();
-    await this.setStateAsync("info.wizardStatus", {
-      val: statusText,
-      ack: true
-    });
-    return response;
-  }
   /** Construct host object for SnapshotHandler — adapter dependencies injected. */
-  buildSnapshotHost() {
-    return {
-      log: this.log,
-      store: this.localSnapshots,
-      namespace: this.namespace,
-      devicePrefix: (device) => {
-        var _a, _b;
-        return (_b = (_a = this.stateManager) == null ? void 0 : _a.devicePrefix(device)) != null ? _b : "";
-      },
-      getState: (id) => this.getStateAsync(id),
-      sendCommand: async (device, command, value) => {
-        var _a;
-        await ((_a = this.deviceManager) == null ? void 0 : _a.sendCommand(device, command, value));
-      },
-      refreshDeviceStates: (device) => {
-        var _a, _b;
-        this.refreshDeviceStates(device, (_b = (_a = this.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : []);
-      }
-    };
-  }
   /** Dropdowns whose value is a mode-selection — reset to "---" (0) when the mode stops. */
-  static MODE_DROPDOWNS = [
-    "scenes.light_scene",
-    "scenes.diy_scene",
-    "snapshots.snapshot_cloud",
-    "snapshots.snapshot_local",
-    "music.music_mode"
-  ];
-  /** Map command → its own dropdown path (excluded from reset when that mode is the one that was just activated). */
-  static COMMAND_DROPDOWN = {
-    lightScene: "scenes.light_scene",
-    diyScene: "scenes.diy_scene",
-    snapshot: "snapshots.snapshot_cloud",
-    snapshotLocal: "snapshots.snapshot_local",
-    music: "music.music_mode",
-    colorRgb: "",
-    colorTemperature: ""
-  };
-  /**
-   * Diagnostics-Export-Button-Handler. Throttled auf 2s pro Device damit
-   * wiederholte/Skript-Trigger keinen Burst von JSON-Serialisierungen
-   * erzeugen.
-   *
-   * @param device Govee device
-   * @param prefix Device state prefix
-   * @param triggerStateId The state-id that triggered the export (so we can ack)
-   */
-  async handleDiagnosticsExport(device, prefix, triggerStateId) {
-    var _a, _b;
-    if (!this.deviceManager) {
-      return;
-    }
-    const deviceKey = `${device.sku}:${device.deviceId}`;
-    const now = Date.now();
-    const last = (_a = this.diagnosticsLastRun.get(deviceKey)) != null ? _a : 0;
-    if (now - last < 2e3) {
-      this.log.debug(`Diagnostics export throttled for ${device.name} \u2014 last run ${now - last}ms ago`);
-      await this.setStateAsync(triggerStateId, { val: false, ack: true });
-      return;
-    }
-    this.diagnosticsLastRun.set(deviceKey, now);
-    const diag = this.deviceManager.generateDiagnostics(device, (_b = this.version) != null ? _b : "unknown");
-    const resultId = `${this.namespace}.${prefix}.diag.result`;
-    await this.setStateAsync(resultId, {
-      val: JSON.stringify(diag, null, 2),
-      ack: true
-    });
-    await this.setStateAsync(triggerStateId, { val: false, ack: true });
-    this.log.info(`Diagnostics exported for ${device.name} (${device.sku})`);
-  }
-  /**
-   * Generischer Capability-Routing-Pfad für States die nicht im STATE_TO_COMMAND
-   * Mapping sind. Liest `native.capabilityType`/`capabilityInstance` aus dem
-   * State-Object und schickt das via Cloud-API.
-   *
-   * @param device Target device
-   * @param id Full state-id (für ack)
-   * @param stateSuffix State-Pfad innerhalb Device (für debug-log)
-   * @param val Value zum Senden
-   */
-  async handleGenericCapabilityCommand(device, id, stateSuffix, val) {
-    var _a, _b;
-    if (!this.deviceManager) {
-      return;
-    }
-    const obj = await this.getObjectAsync(id);
-    const capType = (_a = obj == null ? void 0 : obj.native) == null ? void 0 : _a.capabilityType;
-    const capInstance = (_b = obj == null ? void 0 : obj.native) == null ? void 0 : _b.capabilityInstance;
-    if (typeof capType === "string" && typeof capInstance === "string") {
-      try {
-        await this.deviceManager.sendCapabilityCommand(device, capType, capInstance, val);
-        await this.setStateAsync(id, { val, ack: true });
-      } catch (err) {
-        this.log.warn(`Command failed for ${device.name}: ${(0, import_types.errMessage)(err)}`);
-      }
-    } else {
-      this.log.debug(`Unknown writable state: ${stateSuffix}`);
-    }
-  }
-  /**
-   * Reset related dropdown states when switching between scenes/snapshots/colors.
-   * Each mode-switch resets all OTHER mode dropdowns to "---" (0).
-   *
-   * @param prefix Device state prefix
-   * @param activeCommand The command that was just executed
-   */
-  async resetRelatedDropdowns(prefix, activeCommand) {
-    if (!(activeCommand in GoveeAdapter.COMMAND_DROPDOWN)) {
-      return;
-    }
-    const ownDropdown = GoveeAdapter.COMMAND_DROPDOWN[activeCommand];
-    await this.resetModeDropdowns(prefix, ownDropdown);
-  }
-  /**
-   * Reset every mode dropdown except `keep` (empty = reset all). Used both for
-   * mode-switches (keep the new mode's own dropdown) and for power-off
-   * (reset everything — a device that's off has no active mode).
-   *
-   * @param prefix Device state prefix
-   * @param keep   Dropdown path to leave untouched (e.g. "music.music_mode"), or "" to reset all
-   */
-  async resetModeDropdowns(prefix, keep) {
-    await Promise.all(
-      GoveeAdapter.MODE_DROPDOWNS.filter((d) => d !== keep).map(async (dropdown) => {
-        const stateId = `${this.namespace}.${prefix}.${dropdown}`;
-        const current = await this.getStateAsync(stateId);
-        if ((current == null ? void 0 : current.val) && current.val !== "0" && current.val !== 0) {
-          await this.setStateAsync(stateId, { val: "0", ack: true });
-        }
-      })
-    );
-  }
 }
 if (require.main !== module) {
   module.exports = (options) => new GoveeAdapter(options);

@@ -22,6 +22,9 @@ export interface CloudMergeAdapter {
  * with refreshed name/capabilities/type and registers new ones via
  * {@link cloudDeviceToGoveeDevice}. Returns true when at least one new
  * device was added.
+ *
+ * @param adapter
+ * @param cloudDevices
  */
 export function mergeCloudDevices(adapter: CloudMergeAdapter, cloudDevices: CloudDevice[]): boolean {
   let changed = false;
@@ -62,12 +65,12 @@ export function mergeCloudDevices(adapter: CloudMergeAdapter, cloudDevices: Clou
  *
  * Skip the onDeviceUpdate fire if device already-online + still-online,
  * but refresh `lastSeenOnNetwork` either way.
+ *
+ * @param adapter
+ * @param device
+ * @param caps
  */
-export function applyOnlineCap(
-  adapter: CloudMergeAdapter,
-  device: GoveeDevice,
-  caps: CloudStateCapability[],
-): void {
+export function applyOnlineCap(adapter: CloudMergeAdapter, device: GoveeDevice, caps: CloudStateCapability[]): void {
   let online: boolean | undefined;
   for (const c of caps) {
     if (

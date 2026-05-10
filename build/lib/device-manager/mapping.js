@@ -1,0 +1,90 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var mapping_exports = {};
+__export(mapping_exports, {
+  buildCapabilitiesFromAppEntry: () => buildCapabilitiesFromAppEntry,
+  cloudDeviceToGoveeDevice: () => cloudDeviceToGoveeDevice
+});
+module.exports = __toCommonJS(mapping_exports);
+function cloudDeviceToGoveeDevice(cd) {
+  return {
+    sku: cd.sku,
+    deviceId: cd.device,
+    name: cd.deviceName || cd.sku,
+    type: cd.type || "unknown",
+    capabilities: Array.isArray(cd.capabilities) ? cd.capabilities : [],
+    scenes: [],
+    diyScenes: [],
+    snapshots: [],
+    sceneLibrary: [],
+    musicLibrary: [],
+    diyLibrary: [],
+    skuFeatures: null,
+    state: { online: true },
+    channels: { lan: false, mqtt: false, cloud: true }
+  };
+}
+function buildCapabilitiesFromAppEntry(entry) {
+  const caps = [];
+  const last = entry.lastData;
+  if (!last) {
+    return caps;
+  }
+  if (typeof last.online === "boolean") {
+    caps.push({
+      type: "devices.capabilities.online",
+      instance: "online",
+      state: { value: last.online }
+    });
+  }
+  if (typeof last.tem === "number" && Number.isFinite(last.tem)) {
+    caps.push({
+      type: "devices.capabilities.property",
+      instance: "sensorTemperature",
+      state: { value: last.tem / 100 }
+    });
+  }
+  if (typeof last.hum === "number" && Number.isFinite(last.hum)) {
+    caps.push({
+      type: "devices.capabilities.property",
+      instance: "sensorHumidity",
+      state: { value: last.hum / 100 }
+    });
+  }
+  if (typeof last.battery === "number" && Number.isFinite(last.battery)) {
+    caps.push({
+      type: "devices.capabilities.property",
+      instance: "battery",
+      state: { value: last.battery }
+    });
+  } else if (entry.settings && typeof entry.settings.battery === "number" && Number.isFinite(entry.settings.battery)) {
+    caps.push({
+      type: "devices.capabilities.property",
+      instance: "battery",
+      state: { value: entry.settings.battery }
+    });
+  }
+  return caps;
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  buildCapabilitiesFromAppEntry,
+  cloudDeviceToGoveeDevice
+});
+//# sourceMappingURL=mapping.js.map

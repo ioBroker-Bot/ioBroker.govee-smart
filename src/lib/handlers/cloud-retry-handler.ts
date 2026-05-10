@@ -28,6 +28,8 @@ export interface CloudRetryHandlerAdapter {
  * Initial Cloud-Load mit 60-Sekunden-Hardtimeout. Blockiert nicht länger —
  * wenn Cloud hängt, geht Adapter mit LAN+MQTT weiter, und der Retry-Loop
  * probiert's passend zum Fehlergrund erneut.
+ *
+ * @param adapter
  */
 export async function cloudInitWithTimeout(adapter: CloudRetryHandlerAdapter): Promise<CloudLoadResult> {
   if (!adapter.deviceManager) {
@@ -35,10 +37,7 @@ export async function cloudInitWithTimeout(adapter: CloudRetryHandlerAdapter): P
   }
   const loadPromise = adapter.deviceManager.loadFromCloud();
   const timeoutPromise = new Promise<CloudLoadResult>(resolve => {
-    adapter.cloudInitTimer = adapter.setTimeout(
-      () => resolve({ ok: false, reason: "transient" }),
-      READY_TIMEOUT_MS,
-    );
+    adapter.cloudInitTimer = adapter.setTimeout(() => resolve({ ok: false, reason: "transient" }), READY_TIMEOUT_MS);
   });
   try {
     const result = await Promise.race([loadPromise, timeoutPromise]);
@@ -56,7 +55,11 @@ export async function cloudInitWithTimeout(adapter: CloudRetryHandlerAdapter): P
   }
 }
 
-/** Build the host object for {@link CloudRetryLoop}. */
+/**
+ * Build the host object for {@link CloudRetryLoop}.
+ *
+ * @param adapter
+ */
 export function buildCloudRetryHost(adapter: CloudRetryHandlerAdapter): CloudRetryHost {
   return {
     log: adapter.log,
@@ -72,7 +75,11 @@ export function buildCloudRetryHost(adapter: CloudRetryHandlerAdapter): CloudRet
   };
 }
 
-/** Lazy-initialise the retry loop on first use. */
+/**
+ * Lazy-initialise the retry loop on first use.
+ *
+ * @param adapter
+ */
 export function ensureCloudRetry(adapter: CloudRetryHandlerAdapter): CloudRetryLoop {
   if (!adapter.cloudRetry) {
     adapter.cloudRetry = new CloudRetryLoop(buildCloudRetryHost(adapter));
@@ -81,7 +88,12 @@ export function ensureCloudRetry(adapter: CloudRetryHandlerAdapter): CloudRetryL
   return adapter.cloudRetry;
 }
 
-/** React to a Cloud-load outcome — delegates to {@link CloudRetryLoop}. */
+/**
+ * React to a Cloud-load outcome — delegates to {@link CloudRetryLoop}.
+ *
+ * @param adapter
+ * @param result
+ */
 export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: CloudLoadResult): void {
   ensureCloudRetry(adapter).handleResult(result);
 }
@@ -90,6 +102,8 @@ export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: Cl
  * React to the user writing `info.refresh_cloud_data = true`. Performs one
  * full Cloud reload cycle so newly created scenes/snapshots from the Govee
  * Home app show up without an adapter restart.
+ *
+ * @param adapter
  */
 export async function handleManualCloudRefresh(adapter: CloudRetryHandlerAdapter): Promise<void> {
   if (!adapter.deviceManager || !adapter.cloudClient) {

@@ -1,7 +1,9 @@
 "use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -15,117 +17,42 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var device_manager_exports = {};
 __export(device_manager_exports, {
   DeviceManager: () => DeviceManager,
-  SEGMENT_HARD_MAX: () => SEGMENT_HARD_MAX,
-  buildCapabilitiesFromAppEntry: () => buildCapabilitiesFromAppEntry,
-  getEffectiveSegmentIndices: () => getEffectiveSegmentIndices,
-  parseMqttSegmentData: () => parseMqttSegmentData,
-  resolveSegmentCount: () => resolveSegmentCount
+  SEGMENT_HARD_MAX: () => import_lookups2.SEGMENT_HARD_MAX,
+  buildCapabilitiesFromAppEntry: () => import_mapping2.buildCapabilitiesFromAppEntry,
+  cloudDeviceToGoveeDevice: () => import_mapping2.cloudDeviceToGoveeDevice,
+  getEffectiveSegmentIndices: () => import_lookups2.getEffectiveSegmentIndices,
+  parseMqttSegmentData: () => import_lookups2.parseMqttSegmentData,
+  resolveSegmentCount: () => import_lookups2.resolveSegmentCount
 });
 module.exports = __toCommonJS(device_manager_exports);
 var import_capability_mapper = require("./capability-mapper");
 var import_command_router = require("./command-router");
 var import_device_registry = require("./device-registry");
 var import_diagnostics = require("./diagnostics");
+var import_lookups = require("./device-manager/lookups");
+var import_mapping = require("./device-manager/mapping");
+var cacheHelpers = __toESM(require("./device-manager/cache"));
+var cloudMergeHelpers = __toESM(require("./device-manager/cloud-merge"));
 var import_types = require("./types");
 var import_http_client = require("./http-client");
-function parseMqttSegmentData(commands) {
-  if (!Array.isArray(commands)) {
-    return [];
-  }
-  const segments = [];
-  let highestPacket = 0;
-  for (const cmd of commands) {
-    if (typeof cmd !== "string") {
-      continue;
-    }
-    const bytes = Buffer.from(cmd, "base64");
-    if (bytes.length < 20 || bytes[0] !== 170 || bytes[1] !== 165) {
-      continue;
-    }
-    let xor = 0;
-    for (let i = 0; i < 19; i++) {
-      xor ^= bytes[i];
-    }
-    if (xor !== bytes[19]) {
-      continue;
-    }
-    const packetNum = bytes[2];
-    if (packetNum < 1 || packetNum > 5) {
-      continue;
-    }
-    if (packetNum > highestPacket) {
-      highestPacket = packetNum;
-    }
-    const baseIndex = (packetNum - 1) * 4;
-    for (let slot = 0; slot < 4; slot++) {
-      const segIdx = baseIndex + slot;
-      const offset = 3 + slot * 4;
-      segments.push({
-        index: segIdx,
-        brightness: bytes[offset],
-        r: bytes[offset + 1],
-        g: bytes[offset + 2],
-        b: bytes[offset + 3]
-      });
-    }
-  }
-  while (segments.length > 0) {
-    const tail = segments[segments.length - 1];
-    if (tail.brightness === 0 && tail.r === 0 && tail.g === 0 && tail.b === 0) {
-      segments.pop();
-    } else {
-      break;
-    }
-  }
-  return segments;
-}
-function getEffectiveSegmentIndices(device) {
-  var _a;
-  if (device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0) {
-    return device.manualSegments.slice();
-  }
-  const count = (_a = device.segmentCount) != null ? _a : 0;
-  if (count <= 0) {
-    return [];
-  }
-  return Array.from({ length: count }, (_, i) => i);
-}
-function resolveSegmentCount(device) {
-  if (typeof device.segmentCount === "number" && device.segmentCount > 0) {
-    return device.segmentCount;
-  }
-  const caps = Array.isArray(device.capabilities) ? device.capabilities : [];
-  let min = Number.POSITIVE_INFINITY;
-  for (const c of caps) {
-    if (!c || typeof c.type !== "string" || !c.type.includes("segment_color_setting")) {
-      continue;
-    }
-    const params = c.parameters;
-    const fields = Array.isArray(params == null ? void 0 : params.fields) ? params.fields : [];
-    for (const f of fields) {
-      if (!f || typeof f !== "object") {
-        continue;
-      }
-      const fn = f.fieldName;
-      const er = f.elementRange;
-      const rawMax = er && typeof er.max === "number" ? er.max : -1;
-      if (fn === "segment" && rawMax >= 0) {
-        const n = rawMax + 1;
-        if (n > 0 && n < min) {
-          min = n;
-        }
-      }
-    }
-  }
-  return Number.isFinite(min) ? min : 0;
-}
-const SEGMENT_HARD_MAX = 55;
+var import_lookups2 = require("./device-manager/lookups");
+var import_mapping2 = require("./device-manager/mapping");
 class DeviceManager {
+  /** Public for sub-module helpers (cache, cloud-merge). */
   log;
+  /** Public for sub-module helpers (cache, cloud-merge, lookups). */
   devices = /* @__PURE__ */ new Map();
   commandRouter;
   diagnostics;
@@ -133,7 +60,9 @@ class DeviceManager {
   nudgedSeedSkus = /* @__PURE__ */ new Set();
   cloudClient = null;
   apiClient = null;
+  /** Public for sub-module helpers (cache). */
   skuCache = null;
+  /** Public for sub-module helpers (cloud-merge). */
   onDeviceUpdate = null;
   onDeviceListChanged = null;
   onCloudCapabilities = null;
@@ -294,7 +223,7 @@ class DeviceManager {
         existing.channels.cloud = entry.capabilities.length > 0;
         changed = true;
       } else {
-        this.devices.set(key, this.cachedToGoveeDevice(entry));
+        this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
         changed = true;
       }
     }
@@ -307,7 +236,7 @@ class DeviceManager {
       return false;
     }
     for (const device of this.devices.values()) {
-      this.populateScenesFromLibrary(device);
+      cacheHelpers.populateScenesFromLibrary(this, device);
     }
     if (changed) {
       (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
@@ -356,7 +285,7 @@ class DeviceManager {
       }
       this.saveDevicesToCache();
       for (const device of this.devices.values()) {
-        this.populateScenesFromLibrary(device);
+        cacheHelpers.populateScenesFromLibrary(this, device);
       }
       if (changed) {
         (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
@@ -433,7 +362,7 @@ class DeviceManager {
     if (anyChanged) {
       this.saveDevicesToCache();
       for (const device of this.devices.values()) {
-        this.populateScenesFromLibrary(device);
+        cacheHelpers.populateScenesFromLibrary(this, device);
       }
       (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
     }
@@ -447,33 +376,7 @@ class DeviceManager {
    * @returns true if any new devices were added
    */
   mergeCloudDevices(cloudDevices) {
-    let changed = false;
-    if (!Array.isArray(cloudDevices)) {
-      return false;
-    }
-    for (const cd of cloudDevices) {
-      if (!cd || typeof cd.sku !== "string" || typeof cd.device !== "string") {
-        continue;
-      }
-      const existing = this.devices.get(this.deviceKey(cd.sku, cd.device));
-      if (existing) {
-        existing.name = cd.deviceName || existing.name;
-        existing.capabilities = Array.isArray(cd.capabilities) ? cd.capabilities : [];
-        existing.type = cd.type;
-        existing.channels.cloud = true;
-      } else {
-        const device = this.cloudDeviceToGoveeDevice(cd);
-        this.devices.set(this.deviceKey(cd.sku, cd.device), device);
-        changed = true;
-        this.log.debug(`Cloud: New device ${cd.deviceName} (${cd.sku})`);
-        this.maybeNudgeSeedSku(cd.sku, cd.deviceName);
-      }
-      const quirks = (0, import_device_registry.getDeviceQuirks)(cd.sku);
-      if (quirks == null ? void 0 : quirks.brokenPlatformApi) {
-        this.log.debug(`${cd.sku} has known broken platform API metadata \u2014 capabilities may be incomplete`);
-      }
-    }
-    return changed;
+    return cloudMergeHelpers.mergeCloudDevices(this, cloudDevices);
   }
   /**
    * Load scenes, DIY scenes, and snapshots for a device from Cloud API.
@@ -709,26 +612,7 @@ class DeviceManager {
   }
   /** Save all devices to SKU cache, skipping only those never confirmed via Cloud yet. */
   saveDevicesToCache() {
-    if (!this.skuCache) {
-      return;
-    }
-    let cachedCount = 0;
-    let skippedCount = 0;
-    for (const device of this.devices.values()) {
-      const isLight = device.type === "devices.types.light";
-      if (isLight && !device.scenesChecked) {
-        skippedCount++;
-        this.log.debug(`Not caching ${device.name} (${device.sku}) \u2014 scenes not yet checked`);
-      } else {
-        this.skuCache.save(this.goveeDeviceToCached(device));
-        cachedCount++;
-      }
-    }
-    if (skippedCount > 0) {
-      this.log.debug(`Cached ${cachedCount} device(s), skipped ${skippedCount} not yet checked`);
-    } else {
-      this.log.debug(`Cached ${cachedCount} device(s) \u2014 next start uses cache`);
-    }
+    cacheHelpers.saveDevicesToCache(this);
   }
   /**
    * Handle LAN device discovery — match against known devices or create new.
@@ -806,6 +690,12 @@ class DeviceManager {
    * @param sku Govee SKU
    * @param displayName Device name as shown in Govee Home
    */
+  /**
+   * Public for sub-module helpers (cloud-merge).
+   *
+   * @param sku
+   * @param displayName
+   */
   maybeNudgeSeedSku(sku, displayName) {
     const upper = (typeof sku === "string" ? sku : "").toUpperCase();
     if (!upper || this.nudgedSeedSkus.has(upper)) {
@@ -874,12 +764,12 @@ class DeviceManager {
     Object.assign(device.state, state);
     (_a = this.onDeviceUpdate) == null ? void 0 : _a.call(this, device, state);
     if ((_b = update.op) == null ? void 0 : _b.command) {
-      const segData = parseMqttSegmentData(update.op.command);
+      const segData = (0, import_lookups.parseMqttSegmentData)(update.op.command);
       if (segData.length > 0) {
         const maxSeen = Math.max(...segData.map((s) => s.index)) + 1;
         const current = (_c = device.segmentCount) != null ? _c : 0;
-        if (maxSeen > SEGMENT_HARD_MAX) {
-          this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${SEGMENT_HARD_MAX})`);
+        if (maxSeen > import_lookups.SEGMENT_HARD_MAX) {
+          this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${import_lookups.SEGMENT_HARD_MAX})`);
           return;
         }
         if (maxSeen > current) {
@@ -888,7 +778,7 @@ class DeviceManager {
           );
           device.segmentCount = maxSeen;
           if (this.skuCache) {
-            this.skuCache.save(this.goveeDeviceToCached(device));
+            this.skuCache.save(cacheHelpers.goveeDeviceToCached(device));
           }
           (_d = this.onSegmentCountGrown) == null ? void 0 : _d.call(this, device);
           return;
@@ -980,46 +870,13 @@ class DeviceManager {
    */
   onSegmentCountGrown;
   /**
-   * Convert Cloud device to internal device model
-   *
-   * @param cd Cloud API device data
-   */
-  cloudDeviceToGoveeDevice(cd) {
-    return {
-      sku: cd.sku,
-      deviceId: cd.device,
-      name: cd.deviceName || cd.sku,
-      type: cd.type || "unknown",
-      capabilities: Array.isArray(cd.capabilities) ? cd.capabilities : [],
-      scenes: [],
-      diyScenes: [],
-      snapshots: [],
-      sceneLibrary: [],
-      musicLibrary: [],
-      diyLibrary: [],
-      skuFeatures: null,
-      state: { online: true },
-      channels: { lan: false, mqtt: false, cloud: true }
-    };
-  }
-  /**
    * Find device by SKU and device ID (handles format differences)
    *
    * @param sku Product model
    * @param deviceId Device identifier
    */
   findDeviceBySkuAndId(sku, deviceId) {
-    const direct = this.devices.get(this.deviceKey(sku, deviceId));
-    if (direct) {
-      return direct;
-    }
-    const normalizedId = (0, import_types.normalizeDeviceId)(deviceId);
-    for (const dev of this.devices.values()) {
-      if (dev.sku === sku && (0, import_types.normalizeDeviceId)(dev.deviceId) === normalizedId) {
-        return dev;
-      }
-    }
-    return void 0;
+    return (0, import_lookups.findDeviceBySkuAndId)(this.devices, sku, deviceId);
   }
   /**
    * Generate unique key for a device
@@ -1028,7 +885,7 @@ class DeviceManager {
    * @param deviceId Device identifier
    */
   deviceKey(sku, deviceId) {
-    return `${sku}_${(0, import_types.normalizeDeviceId)(deviceId)}`;
+    return (0, import_lookups.deviceKey)(sku, deviceId);
   }
   /**
    * Log error with dedup — only warn on category change, debug on repeat.
@@ -1047,92 +904,13 @@ class DeviceManager {
     }
   }
   /**
-   * Fill device.scenes from sceneLibrary when Cloud scenes are missing.
-   * ptReal activation matches by name, so sceneLibrary names are sufficient.
-   *
-   * @param device Device to populate scenes for
-   */
-  populateScenesFromLibrary(device) {
-    if (device.scenes.length === 0 && device.sceneLibrary.length > 0) {
-      device.scenes = device.sceneLibrary.map((entry) => ({
-        name: entry.name,
-        value: {}
-        // ptReal uses sceneLibrary directly, Cloud payload not needed
-      }));
-      this.log.debug(`${device.sku}: ${device.scenes.length} scenes from library (Cloud scenes missing)`);
-    }
-  }
-  /**
-   * Convert cached data to a GoveeDevice (runtime fields set to defaults)
-   *
-   * @param cached Cached device data
-   */
-  cachedToGoveeDevice(cached) {
-    return {
-      sku: cached.sku,
-      deviceId: cached.deviceId,
-      name: cached.name,
-      type: cached.type,
-      capabilities: cached.capabilities,
-      scenes: cached.scenes,
-      diyScenes: cached.diyScenes,
-      snapshots: cached.snapshots,
-      sceneLibrary: cached.sceneLibrary,
-      musicLibrary: cached.musicLibrary,
-      diyLibrary: cached.diyLibrary,
-      skuFeatures: cached.skuFeatures,
-      snapshotBleCmds: cached.snapshotBleCmds,
-      scenesChecked: cached.scenesChecked,
-      lastSeenOnNetwork: cached.lastSeenOnNetwork,
-      // Restore learned count so it wins over Cloud capability on next start.
-      segmentCount: cached.segmentCount,
-      manualMode: cached.manualMode,
-      manualSegments: cached.manualSegments,
-      sceneSpeed: cached.sceneSpeed,
-      state: { online: false },
-      channels: { lan: false, mqtt: false, cloud: false }
-    };
-  }
-  /**
-   * Persist a device's current runtime state to the SKU cache.
-   * Safe no-op when no cache is configured.
+   * Persist a device's current runtime state to the SKU cache. Safe no-op
+   * when no cache is configured.
    *
    * @param device Target device
    */
   persistDeviceToCache(device) {
-    if (!this.skuCache) {
-      return;
-    }
-    this.skuCache.save(this.goveeDeviceToCached(device));
-  }
-  /**
-   * Extract cacheable data from a GoveeDevice.
-   *
-   * @param device Runtime device
-   */
-  goveeDeviceToCached(device) {
-    return {
-      sku: device.sku,
-      deviceId: device.deviceId,
-      name: device.name,
-      type: device.type,
-      capabilities: device.capabilities,
-      scenes: device.scenes,
-      diyScenes: device.diyScenes,
-      snapshots: device.snapshots,
-      sceneLibrary: device.sceneLibrary,
-      musicLibrary: device.musicLibrary,
-      diyLibrary: device.diyLibrary,
-      skuFeatures: device.skuFeatures,
-      snapshotBleCmds: device.snapshotBleCmds,
-      scenesChecked: device.scenesChecked,
-      lastSeenOnNetwork: device.lastSeenOnNetwork,
-      segmentCount: typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : void 0,
-      manualMode: device.manualMode ? true : void 0,
-      manualSegments: device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0 ? device.manualSegments.slice() : void 0,
-      sceneSpeed: typeof device.sceneSpeed === "number" && device.sceneSpeed > 0 ? device.sceneSpeed : void 0,
-      cachedAt: Date.now()
-    };
+    cacheHelpers.persistDeviceToCache(this, device);
   }
   /**
    * Generate diagnostics data for a device — structured JSON for GitHub
@@ -1188,7 +966,7 @@ class DeviceManager {
           if (!device) {
             return false;
           }
-          const caps = buildCapabilitiesFromAppEntry(entry);
+          const caps = (0, import_mapping.buildCapabilitiesFromAppEntry)(entry);
           if (caps.length === 0) {
             return false;
           }
@@ -1214,29 +992,7 @@ class DeviceManager {
    * @param caps Capability list from the source pipeline
    */
   applyOnlineCap(device, caps) {
-    var _a;
-    let online;
-    for (const c of caps) {
-      if (c && typeof c.type === "string" && (c.type === "devices.capabilities.online" || c.type === "online") && c.state && typeof c.state.value === "boolean") {
-        online = c.state.value;
-        break;
-      }
-    }
-    if (online === void 0 && caps.length > 0) {
-      online = true;
-    }
-    if (online === void 0) {
-      return;
-    }
-    if (device.state.online === online && online === true) {
-      device.lastSeenOnNetwork = Date.now();
-      return;
-    }
-    device.state.online = online;
-    if (online) {
-      device.lastSeenOnNetwork = Date.now();
-    }
-    (_a = this.onDeviceUpdate) == null ? void 0 : _a.call(this, device, { online });
+    cloudMergeHelpers.applyOnlineCap(this, device, caps);
   }
   /**
    * Hook callback for sources that emit `CloudStateCapability[]` updates
@@ -1292,53 +1048,12 @@ class DeviceManager {
     this.applyOnlineCap(device, event.capabilities);
   }
 }
-function buildCapabilitiesFromAppEntry(entry) {
-  const caps = [];
-  const last = entry.lastData;
-  if (!last) {
-    return caps;
-  }
-  if (typeof last.online === "boolean") {
-    caps.push({
-      type: "devices.capabilities.online",
-      instance: "online",
-      state: { value: last.online }
-    });
-  }
-  if (typeof last.tem === "number" && Number.isFinite(last.tem)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "sensorTemperature",
-      state: { value: last.tem / 100 }
-    });
-  }
-  if (typeof last.hum === "number" && Number.isFinite(last.hum)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "sensorHumidity",
-      state: { value: last.hum / 100 }
-    });
-  }
-  if (typeof last.battery === "number" && Number.isFinite(last.battery)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "battery",
-      state: { value: last.battery }
-    });
-  } else if (entry.settings && typeof entry.settings.battery === "number" && Number.isFinite(entry.settings.battery)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "battery",
-      state: { value: entry.settings.battery }
-    });
-  }
-  return caps;
-}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   DeviceManager,
   SEGMENT_HARD_MAX,
   buildCapabilitiesFromAppEntry,
+  cloudDeviceToGoveeDevice,
   getEffectiveSegmentIndices,
   parseMqttSegmentData,
   resolveSegmentCount

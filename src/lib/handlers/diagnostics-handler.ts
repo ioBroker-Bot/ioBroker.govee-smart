@@ -9,10 +9,7 @@ export interface DiagnosticsHandlerAdapter {
   readonly log: ioBroker.Logger;
   readonly namespace: string;
   readonly version?: string;
-  setStateAsync(
-    id: string,
-    state: ioBroker.SettableState | ioBroker.StateValue,
-  ): Promise<unknown>;
+  setStateAsync(id: string, state: ioBroker.SettableState | ioBroker.StateValue): Promise<unknown>;
 }
 
 /**

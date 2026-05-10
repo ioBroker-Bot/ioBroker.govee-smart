@@ -1,6 +1,6 @@
 import { hasDynamicSceneCapability } from "./capability-mapper";
 import { CommandRouter } from "./command-router";
-import { getDeviceQuirks, getDeviceTier, isSeedAndDormant } from "./device-registry";
+import { getDeviceTier, isSeedAndDormant } from "./device-registry";
 import { DiagnosticsCollector } from "./diagnostics";
 import {
   deviceKey as deviceKeyHelper,
@@ -9,17 +9,14 @@ import {
   SEGMENT_HARD_MAX,
   type MqttSegmentData,
 } from "./device-manager/lookups";
-import {
-  buildCapabilitiesFromAppEntry as buildCapabilitiesFromAppEntryHelper,
-  cloudDeviceToGoveeDevice as cloudDeviceToGoveeDeviceHelper,
-} from "./device-manager/mapping";
+import { buildCapabilitiesFromAppEntry as buildCapabilitiesFromAppEntryHelper } from "./device-manager/mapping";
 import * as cacheHelpers from "./device-manager/cache";
 import * as cloudMergeHelpers from "./device-manager/cloud-merge";
 import type { AppDeviceEntry, GoveeApiClient } from "./govee-api-client";
 import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
 import type { RateLimiter } from "./rate-limiter";
-import type { CachedDeviceData, SkuCache } from "./sku-cache";
+import type { SkuCache } from "./sku-cache";
 import {
   classifyError,
   coerceFiniteNumber,
@@ -824,7 +821,12 @@ export class DeviceManager {
    * @param sku Govee SKU
    * @param displayName Device name as shown in Govee Home
    */
-  /** Public for sub-module helpers (cloud-merge). */
+  /**
+   * Public for sub-module helpers (cloud-merge).
+   *
+   * @param sku
+   * @param displayName
+   */
   public maybeNudgeSeedSku(sku: string, displayName: string | undefined): void {
     const upper = (typeof sku === "string" ? sku : "").toUpperCase();
     if (!upper || this.nudgedSeedSkus.has(upper)) {
@@ -1052,7 +1054,6 @@ export class DeviceManager {
    */
   onSegmentCountGrown?: (device: GoveeDevice) => void;
 
-
   /**
    * Find device by SKU and device ID (handles format differences)
    *
@@ -1265,4 +1266,3 @@ export class DeviceManager {
     this.applyOnlineCap(device, event.capabilities);
   }
 }
-

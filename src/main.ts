@@ -6,19 +6,18 @@ import {
   planCloudCapabilityWrites,
 } from "./lib/capability-mapper";
 import { getDeviceTier, initDeviceRegistry } from "./lib/device-registry";
-import { DeviceManager, resolveSegmentCount, SEGMENT_HARD_MAX } from "./lib/device-manager";
+import { DeviceManager, resolveSegmentCount } from "./lib/device-manager";
 import { GoveeApiClient } from "./lib/govee-api-client";
 import { GoveeCloudClient } from "./lib/govee-cloud-client";
 import { GoveeLanClient } from "./lib/govee-lan-client";
 import { GoveeMqttClient } from "./lib/govee-mqtt-client";
 import { GoveeOpenapiMqttClient } from "./lib/govee-openapi-mqtt-client";
 import { LocalSnapshotStore } from "./lib/local-snapshots";
-import { SnapshotHandler, type SnapshotHandlerHost } from "./lib/snapshot-handler";
-import { GroupFanoutHandler, type GroupFanoutHost } from "./lib/group-fanout";
+import { SnapshotHandler } from "./lib/snapshot-handler";
+import { GroupFanoutHandler } from "./lib/group-fanout";
 import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
-import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
+import type { CloudRetryLoop } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
-import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
 import * as cloudRetryHandler from "./lib/handlers/cloud-retry-handler";
 import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
 import * as groupStateHelpers from "./lib/handlers/group-state-helpers";
@@ -26,29 +25,20 @@ import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
 import * as stateChangeRouter from "./lib/handlers/state-change-router";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
-import { SegmentWizard, wizardIdleText, type WizardHost, type WizardResult } from "./lib/segment-wizard";
+import type { SegmentWizard } from "./lib/segment-wizard";
+import { wizardIdleText } from "./lib/segment-wizard";
 import { SkuCache } from "./lib/sku-cache";
 import { StateManager } from "./lib/state-manager";
 import {
-  hexToRgb,
   errMessage,
-  parseSegmentList,
-  resolveStatesValue,
   rgbIntToHex,
   rgbToHex,
   type AdapterConfig,
-  type CloudLoadResult,
   type CloudStateCapability,
   type DeviceState,
   type GoveeDevice,
-  type PersistedMqttCredentials,
 } from "./lib/types";
-import {
-  APP_API_INITIAL_DELAY_MS,
-  APP_API_POLL_INTERVAL_MS,
-  CLOUD_FULL_LIMITS,
-  READY_TIMEOUT_MS,
-} from "./lib/timing-constants";
+import { APP_API_INITIAL_DELAY_MS, APP_API_POLL_INTERVAL_MS, CLOUD_FULL_LIMITS } from "./lib/timing-constants";
 import { GOVEE_APP_VERSION } from "./lib/govee-constants";
 import { httpsRequest } from "./lib/http-client";
 
@@ -560,7 +550,6 @@ class GoveeAdapter extends utils.Adapter {
     }, 60_000);
   }
 
-
   /**
    * Adapter stopping — MUST be synchronous.
    *
@@ -630,7 +619,14 @@ class GoveeAdapter extends utils.Adapter {
     callback();
   }
 
-  /** Public delegate to stateChangeRouter — required by GroupFanoutHandlerAdapter interface. */
+  /**
+   * Public delegate to stateChangeRouter — required by GroupFanoutHandlerAdapter interface.
+   *
+   * @param device
+   * @param prefix
+   * @param changedSuffix
+   * @param newValue
+   */
   public async sendMusicCommand(
     device: GoveeDevice,
     prefix: string,
@@ -678,7 +674,12 @@ class GoveeAdapter extends utils.Adapter {
    * @param device Target device
    * @param allDevices Full device list (needed to resolve group members)
    */
-  /** Public for handler modules (snapshot-glue, group-fanout, state-change-router). */
+  /**
+   * Public for handler modules (snapshot-glue, group-fanout, state-change-router).
+   *
+   * @param device
+   * @param allDevices
+   */
   public refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void {
     if (!this.stateManager) {
       return;
@@ -1069,7 +1070,11 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param suffix State ID suffix (e.g. "power", "brightness")
    */
-  /** Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers. */
+  /**
+   * Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers.
+   *
+   * @param suffix
+   */
   public stateToCommand(suffix: string): string | null {
     return groupStateHelpers.stateToCommand(suffix);
   }
@@ -1084,7 +1089,13 @@ class GoveeAdapter extends utils.Adapter {
    * @param mode    Whether manual mode should be active
    * @param indices Physical indices when mode=true, ignored otherwise
    */
-  /** Public for handler modules (wizard, state-change-router). */
+  /**
+   * Public for handler modules (wizard, state-change-router).
+   *
+   * @param device
+   * @param mode
+   * @param indices
+   */
   public async applyManualSegments(device: GoveeDevice, mode: boolean, indices?: number[]): Promise<void> {
     if (!this.stateManager) {
       return;
@@ -1141,6 +1152,9 @@ class GoveeAdapter extends utils.Adapter {
    * `extendForeignObjectAsync(system.adapter.X, native:...)`-Call ausgelöst
    * wird (Memory v2.1.3-Bug). Vorher gab es nach jedem 2FA-Login einen
    * unnötigen Restart.
+   *
+   * @param obj
+   * @param data
    */
   private sendMessageResponse(obj: ioBroker.Message, data: unknown): void {
     if (obj.callback && obj.from) {

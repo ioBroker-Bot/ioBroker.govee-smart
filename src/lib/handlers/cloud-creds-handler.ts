@@ -11,10 +11,7 @@ export interface CloudCredsAdapter {
   readonly log: ioBroker.Logger;
   readonly namespace: string;
   getStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
-  setStateAsync(
-    id: string,
-    state: ioBroker.SettableState | ioBroker.StateValue,
-  ): Promise<unknown>;
+  setStateAsync(id: string, state: ioBroker.SettableState | ioBroker.StateValue): Promise<unknown>;
   getForeignObjectAsync(id: string): Promise<{ native?: unknown } | null | undefined>;
   extendForeignObjectAsync(id: string, obj: { native?: Record<string, unknown> }): Promise<unknown>;
   encrypt(value: string): string;
@@ -103,10 +100,7 @@ export async function loadPersistedCredsFromState(
  * @param adapter ioBroker adapter surface
  * @param creds   The freshly-issued MQTT bundle from a successful login
  */
-export async function persistCredsToState(
-  adapter: CloudCredsAdapter,
-  creds: PersistedMqttCredentials,
-): Promise<void> {
+export async function persistCredsToState(adapter: CloudCredsAdapter, creds: PersistedMqttCredentials): Promise<void> {
   const blob = JSON.stringify({
     bearerToken: adapter.encrypt(creds.bearerToken),
     iotEndpoint: creds.iotEndpoint,
@@ -156,9 +150,7 @@ export async function cleanupLegacyMqttNativeOnce(adapter: CloudCredsAdapter): P
     ];
     const dirty = legacy.some(k => k in native && native[k] !== "" && native[k] !== 0);
     if (!dirty) {
-      await adapter
-        .setStateAsync("info.legacyMqttCleaned", { val: true, ack: true })
-        .catch(() => undefined);
+      await adapter.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => undefined);
       return;
     }
     adapter.log.info(`Removing legacy plaintext MQTT credentials from native (one-time migration)`);
