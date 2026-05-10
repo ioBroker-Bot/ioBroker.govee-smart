@@ -9,6 +9,10 @@ import {
   SEGMENT_HARD_MAX,
   type MqttSegmentData,
 } from "./device-manager/lookups";
+import {
+  buildCapabilitiesFromAppEntry as buildCapabilitiesFromAppEntryHelper,
+  cloudDeviceToGoveeDevice as cloudDeviceToGoveeDeviceHelper,
+} from "./device-manager/mapping";
 import type { AppDeviceEntry, GoveeApiClient } from "./govee-api-client";
 import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
@@ -42,6 +46,7 @@ export {
   SEGMENT_HARD_MAX,
   type MqttSegmentData,
 } from "./device-manager/lookups";
+export { buildCapabilitiesFromAppEntry, cloudDeviceToGoveeDevice } from "./device-manager/mapping";
 
 /**
  * Device manager — maintains unified device list and routes commands
@@ -459,7 +464,7 @@ export class DeviceManager {
         existing.type = cd.type;
         existing.channels.cloud = true;
       } else {
-        const device = this.cloudDeviceToGoveeDevice(cd);
+        const device = cloudDeviceToGoveeDeviceHelper(cd);
         this.devices.set(this.deviceKey(cd.sku, cd.device), device);
         changed = true;
         this.log.debug(`Cloud: New device ${cd.deviceName} (${cd.sku})`);
@@ -1093,29 +1098,6 @@ export class DeviceManager {
    */
   onSegmentCountGrown?: (device: GoveeDevice) => void;
 
-  /**
-   * Convert Cloud device to internal device model
-   *
-   * @param cd Cloud API device data
-   */
-  private cloudDeviceToGoveeDevice(cd: CloudDevice): GoveeDevice {
-    return {
-      sku: cd.sku,
-      deviceId: cd.device,
-      name: cd.deviceName || cd.sku,
-      type: cd.type || "unknown",
-      capabilities: Array.isArray(cd.capabilities) ? cd.capabilities : [],
-      scenes: [],
-      diyScenes: [],
-      snapshots: [],
-      sceneLibrary: [],
-      musicLibrary: [],
-      diyLibrary: [],
-      skuFeatures: null,
-      state: { online: true },
-      channels: { lan: false, mqtt: false, cloud: true },
-    };
-  }
 
   /**
    * Find device by SKU and device ID (handles format differences)
@@ -1319,7 +1301,7 @@ export class DeviceManager {
           if (!device) {
             return false;
           }
-          const caps = buildCapabilitiesFromAppEntry(entry);
+          const caps = buildCapabilitiesFromAppEntryHelper(entry);
           if (caps.length === 0) {
             return false;
           }
@@ -1446,56 +1428,3 @@ export class DeviceManager {
   }
 }
 
-/**
- * Convert an app-API device entry into a list of synthetic Cloud-state
- * capabilities the existing `mapCloudStateValue` pipeline can consume.
- *
- * Govee stores temperature and humidity as integer hundredths of a unit
- * (`tem: 2370` → 23.70 °C, `hum: 4290` → 42.90 % RH). Battery may live
- * either at the lastData level or in deviceSettings — lastData wins
- * because it's the more recent reading.
- *
- * @param entry One entry from `GoveeApiClient.fetchDeviceList()`
- */
-export function buildCapabilitiesFromAppEntry(entry: AppDeviceEntry): CloudStateCapability[] {
-  const caps: CloudStateCapability[] = [];
-  const last = entry.lastData;
-  if (!last) {
-    return caps;
-  }
-  if (typeof last.online === "boolean") {
-    caps.push({
-      type: "devices.capabilities.online",
-      instance: "online",
-      state: { value: last.online },
-    });
-  }
-  if (typeof last.tem === "number" && Number.isFinite(last.tem)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "sensorTemperature",
-      state: { value: last.tem / 100 },
-    });
-  }
-  if (typeof last.hum === "number" && Number.isFinite(last.hum)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "sensorHumidity",
-      state: { value: last.hum / 100 },
-    });
-  }
-  if (typeof last.battery === "number" && Number.isFinite(last.battery)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "battery",
-      state: { value: last.battery },
-    });
-  } else if (entry.settings && typeof entry.settings.battery === "number" && Number.isFinite(entry.settings.battery)) {
-    caps.push({
-      type: "devices.capabilities.property",
-      instance: "battery",
-      state: { value: entry.settings.battery },
-    });
-  }
-  return caps;
-}
