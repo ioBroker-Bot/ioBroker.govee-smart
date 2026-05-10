@@ -153,11 +153,6 @@ async function onStateChange(adapter, id, state) {
   if (!state || state.ack || !adapter.deviceManager || !adapter.stateManager || adapter.unloading) {
     return;
   }
-  if (id === `${adapter.namespace}.info.refresh_cloud_data` && state.val) {
-    await cloudRetryHandler.handleManualCloudRefresh(adapter);
-    await adapter.setStateAsync(id, { val: false, ack: true });
-    return;
-  }
   const localId = id.replace(`${adapter.namespace}.`, "");
   if (!localId.startsWith("devices.") && !localId.startsWith("groups.")) {
     return;
@@ -202,6 +197,21 @@ async function onStateChange(adapter, id, state) {
   if (stateSuffix === "snapshots.snapshot_delete" && typeof val === "string" && val.trim()) {
     adapter.snapshotHandler.delete(device, val.trim());
     await adapter.setStateAsync(id, { val: "", ack: true });
+    return;
+  }
+  if (stateSuffix === "snapshots.refresh_cloud" && val) {
+    if (adapter.deviceManager) {
+      adapter.log.info(`Refresh cloud data for ${device.name} (${device.sku}): re-fetching scenes and snapshots`);
+      try {
+        const changed = await adapter.deviceManager.refreshSceneDataForDevice(device.deviceId);
+        if (changed) {
+          await cloudRetryHandler.reloadCloudStates(adapter);
+        }
+      } catch (e) {
+        adapter.log.warn(`Refresh cloud data for ${device.name} failed: ${(0, import_types.errMessage)(e)}`);
+      }
+    }
+    await adapter.setStateAsync(id, { val: false, ack: true });
     return;
   }
   if (stateSuffix === "segments.manual_mode" || stateSuffix === "segments.manual_list") {

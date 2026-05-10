@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.6.7",
     "news": {
+      "NEXT": {
+        "en": "Snapshots created in the Govee Home app now appear in the dropdown (Issue #13). The refresh button is per-device under snapshots.refresh_cloud; info.refresh_cloud_data is removed.",
+        "de": "In der Govee Home App erstellte Snapshots erscheinen jetzt im Dropdown (Issue #13). Der Refresh-Button liegt pro Gerät unter snapshots.refresh_cloud; info.refresh_cloud_data ist entfernt.",
+        "ru": "Снапшоты из Govee Home теперь видны в выпадающем списке (Issue #13). Кнопка обновления стала пер-девайсной (snapshots.refresh_cloud); info.refresh_cloud_data удалён.",
+        "pt": "Snapshots criados na app Govee Home aparecem no dropdown (Issue #13). O refresh está por dispositivo em snapshots.refresh_cloud; info.refresh_cloud_data foi removido.",
+        "nl": "Snapshots uit de Govee Home-app verschijnen nu in de dropdown (Issue #13). De refresh-knop is per apparaat onder snapshots.refresh_cloud; info.refresh_cloud_data is verwijderd.",
+        "fr": "Les snapshots créés dans l'app Govee Home apparaissent dans la liste (Issue #13). Le bouton de rafraîchissement est par appareil sous snapshots.refresh_cloud ; info.refresh_cloud_data supprimé.",
+        "it": "Gli snapshot dell'app Govee Home appaiono nel menu a tendina (Issue #13). Il refresh è per dispositivo sotto snapshots.refresh_cloud; info.refresh_cloud_data è rimosso.",
+        "es": "Los snapshots de la app Govee Home aparecen en el desplegable (Issue #13). El refresco es por dispositivo en snapshots.refresh_cloud; info.refresh_cloud_data se eliminó.",
+        "pl": "Snapshoty z aplikacji Govee Home pojawiają się w liście rozwijanej (Issue #13). Odświeżanie jest per urządzenie pod snapshots.refresh_cloud; info.refresh_cloud_data usunięto.",
+        "uk": "Знімки з Govee Home з'являються у випадному списку (Issue #13). Кнопка оновлення тепер пер-пристрій (snapshots.refresh_cloud); info.refresh_cloud_data видалено.",
+        "zh-cn": "Govee Home 应用中创建的快照现在出现在下拉列表中（Issue #13）。刷新按钮已移到每个设备的 snapshots.refresh_cloud；info.refresh_cloud_data 已移除。"
+      },
       "2.6.7": {
         "en": "Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.",
         "de": "Aufgeräumter Ready-Log: Die Geräte-/Sensor-/Gruppen-Online-Zusammenfassung ist raus — sie lief bevor der LAN-Scan fertig war und konnte fälschlich alle Lichter als offline anzeigen.",
@@ -260,20 +273,6 @@
         "read": true,
         "write": false,
         "def": ""
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.refresh_cloud_data",
-      "type": "state",
-      "common": {
-        "name": "Refresh Cloud Data",
-        "desc": "Write true to re-fetch scenes, snapshots and device list from the Govee Cloud for all devices. Use this after creating a new snapshot in the Govee Home app to see it in the dropdown without restarting the adapter.",
-        "type": "boolean",
-        "role": "button",
-        "read": true,
-        "write": true,
-        "def": false
       },
       "native": {}
     },

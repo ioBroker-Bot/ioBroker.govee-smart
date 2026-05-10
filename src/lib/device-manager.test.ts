@@ -2435,3 +2435,192 @@ describe("DeviceManager — loadFromCache merge", () => {
     });
   });
 });
+
+/**
+ * Issue #13 (tukey42): snapshots created in the Govee Home app were stuck on
+ * the cached value because `loadDeviceScenes` gated the /user/devices
+ * capability fallback on `device.snapshots.length === 0`. After a cache load
+ * that condition was never true again. v2.7.0 reorders the snapshot path so
+ * /user/devices capabilities are the authoritative source whenever
+ * /device/scenes comes back empty.
+ */
+describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", () => {
+  let dm: DeviceManager;
+  beforeEach(() => {
+    initDeviceRegistry({ data: QUIRK_TEST_REGISTRY as never, experimental: true });
+    dm = new DeviceManager(mockLog, mockTimers);
+  });
+  afterEach(() => _resetDeviceRegistry());
+
+  function snapCap(options: Array<{ name: string; value: number }>): CloudCapability {
+    return {
+      type: "devices.capabilities.dynamic_scene",
+      instance: "snapshot",
+      parameters: { dataType: "ENUM", options },
+    } as CloudCapability;
+  }
+
+  function setupMockCloud(snapshotsFromScenes: Array<{ name: string; value: number }>): unknown {
+    return {
+      getScenes: () =>
+        Promise.resolve({
+          lightScenes: [{ name: "Aurora", value: { id: 1 } }],
+          diyScenes: [],
+          snapshots: snapshotsFromScenes.map(s => ({ name: s.name, value: s.value })),
+        }),
+      getDiyScenes: () => Promise.resolve([]),
+    };
+  }
+
+  it("pulls newly-created snapshots from /user/devices when /device/scenes returns empty", async () => {
+    // Setup: device has a cached snapshot from a previous run.
+    const device = createTestDevice({
+      snapshots: [{ name: "OldSnap", value: 100 }],
+    });
+    (dm as any).devices.set("H6160_aabbccddeeff0011", device);
+    dm.setCloudClient(setupMockCloud([]) as any);
+
+    // CloudDevice arrives from a fresh /user/devices call with TWO snapshots
+    // — the old one + a new one the user just created in the Govee app.
+    const cd = {
+      sku: "H6160",
+      device: "AABBCCDDEEFF0011",
+      deviceName: "Test Light",
+      type: "devices.types.light",
+      capabilities: [
+        ...lightCapabilities(),
+        snapCap([
+          { name: "OldSnap", value: 100 },
+          { name: "NewlyAdded", value: 200 },
+        ]),
+      ],
+    };
+
+    await (dm as any).loadDeviceScenes(device, cd);
+
+    expect(device.snapshots).to.have.lengthOf(2);
+    expect(device.snapshots.map(s => s.name)).to.deep.equal(["OldSnap", "NewlyAdded"]);
+  });
+
+  it("preserves cached snapshots when /device/scenes is empty AND /user/devices has no snapshot capability", async () => {
+    // Regression guard: a flaky Cloud response (no snapshot cap returned)
+    // must NOT wipe the user's known-good snapshot list. Worse than the
+    // original bug to clobber valid data on a transient API blip.
+    const device = createTestDevice({
+      snapshots: [{ name: "CachedSnap", value: 100 }],
+    });
+    (dm as any).devices.set("H6160_aabbccddeeff0011", device);
+    dm.setCloudClient(setupMockCloud([]) as any);
+
+    const cd = {
+      sku: "H6160",
+      device: "AABBCCDDEEFF0011",
+      deviceName: "Test Light",
+      type: "devices.types.light",
+      capabilities: lightCapabilities().filter(c => c.instance !== "snapshot"),
+    };
+
+    await (dm as any).loadDeviceScenes(device, cd);
+
+    expect(device.snapshots).to.have.lengthOf(1);
+    expect(device.snapshots[0].name).to.equal("CachedSnap");
+  });
+
+  it("clears the snapshot list when the user deleted everything in the Govee app", async () => {
+    // /user/devices DID return a snapshot capability — its options array is
+    // just empty because the user removed all snapshots from the app side.
+    // The dropdown should reflect that, not the stale cache.
+    const device = createTestDevice({
+      snapshots: [{ name: "OldSnap", value: 100 }],
+    });
+    (dm as any).devices.set("H6160_aabbccddeeff0011", device);
+    dm.setCloudClient(setupMockCloud([]) as any);
+
+    const cd = {
+      sku: "H6160",
+      device: "AABBCCDDEEFF0011",
+      deviceName: "Test Light",
+      type: "devices.types.light",
+      capabilities: [...lightCapabilities(), snapCap([])],
+    };
+
+    await (dm as any).loadDeviceScenes(device, cd);
+
+    expect(device.snapshots).to.have.lengthOf(0);
+  });
+
+  it("/device/scenes returning snapshots wins over the capability fallback", async () => {
+    // Sanity: if /device/scenes succeeds with snapshots, those are the
+    // authoritative list — capability options should NOT overwrite them.
+    const device = createTestDevice({
+      snapshots: [{ name: "OldSnap", value: 100 }],
+    });
+    (dm as any).devices.set("H6160_aabbccddeeff0011", device);
+    dm.setCloudClient(
+      setupMockCloud([
+        { name: "FromScenesEndpoint1", value: 300 },
+        { name: "FromScenesEndpoint2", value: 301 },
+      ]) as any,
+    );
+
+    const cd = {
+      sku: "H6160",
+      device: "AABBCCDDEEFF0011",
+      deviceName: "Test Light",
+      type: "devices.types.light",
+      capabilities: [...lightCapabilities(), snapCap([{ name: "WouldBeIgnored", value: 999 }])],
+    };
+
+    await (dm as any).loadDeviceScenes(device, cd);
+
+    expect(device.snapshots.map(s => s.name)).to.deep.equal(["FromScenesEndpoint1", "FromScenesEndpoint2"]);
+  });
+
+  it("refreshSceneDataForDevice refetches /user/devices before re-running loadDeviceScenes", async () => {
+    // Fix B: without this call, the manual refresh used stale capabilities
+    // from the in-memory device — meaning the snapshot fallback in
+    // loadDeviceScenes couldn't see new entries from the Govee app.
+    const device = createTestDevice({
+      snapshots: [{ name: "OldSnap", value: 100 }],
+    });
+    (dm as any).devices.set("H6160_aabbccddeeff0011", device);
+
+    let getDevicesCallCount = 0;
+    let getScenesCallCount = 0;
+    const mockCloud = {
+      getDevices: () => {
+        getDevicesCallCount++;
+        // Simulate /user/devices delivering an updated capability list with
+        // the new snapshot the user just created.
+        return Promise.resolve([
+          {
+            sku: "H6160",
+            device: "AABBCCDDEEFF0011",
+            deviceName: "Test Light",
+            type: "devices.types.light",
+            capabilities: [
+              ...lightCapabilities(),
+              snapCap([
+                { name: "OldSnap", value: 100 },
+                { name: "NewSnap", value: 200 },
+              ]),
+            ],
+          },
+        ]);
+      },
+      getScenes: () => {
+        getScenesCallCount++;
+        return Promise.resolve({ lightScenes: [], diyScenes: [], snapshots: [] });
+      },
+      getDiyScenes: () => Promise.resolve([]),
+    };
+    dm.setCloudClient(mockCloud as any);
+
+    const changed = await dm.refreshSceneDataForDevice("AABBCCDDEEFF0011");
+
+    expect(getDevicesCallCount, "getDevices must be called by refreshSceneDataForDevice").to.equal(1);
+    expect(getScenesCallCount, "getScenes must be called after device-list refresh").to.equal(1);
+    expect(device.snapshots.map(s => s.name)).to.deep.equal(["OldSnap", "NewSnap"]);
+    expect(changed).to.equal(true);
+  });
+});

@@ -94,6 +94,18 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
           return;
         }
 
+        // Empty/whitespace-only 2xx body is legitimate for several Govee
+        // undocumented endpoints — `/appsku/v1/music-effect-libraries`,
+        // `diy-light-effect-libraries`, and `sku-supported-feature` all
+        // return a bare 200 with no body for SKUs they don't recognise.
+        // Resolve as `null` so the caller can treat it as "no data" via the
+        // existing optional-chaining guards instead of seeing an
+        // `Invalid JSON` stack trace in the log (Issue #13).
+        if (raw.trim().length === 0) {
+          resolve(null as T);
+          return;
+        }
+
         try {
           resolve(JSON.parse(raw) as T);
         } catch (parseErr) {

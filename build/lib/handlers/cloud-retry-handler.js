@@ -22,11 +22,10 @@ __export(cloud_retry_handler_exports, {
   cloudInitWithTimeout: () => cloudInitWithTimeout,
   ensureCloudRetry: () => ensureCloudRetry,
   handleCloudFailure: () => handleCloudFailure,
-  handleManualCloudRefresh: () => handleManualCloudRefresh
+  reloadCloudStates: () => reloadCloudStates
 });
 module.exports = __toCommonJS(cloud_retry_handler_exports);
 var import_cloud_retry = require("../cloud-retry");
-var import_types = require("../types");
 var import_timing_constants = require("../timing-constants");
 async function cloudInitWithTimeout(adapter) {
   if (!adapter.deviceManager) {
@@ -78,20 +77,8 @@ function ensureCloudRetry(adapter) {
 function handleCloudFailure(adapter, result) {
   ensureCloudRetry(adapter).handleResult(result);
 }
-async function handleManualCloudRefresh(adapter) {
-  if (!adapter.deviceManager || !adapter.cloudClient) {
-    adapter.log.info(`Refresh cloud data: no Cloud client configured (API key missing) \u2014 nothing to do`);
-    return;
-  }
-  adapter.log.info(`Refresh cloud data: re-fetching scenes and snapshots for all devices`);
-  try {
-    const changed = await adapter.deviceManager.refreshSceneData();
-    if (changed) {
-      await adapter.loadCloudStates();
-    }
-  } catch (e) {
-    adapter.log.warn(`Refresh cloud data failed: ${(0, import_types.errMessage)(e)}`);
-  }
+async function reloadCloudStates(adapter) {
+  await adapter.loadCloudStates();
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
@@ -99,6 +86,6 @@ async function handleManualCloudRefresh(adapter) {
   cloudInitWithTimeout,
   ensureCloudRetry,
   handleCloudFailure,
-  handleManualCloudRefresh
+  reloadCloudStates
 });
 //# sourceMappingURL=cloud-retry-handler.js.map

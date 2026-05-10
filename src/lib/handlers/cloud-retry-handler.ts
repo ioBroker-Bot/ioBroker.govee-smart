@@ -2,7 +2,7 @@ import { CloudRetryLoop, type CloudRetryHost } from "../cloud-retry";
 import type { DeviceManager } from "../device-manager";
 import type { GoveeCloudClient } from "../govee-cloud-client";
 import type { StateManager } from "../state-manager";
-import { errMessage, type CloudLoadResult } from "../types";
+import type { CloudLoadResult } from "../types";
 import { READY_TIMEOUT_MS } from "../timing-constants";
 
 /**
@@ -94,23 +94,11 @@ export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: Cl
 }
 
 /**
- * React to the user writing `info.refresh_cloud_data = true`. Performs one
- * full Cloud reload cycle so newly created scenes/snapshots from the Govee
- * Home app show up without an adapter restart.
+ * Reload the Cloud-state-tree — used by the per-device refresh button after
+ * a successful `refreshSceneDataForDevice`, so the new states (e.g. fresh
+ * snapshot_cloud dropdown options) propagate to ioBroker objects.
  *
  */
-export async function handleManualCloudRefresh(adapter: CloudRetryHandlerAdapter): Promise<void> {
-  if (!adapter.deviceManager || !adapter.cloudClient) {
-    adapter.log.info(`Refresh cloud data: no Cloud client configured (API key missing) — nothing to do`);
-    return;
-  }
-  adapter.log.info(`Refresh cloud data: re-fetching scenes and snapshots for all devices`);
-  try {
-    const changed = await adapter.deviceManager.refreshSceneData();
-    if (changed) {
-      await adapter.loadCloudStates();
-    }
-  } catch (e) {
-    adapter.log.warn(`Refresh cloud data failed: ${errMessage(e)}`);
-  }
+export async function reloadCloudStates(adapter: CloudRetryHandlerAdapter): Promise<void> {
+  await adapter.loadCloudStates();
 }

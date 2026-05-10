@@ -797,6 +797,20 @@ function buildDeviceStateDefs(device, localSnapshots, memberDevices) {
       channel: "snapshots"
     });
   }
+  if (isLight && (hasDynamicSceneCapability(device.capabilities, "lightScene") || hasDynamicSceneCapability(device.capabilities, "diyScene") || hasDynamicSceneCapability(device.capabilities, "snapshot"))) {
+    stateDefs.push({
+      id: "refresh_cloud",
+      name: (0, import_i18n_states.tName)("refreshCloud"),
+      desc: (0, import_i18n_states.tDesc)("refreshCloudDesc"),
+      type: "boolean",
+      role: "button",
+      write: true,
+      def: false,
+      capabilityType: "local",
+      capabilityInstance: "refreshCloud",
+      channel: "snapshots"
+    });
+  }
   if (isLight) {
     stateDefs.push({
       id: "snapshot_local",

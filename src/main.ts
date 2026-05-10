@@ -173,10 +173,6 @@ class GoveeAdapter extends utils.Adapter {
       val: false,
       ack: true,
     });
-    await this.setStateAsync("info.refresh_cloud_data", {
-      val: false,
-      ack: true,
-    });
     // Load admin language from system.config so wizard prose matches the
     // user's Admin UI. Falls back to English on any lookup failure. Adapter
     // logs themselves stay English by ioBroker convention; this language is
@@ -504,7 +500,6 @@ class GoveeAdapter extends utils.Adapter {
     // Subscribe to all writable device and group states
     await this.subscribeStatesAsync("devices.*");
     await this.subscribeStatesAsync("groups.*");
-    await this.subscribeStatesAsync("info.refresh_cloud_data");
 
     // Cleanup stale devices after initial discovery (30s delay for LAN scan).
     // Reaps devices from every adapter-level map that was keyed on them so the

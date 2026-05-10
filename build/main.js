@@ -180,10 +180,6 @@ class GoveeAdapter extends utils.Adapter {
       val: false,
       ack: true
     });
-    await this.setStateAsync("info.refresh_cloud_data", {
-      val: false,
-      ack: true
-    });
     try {
       const sysConf = await this.getForeignObjectAsync("system.config");
       const lang = (_a = sysConf == null ? void 0 : sysConf.common) == null ? void 0 : _a.language;
@@ -425,7 +421,6 @@ class GoveeAdapter extends utils.Adapter {
     this.statesReady = true;
     await this.subscribeStatesAsync("devices.*");
     await this.subscribeStatesAsync("groups.*");
-    await this.subscribeStatesAsync("info.refresh_cloud_data");
     this.cleanupTimer = this.setTimeout(() => {
       connectionState.reapStaleDevices(this).catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
     }, 3e4);

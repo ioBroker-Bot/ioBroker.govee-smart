@@ -965,6 +965,41 @@ describe("CapabilityMapper", () => {
       expect(defs.find(d => d.id === "diy_scene"), "diy_scene must NOT exist").to.be.undefined;
       expect(defs.find(d => d.id === "snapshot_cloud"), "snapshot_cloud must NOT exist").to.be.undefined;
     });
+
+    it("refresh_cloud button is created for lights with any dynamic_scene capability", () => {
+      const device = makeDevice();
+      const defs = buildDeviceStateDefs(device);
+      const refreshDef = defs.find(d => d.id === "refresh_cloud");
+      expect(refreshDef, "refresh_cloud must exist on a light with dynamic_scene caps").to.exist;
+      expect(refreshDef!.type).to.equal("boolean");
+      expect(refreshDef!.role).to.equal("button");
+      expect(refreshDef!.channel).to.equal("snapshots");
+      expect(refreshDef!.write).to.equal(true);
+      expect(refreshDef!.def).to.equal(false);
+    });
+
+    it("refresh_cloud is created when only lightScene cap is present (no snapshot/diy)", () => {
+      const device = makeDevice({
+        capabilities: [
+          { type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: { dataType: "ENUM" } },
+          { type: "devices.capabilities.dynamic_scene", instance: "lightScene", parameters: { dataType: "ENUM" } },
+        ],
+      });
+      const defs = buildDeviceStateDefs(device);
+      expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must exist for lightScene-only").to.exist;
+    });
+
+    it("refresh_cloud is NOT created when device has no dynamic_scene capability", () => {
+      // Thermometer / heater / sensor — refresh button would be inert noise.
+      const device = makeDevice({
+        capabilities: [
+          { type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: { dataType: "ENUM" } },
+        ],
+      });
+      const defs = buildDeviceStateDefs(device);
+      expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must NOT exist on caps-less device").to.be
+        .undefined;
+    });
   });
 
   describe("buildDeviceStateDefs for groups", () => {

@@ -1,17 +1,17 @@
 # CLAUDE.md — ioBroker.govee-smart
 
 > Gemeinsame ioBroker-Wissensbasis: `../CLAUDE.md` (lokal, nicht im Git). Standards dort, Projekt-Spezifisches hier.
-> Vollständige API-Recherche: `/Volumes/ssd/ioBroker/Ressourcen/govee-smart/` (LAN-Protokoll, MQTT AWS IoT, ptReal BLE, Scene-Speed, Segment-Detection, Snapshot-ptReal, API-Referenz, Features-Roadmap, Konkurrenz)
+> Vollständige API-Recherche: `/Users/krobi/Desktop/projekte/claude daten/iobroker/Ressourcen/govee-smart/` (LAN-Protokoll, MQTT AWS IoT, ptReal BLE, Scene-Speed, Segment-Detection, Snapshot-ptReal, API-Referenz, Features-Roadmap, Konkurrenz)
 
 ## Projekt
 
 **ioBroker Govee Smart Adapter** — Steuert Govee WiFi-Geräte: Lights (LED-Strips, Lampen, Panels), Sensoren (Thermometer/Hygrometer), Appliances (Heater, Humidifier, Kettle, Ice Maker, Fan, Purifier). LAN first für Lights, App-API + OpenAPI-MQTT für Sensoren/Appliances, Cloud REST v2 für Capabilities + Steuer-Fallback.
 
-- **Version:** 2.6.5 (released 2026-05-10) — Phase B Refactor: main.ts split in 8 lib/handlers/* (cloud-creds, cloud-retry, diagnostics, group-fanout, group-state-helpers, snapshot-handler-glue, state-change-router, wizard) + device-manager.ts split in 4 lib/device-manager/* (cache, cloud-merge, lookups, mapping). main.ts 2008→1159 LOC (-42%), device-manager.ts 1660→1268 (-24%). Free-fn-Pattern mit Adapter-Context-Interfaces; viele Klassen-Felder wurden public für strukturelles Typing. 768/768 tests grün throughout. v2.6.4 (2026-05-10) vitest-Migration. v2.6.3 (2026-05-10) 4-Pass-Audit ~62 Findings (MQTT-subscribe-silent-death, LAN-stop-race, HTTP-mid-stream, Snapshot-batch). v2.6.2 (2026-05-09) Logs revert to English. v2.6.0 (2026-05-06) Multi-Language-Welle.
+- **Version:** 2.7.0 (in Arbeit) — Snapshot-Refresh-Härtung Issue #13 (tukey42): `loadDeviceScenes` Capability-Fallback ohne `length === 0` Guard + neue `refreshSceneDataForDevice()` refetcht `/user/devices` vor `loadDeviceScenes`. Global `info.refresh_cloud_data` raus → per-Device Button `devices.<id>.snapshots.refresh_cloud` (5 vs 5×N API-Calls). http-client robust gegen empty/whitespace HTTP-200-Body (resolve null statt throw). i18n für `refresh_cloud` in 11 Sprachen. Wiki: neuer Abschnitt "Govee-Cloud — Grenzen die wir nicht beheben können". 776 Tests grün (+8). Vorgänger v2.6.7 (released 2026-05-10) — Cleaner ready-log (device-summary raus, lief vor LAN-Scan-Settle). v2.6.6 Phase B+ (3 weitere Handler: connection-state + device-events + cloud-state-loader, main.ts 1159→807 LOC). v2.6.5 Phase B Refactor: main.ts in 8 lib/handlers/* + device-manager.ts in 4 lib/device-manager/* zerlegt, main.ts gesamt 2008→807 LOC (-60%), device-manager.ts 1660→1268 (-24%). v2.6.4 vitest-Migration. v2.6.3 4-Pass-Audit ~62 Findings. v2.6.2 Logs revert to English. v2.6.0 Multi-Language-Welle.
 - **GitHub:** https://github.com/krobipd/ioBroker.govee-smart
 - **npm:** https://www.npmjs.com/package/iobroker.govee-smart
 - **Runtime-Deps:** `@iobroker/adapter-core`, `mqtt`, `node-forge`
-- **Tests:** 677 custom (src/lib/*.test.ts) + 57 package + integration, lint clean
+- **Tests:** 685 custom (src/lib/*.test.ts) + 57 package + integration, lint clean
 - **Wiki:** komplett auditiert + bilingual EN/DE (https://github.com/krobipd/ioBroker.govee-smart/wiki)
 
 ## KRITISCH: LAN-first für Lights ist unantastbar!
@@ -258,8 +258,11 @@ Single Page, drei Sektionen:
 51. **Button-State = Write-true-Pattern** — `role: "button"`-States im ioBroker werden NICHT durch Klick-auf-Knopf-Eintrag im Object-Browser ausgelöst — User muss `true` auf den State schreiben. In Wiki und User-Doku entsprechend formulieren („setze X auf true", nie „klicke auf X"). Memory: `feedback_iobroker_button_role_write`.
 52. **Wiki-User-Doku-Sicht** — Wiki ist USER-doku, nicht DEV-doku. Knapp formulieren, ioBroker-Grundkenntnisse voraussetzen. Keine „in ioBroker-Objekte → Bearbeiten → Wert auf true → Speichern"-Megaschritte. Memory: `feedback_iobroker_button_role_write`.
 53. **Mocha ESM-Loader-Falle bei test-helpers** — In dieser test-suite tripped der ESM-Loader wenn der alphabetisch ERSTE test-file einen non-`.test.ts` sibling importiert. Folge-Imports ohne explicit Extension werfen `ERR_MODULE_NOT_FOUND`. test-helpers.ts funktioniert in govee-cloud/govee-mqtt-tests (alphabetisch nach device-manager). Workaround: Helpers in device-manager.test.ts INLINE lassen, JSDoc-Kommentar im File. Memory: `feedback_mocha_esm_loader_bug`.
+54. **Capability-Fallback ohne stale-Guard (v2.7.0, Issue #13)** — Bei zwei Quellen für User-Content (`/device/scenes` UND `/user/devices`-Capabilities mit `dynamic_scene.snapshot`-options) darf der Fallback NIE auf „nur ausführen wenn cache leer" gegated sein. Cache wird gefüllt = neue App-Snapshots/Szenen werden nie reingezogen. Richtige Logik: primary-source-empty → secondary-source ohne Guard ausführen, primary-source-error → cache lassen (transient). Gilt analog für andere User-Content-Felder die aus mehreren Cloud-Endpoints kommen können.
+55. **Per-Device Button > globaler Button (v2.7.0)** — Wenn ein Refresh-Vorgang pro Gerät Sinn macht, gehört der Trigger pro Gerät unter den jeweiligen Channel — NICHT auf Adapter-Ebene. API-Budget: 5 Calls statt N×5. Discoverability: User klickt im selben Pfad wo das Refresh-Resultat erscheint, nicht in `info/*`. Gating in `capability-mapper.ts` über die relevante Capability — Thermometer/Sensor/Heater bekommen den Button gar nicht erst.
+56. **HTTP 200 mit empty body ≠ Fehler (v2.7.0)** — Undokumentierte Govee-App-Endpoints liefern für unbekannte SKUs HTTP 200 mit komplett leerem Body. `httpsRequest` in `http-client.ts` resolvet das jetzt als `null` statt zu werfen. Caller mit `resp?.data?.…` optional chaining + `Array.isArray` Guards bekommen das transparent — kein Debug-Spam mehr. Nur non-empty non-JSON wird weiter als Parse-Error gemeldet.
 
-## Tests (677 custom + 57 package + integration)
+## Tests (685 custom + 57 package + integration)
 
 ```
 test/testCapabilityMapper.ts → Capability Mapping + Cloud State Value Mapping + Quirks + Groups + Drift (80)
@@ -341,6 +344,7 @@ test/testPackageFiles.ts     → @iobroker/testing (57)
 
 | Version | Highlights |
 | ------- | ---------- |
+| 2.7.0 | **Snapshot-Refresh-Härtung (Issue #13, tukey42)**: `loadDeviceScenes` schreibt frische Snapshot-Capability aus `/user/devices` jetzt auch ein wenn `device.snapshots` aus dem Cache schon gefüllt ist — der `length === 0` Guard im Capability-Fallback hatte neue App-Snapshots dauerhaft unsichtbar gemacht. `refreshSceneDataForDevice` (neu, ersetzt globales `refreshSceneData`) ruft erst `cloudClient.getDevices()` + `mergeCloudDevices()` damit Capabilities frisch sind. Per-Device Button `devices.<id>.snapshots.refresh_cloud` ersetzt global `info.refresh_cloud_data` — 5 Cloud-Calls statt 5×N. http-client tolerant gegen empty/whitespace HTTP-200-Body (resolve null statt throw) → 3 "Invalid JSON" Debug-Spam-Zeilen für music/DIY/SKU library weg. i18n für `refresh_cloud` in 11 Sprachen. Wiki: neuer Abschnitt "Govee-Cloud — Grenzen die wir nicht beheben können" (Verzögerung, kein Rückkanal für App-Auswahlen, Rate-Limit). 776/776 Tests grün (+8 für Issue #13). |
 | 2.6.5 | **Phase B Modularisierung**: main.ts in 8 lib/handlers/* zerlegt (cloud-creds, cloud-retry, diagnostics, group-fanout, group-state-helpers, snapshot-handler-glue, state-change-router, wizard). device-manager.ts in 4 lib/device-manager/* zerlegt (cache, cloud-merge, lookups, mapping). Free-fn-Pattern mit Adapter-Context-Interfaces; Class-Felder public für strukturelles Typing. main.ts 2008→1159 LOC (-42%), device-manager.ts 1660→1268 (-24%). 768/768 Tests grün throughout. |
 | 2.6.4 | **Phase A Erweiterungs-Option**: Test-Runner mocha+ts-node → vitest. Tests laufen ~1s statt mehrere Sekunden, ESM-Loader-Bug aus mocha-Setup ist weg. Source-Code byte-identisch — keine User-Änderung. |
 | 2.6.3 | 4-Pass-Audit Hardening (~62 Findings): MQTT-subscribe-silent-death recovery, LAN-stop-race fix, HTTP-mid-stream error reporting, Snapshot-batch performance, segment-detection-wizard restore-on-stop, API-key-rejected actionable hint. |

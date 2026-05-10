@@ -76,6 +76,10 @@ function httpsRequest(options) {
           reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
           return;
         }
+        if (raw.trim().length === 0) {
+          resolve(null);
+          return;
+        }
         try {
           resolve(JSON.parse(raw));
         } catch (parseErr) {

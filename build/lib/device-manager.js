@@ -315,58 +315,73 @@ class DeviceManager {
     }
   }
   /**
-   * Re-fetch scenes, snapshots AND libraries for all known light devices
-   * without re-running the full Cloud bootstrap. Used by the
-   * `info.refresh_cloud_data` button: "new snapshot/scene was saved in
-   * the Govee Home app, show it here".
+   * Re-fetch scenes, snapshots and libraries for one specific device. Triggered
+   * by the per-device `snapshots.refresh_cloud` button ("a new snapshot/scene
+   * was saved in the Govee Home app, show it here for THIS light").
    *
-   * v1.10.1 had skipped libraries to keep the per-click call count low —
-   * but for users on accounts where a library actually grew (new
-   * scene-set rolled out by Govee, new sceneCode minted) the only way
-   * back to fresh data was a full adapter restart. v2.1.0 reinstates the
-   * library refresh on the same button and forces past the
-   * `length === 0` guards inside `loadDeviceLibraries`.
+   * Three Cloud calls happen in order:
+   *   1. `/user/devices` — refreshes the whole capability set including the
+   *      authoritative snapshot-options list (this is what was missing in
+   *      v2.6.7's refresh path: stale capabilities meant the snapshot fallback
+   *      in `loadDeviceScenes` couldn't see new entries).
+   *   2. `/device/scenes` + `/device/diy-scenes` (per loadDeviceScenes)
+   *   3. `/appsku/v1/light-effect-libraries` × 3 (scene/music/DIY via
+   *      loadDeviceLibraries with force=true)
    *
-   * @returns true when any device's scene/snapshot/library data changed
+   * Replaces the global `refreshSceneData()` removed in v2.7.0: refreshing all
+   * lights cost N*5 Cloud calls vs 5 for the one device the user actually
+   * touched. Rate-limit pressure scales linearly with account size.
+   *
+   * @param deviceId Target device's deviceId (mac-like identifier)
+   * @returns true when scene/snapshot/library data changed
    */
-  async refreshSceneData() {
+  async refreshSceneDataForDevice(deviceId) {
     var _a;
     if (!this.cloudClient) {
       return false;
     }
-    let anyChanged = false;
-    const lights = Array.from(this.devices.values()).filter((d) => d.type === "devices.types.light");
-    for (const dev of lights) {
-      this.diagnostics.addLog(dev.deviceId, "info", `User-triggered refresh-cloud-data for ${dev.sku}`);
+    const target = Array.from(this.devices.values()).find(
+      (d) => (0, import_types.normalizeDeviceId)(d.deviceId) === (0, import_types.normalizeDeviceId)(deviceId)
+    );
+    if (!target) {
+      this.log.debug(`refreshSceneDataForDevice: device ${deviceId} not found`);
+      return false;
     }
-    for (const device of lights) {
-      const cd = {
-        sku: device.sku,
-        device: device.deviceId,
-        deviceName: device.name,
-        type: device.type,
-        capabilities: Array.isArray(device.capabilities) ? device.capabilities : []
-      };
-      if (await this.loadDeviceScenes(device, cd)) {
-        anyChanged = true;
-      }
-      if (await this.loadDeviceLibraries(
-        device,
-        cd.sku,
-        /* force */
-        true
-      )) {
-        anyChanged = true;
-      }
+    this.diagnostics.addLog(target.deviceId, "info", `User-triggered refresh-cloud-data for ${target.sku}`);
+    try {
+      const rawCloudDevices = await this.cloudClient.getDevices();
+      const cloudDevices = Array.isArray(rawCloudDevices) ? rawCloudDevices.filter(
+        (cd2) => cd2 && typeof cd2.sku === "string" && typeof cd2.device === "string" && Array.isArray(cd2.capabilities) && cd2.capabilities.length > 0
+      ) : [];
+      this.mergeCloudDevices(cloudDevices);
+    } catch (e) {
+      this.log.debug(`refreshSceneDataForDevice: getDevices failed: ${(0, import_types.errMessage)(e)}`);
     }
-    if (anyChanged) {
+    const cd = {
+      sku: target.sku,
+      device: target.deviceId,
+      deviceName: target.name,
+      type: target.type,
+      capabilities: Array.isArray(target.capabilities) ? target.capabilities : []
+    };
+    let changed = false;
+    if (await this.loadDeviceScenes(target, cd)) {
+      changed = true;
+    }
+    if (await this.loadDeviceLibraries(
+      target,
+      cd.sku,
+      /* force */
+      true
+    )) {
+      changed = true;
+    }
+    if (changed) {
       this.saveDevicesToCache();
-      for (const device of this.devices.values()) {
-        cacheHelpers.populateScenesFromLibrary(this, device);
-      }
+      cacheHelpers.populateScenesFromLibrary(this, target);
       (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
     }
-    return anyChanged;
+    return changed;
   }
   /**
    * Merge Cloud device list into local device map.
@@ -388,17 +403,18 @@ class DeviceManager {
   async loadDeviceScenes(device, cd) {
     var _a;
     this.diagnostics.addLog(cd.device, "debug", `loadDeviceScenes called for ${cd.sku}`);
+    let scenesCallSucceeded = false;
+    let snapsFromScenesCall = [];
     const loadScenes = async () => {
       try {
         const { lightScenes, diyScenes, snapshots } = await this.cloudClient.getScenes(cd.sku, cd.device);
+        scenesCallSucceeded = true;
+        snapsFromScenesCall = snapshots;
         if (lightScenes.length > 0) {
           device.scenes = lightScenes;
         }
         if (diyScenes.length > 0) {
           device.diyScenes = diyScenes;
-        }
-        if (snapshots.length > 0) {
-          device.snapshots = snapshots;
         }
       } catch (e) {
         this.diagnostics.recordApiFailure(cd.device, "/router/api/v1/device/scenes", e, this.extractStatus(e));
@@ -420,7 +436,9 @@ class DeviceManager {
       };
       await this.commandRouter.executeRateLimited(loadDiy, 2);
     }
-    if (device.snapshots.length === 0) {
+    if (snapsFromScenesCall.length > 0) {
+      device.snapshots = snapsFromScenesCall;
+    } else if (scenesCallSucceeded) {
       const caps = Array.isArray(cd.capabilities) ? cd.capabilities : [];
       const snapCap = caps.find(
         (c) => {

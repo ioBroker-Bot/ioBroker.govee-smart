@@ -1106,6 +1106,31 @@ export function buildDeviceStateDefs(
     });
   }
 
+  // Per-device refresh button — only when the device exposes any dynamic-scene
+  // capability. Thermometer/sensor/heater devices don't have scenes or
+  // snapshots so the button would be inert noise on them. Replaces the global
+  // info.refresh_cloud_data button (removed in v2.7.0) — 5 API calls per
+  // device-targeted refresh instead of N*5 for the whole account.
+  if (
+    isLight &&
+    (hasDynamicSceneCapability(device.capabilities, "lightScene") ||
+      hasDynamicSceneCapability(device.capabilities, "diyScene") ||
+      hasDynamicSceneCapability(device.capabilities, "snapshot"))
+  ) {
+    stateDefs.push({
+      id: "refresh_cloud",
+      name: tName("refreshCloud"),
+      desc: tDesc("refreshCloudDesc"),
+      type: "boolean",
+      role: "button",
+      write: true,
+      def: false,
+      capabilityType: "local",
+      capabilityInstance: "refreshCloud",
+      channel: "snapshots",
+    });
+  }
+
   // Local snapshots — light-only feature (capture+restore RGB/segments;
   // makes no sense for thermometer/heater/kettle).
   if (isLight) {

@@ -25,6 +25,7 @@ import {
   rgbToHex,
   type CloudDevice,
   type CloudLoadResult,
+  type CloudScene,
   type CloudStateCapability,
   type DeviceState,
   type ErrorCategory,
@@ -395,52 +396,82 @@ export class DeviceManager {
   }
 
   /**
-   * Re-fetch scenes, snapshots AND libraries for all known light devices
-   * without re-running the full Cloud bootstrap. Used by the
-   * `info.refresh_cloud_data` button: "new snapshot/scene was saved in
-   * the Govee Home app, show it here".
+   * Re-fetch scenes, snapshots and libraries for one specific device. Triggered
+   * by the per-device `snapshots.refresh_cloud` button ("a new snapshot/scene
+   * was saved in the Govee Home app, show it here for THIS light").
    *
-   * v1.10.1 had skipped libraries to keep the per-click call count low —
-   * but for users on accounts where a library actually grew (new
-   * scene-set rolled out by Govee, new sceneCode minted) the only way
-   * back to fresh data was a full adapter restart. v2.1.0 reinstates the
-   * library refresh on the same button and forces past the
-   * `length === 0` guards inside `loadDeviceLibraries`.
+   * Three Cloud calls happen in order:
+   *   1. `/user/devices` — refreshes the whole capability set including the
+   *      authoritative snapshot-options list (this is what was missing in
+   *      v2.6.7's refresh path: stale capabilities meant the snapshot fallback
+   *      in `loadDeviceScenes` couldn't see new entries).
+   *   2. `/device/scenes` + `/device/diy-scenes` (per loadDeviceScenes)
+   *   3. `/appsku/v1/light-effect-libraries` × 3 (scene/music/DIY via
+   *      loadDeviceLibraries with force=true)
    *
-   * @returns true when any device's scene/snapshot/library data changed
+   * Replaces the global `refreshSceneData()` removed in v2.7.0: refreshing all
+   * lights cost N*5 Cloud calls vs 5 for the one device the user actually
+   * touched. Rate-limit pressure scales linearly with account size.
+   *
+   * @param deviceId Target device's deviceId (mac-like identifier)
+   * @returns true when scene/snapshot/library data changed
    */
-  async refreshSceneData(): Promise<boolean> {
+  async refreshSceneDataForDevice(deviceId: string): Promise<boolean> {
     if (!this.cloudClient) {
       return false;
     }
-    let anyChanged = false;
-    const lights = Array.from(this.devices.values()).filter(d => d.type === "devices.types.light");
-    for (const dev of lights) {
-      this.diagnostics.addLog(dev.deviceId, "info", `User-triggered refresh-cloud-data for ${dev.sku}`);
+    const target = Array.from(this.devices.values()).find(
+      d => normalizeDeviceId(d.deviceId) === normalizeDeviceId(deviceId),
+    );
+    if (!target) {
+      this.log.debug(`refreshSceneDataForDevice: device ${deviceId} not found`);
+      return false;
     }
-    for (const device of lights) {
-      const cd: CloudDevice = {
-        sku: device.sku,
-        device: device.deviceId,
-        deviceName: device.name,
-        type: device.type,
-        capabilities: Array.isArray(device.capabilities) ? device.capabilities : [],
-      };
-      if (await this.loadDeviceScenes(device, cd)) {
-        anyChanged = true;
-      }
-      if (await this.loadDeviceLibraries(device, cd.sku, /* force */ true)) {
-        anyChanged = true;
-      }
+    this.diagnostics.addLog(target.deviceId, "info", `User-triggered refresh-cloud-data for ${target.sku}`);
+
+    // Step 1: refetch the device list so cd.capabilities is current. Skipping
+    // this was the v2.6.7 bug — the button re-ran /device/scenes only, which
+    // never carries newly-created snapshots for some SKUs; the authoritative
+    // list lives in /user/devices.
+    try {
+      const rawCloudDevices = await this.cloudClient.getDevices();
+      const cloudDevices = Array.isArray(rawCloudDevices)
+        ? rawCloudDevices.filter(
+            cd =>
+              cd &&
+              typeof cd.sku === "string" &&
+              typeof cd.device === "string" &&
+              Array.isArray(cd.capabilities) &&
+              cd.capabilities.length > 0,
+          )
+        : [];
+      this.mergeCloudDevices(cloudDevices);
+    } catch (e) {
+      this.log.debug(`refreshSceneDataForDevice: getDevices failed: ${errMessage(e)}`);
+      // Keep going with stale capabilities — better than aborting the refresh.
     }
-    if (anyChanged) {
+
+    // Step 2: per-device scenes + libraries with fresh capabilities.
+    const cd: CloudDevice = {
+      sku: target.sku,
+      device: target.deviceId,
+      deviceName: target.name,
+      type: target.type,
+      capabilities: Array.isArray(target.capabilities) ? target.capabilities : [],
+    };
+    let changed = false;
+    if (await this.loadDeviceScenes(target, cd)) {
+      changed = true;
+    }
+    if (await this.loadDeviceLibraries(target, cd.sku, /* force */ true)) {
+      changed = true;
+    }
+    if (changed) {
       this.saveDevicesToCache();
-      for (const device of this.devices.values()) {
-        cacheHelpers.populateScenesFromLibrary(this, device);
-      }
+      cacheHelpers.populateScenesFromLibrary(this, target);
       this.onDeviceListChanged?.(this.getDevices());
     }
-    return anyChanged;
+    return changed;
   }
 
   /**
@@ -464,26 +495,28 @@ export class DeviceManager {
   private async loadDeviceScenes(device: GoveeDevice, cd: CloudDevice): Promise<boolean> {
     this.diagnostics.addLog(cd.device, "debug", `loadDeviceScenes called for ${cd.sku}`);
     // Scenes from dedicated scenes endpoint (rate-limited).
-    // Guards are per-list, not combined: Govee's /device/scenes sometimes
-    // returns 149 lightScenes + 0 snapshots (or vice versa) on back-to-back
-    // calls even though the snapshot exists. A combined guard (if any list
-    // non-empty, overwrite all) would wipe the other lists on that call and
-    // break the dropdown until the next lucky round-trip. One guard per
-    // list keeps the last-known-good data in place.
+    //
+    // lightScene + diyScene: per-list guard against transient empties. Govee's
+    // /device/scenes sometimes returns 149 lightScenes + 0 snapshots (or vice
+    // versa) on back-to-back calls. One guard per list keeps the last-known-good
+    // data in place for those types.
+    //
+    // snapshot: handled separately AFTER this block (see below). A per-list
+    // guard alone froze the cached snapshot list forever once it was populated —
+    // user content (snapshots created in the Govee Home app) never surfaced
+    // (Issue #13, tukey42, v2.6.7).
+    let scenesCallSucceeded = false;
+    let snapsFromScenesCall: CloudScene[] = [];
     const loadScenes = async (): Promise<void> => {
       try {
         const { lightScenes, diyScenes, snapshots } = await this.cloudClient!.getScenes(cd.sku, cd.device);
-        // Cloud-client already captured the raw response on success — but
-        // record the catch path here so the diag JSON shows "/device/scenes
-        // attempted, returned 403" instead of an empty slot.
+        scenesCallSucceeded = true;
+        snapsFromScenesCall = snapshots;
         if (lightScenes.length > 0) {
           device.scenes = lightScenes;
         }
         if (diyScenes.length > 0) {
           device.diyScenes = diyScenes;
-        }
-        if (snapshots.length > 0) {
-          device.snapshots = snapshots;
         }
       } catch (e) {
         this.diagnostics.recordApiFailure(cd.device, "/router/api/v1/device/scenes", e, this.extractStatus(e));
@@ -508,8 +541,20 @@ export class DeviceManager {
       await this.commandRouter.executeRateLimited(loadDiy, 2);
     }
 
-    // Snapshots from device capabilities (fallback)
-    if (device.snapshots.length === 0) {
+    // Snapshots — three-way resolution:
+    //   1. /device/scenes returned non-empty snapshots → trust that list.
+    //   2. /device/scenes succeeded but returned empty → fall back to the
+    //      `snapshot` capability inside /user/devices (cd.capabilities).
+    //      This is the fix path for newly-created snapshots: /device/scenes
+    //      lags or omits them for some SKUs, but /user/devices carries them.
+    //      Empty capability options here is a legitimate "user deleted all
+    //      snapshots in the app" — we reflect that and clear the list.
+    //   3. /device/scenes threw OR no snapshot capability exists at all →
+    //      keep device.snapshots untouched (cache survives transient Cloud
+    //      outages and devices that simply don't expose the capability).
+    if (snapsFromScenesCall.length > 0) {
+      device.snapshots = snapsFromScenesCall;
+    } else if (scenesCallSucceeded) {
       const caps = Array.isArray(cd.capabilities) ? cd.capabilities : [];
       const snapCap = caps.find(
         c =>
@@ -529,8 +574,7 @@ export class DeviceManager {
       }
     }
 
-    // "Changed" = we ended up with any scene/snapshot data. Inner tracking
-    // was redundant with this single-source check.
+    // "Changed" = we ended up with any scene/snapshot data.
     return device.scenes.length > 0 || device.diyScenes.length > 0 || device.snapshots.length > 0;
   }
 

@@ -237,6 +237,19 @@ const STATE_NAMES = {
     uk: "\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0438\u0439 \u0437\u043D\u0456\u043C\u043E\u043A",
     "zh-cn": "\u5220\u9664\u672C\u5730\u5FEB\u7167"
   },
+  refreshCloud: {
+    en: "Refresh Cloud Data",
+    de: "Cloud-Daten aktualisieren",
+    ru: "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0434\u0430\u043D\u043D\u044B\u0435 Cloud",
+    pt: "Atualizar dados da Cloud",
+    nl: "Cloudgegevens vernieuwen",
+    fr: "Actualiser donn\xE9es Cloud",
+    it: "Aggiorna dati Cloud",
+    es: "Actualizar datos Cloud",
+    pl: "Od\u015Bwie\u017C dane Cloud",
+    uk: "\u041E\u043D\u043E\u0432\u0438\u0442\u0438 \u0434\u0430\u043D\u0456 Cloud",
+    "zh-cn": "\u5237\u65B0\u4E91\u6570\u636E"
+  },
   // ---- Appliances / Sensors ----
   workMode: {
     en: "Work Mode",
@@ -583,6 +596,19 @@ const STATE_DESCS = {
     pl: "Wpisz nazw\u0119 lokalnego snapshotu, aby go usun\u0105\u0107. Nie wp\u0142ywa na snapshoty Govee Home.",
     uk: "\u0412\u0432\u0435\u0434\u0438 \u043D\u0430\u0437\u0432\u0443 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u043E\u0433\u043E \u0437\u043D\u0456\u043C\u043A\u0430, \u0449\u043E\u0431 \u0439\u043E\u0433\u043E \u0432\u0438\u0434\u0430\u043B\u0438\u0442\u0438. \u0417\u043D\u0456\u043C\u043A\u0438 Govee Home \u043D\u0435 \u0437\u0430\u0447\u0456\u043F\u0430\u044E\u0442\u044C\u0441\u044F.",
     "zh-cn": "\u8F93\u5165\u672C\u5730\u5FEB\u7167\u540D\u79F0\u4EE5\u5220\u9664\u8BE5\u5FEB\u7167\u3002\u4E0D\u4F1A\u5F71\u54CD Govee Home \u5E94\u7528\u7684\u5FEB\u7167\u3002"
+  },
+  refreshCloudDesc: {
+    en: "Write true to re-fetch scenes, snapshots and capabilities for this device from the Govee Cloud. Use after creating a new snapshot in the Govee Home app.",
+    de: "true schreiben, um Szenen, Snapshots und Capabilities f\xFCr dieses Ger\xE4t neu aus der Govee-Cloud zu laden. Nach Erstellen eines neuen Snapshots in der Govee-Home-App nutzen.",
+    ru: "\u0417\u0430\u043F\u0438\u0448\u0438 true, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u043D\u043E\u0432\u043E \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0441\u0446\u0435\u043D\u044B, \u0441\u043D\u0430\u043F\u0448\u043E\u0442\u044B \u0438 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E\u0441\u0442\u0438 \u044D\u0442\u043E\u0433\u043E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 \u0438\u0437 Govee Cloud. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u043D\u0430\u043F\u0448\u043E\u0442\u0430 \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438 Govee Home.",
+    pt: "Escreve true para recarregar cenas, snapshots e capacidades deste dispositivo a partir da Govee Cloud. Usa ap\xF3s criar um novo snapshot na app Govee Home.",
+    nl: "Schrijf true om sc\xE8nes, snapshots en capabilities voor dit apparaat opnieuw uit de Govee-cloud te halen. Gebruik dit na het aanmaken van een nieuwe snapshot in de Govee Home-app.",
+    fr: "\xC9crivez true pour r\xE9cup\xE9rer \xE0 nouveau les sc\xE8nes, snapshots et capabilities de cet appareil depuis le Cloud Govee. \xC0 utiliser apr\xE8s cr\xE9ation d'un snapshot dans l'app Govee Home.",
+    it: "Scrivi true per ricaricare scene, snapshot e capacit\xE0 di questo dispositivo dal Cloud Govee. Usa dopo aver creato uno snapshot nell'app Govee Home.",
+    es: "Escribe true para volver a cargar escenas, snapshots y capacidades de este dispositivo desde la Govee Cloud. \xDAsalo tras crear un snapshot en la app Govee Home.",
+    pl: "Wpisz true, aby ponownie pobra\u0107 sceny, snapshoty i capabilities tego urz\u0105dzenia z Govee Cloud. U\u017Cyj po utworzeniu nowego snapshotu w aplikacji Govee Home.",
+    uk: "\u0417\u0430\u043F\u0438\u0448\u0438 true, \u0449\u043E\u0431 \u0437\u043D\u043E\u0432\u0443 \u0437\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0438\u0442\u0438 \u0441\u0446\u0435\u043D\u0438, \u0437\u043D\u0456\u043C\u043A\u0438 \u0442\u0430 \u043C\u043E\u0436\u043B\u0438\u0432\u043E\u0441\u0442\u0456 \u0446\u044C\u043E\u0433\u043E \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u044E \u0437 Govee Cloud. \u0412\u0438\u043A\u043E\u0440\u0438\u0441\u0442\u043E\u0432\u0443\u0439 \u043F\u0456\u0441\u043B\u044F \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u043D\u043E\u0432\u043E\u0433\u043E \u0437\u043D\u0456\u043C\u043A\u0430 \u0432 \u0434\u043E\u0434\u0430\u0442\u043A\u0443 Govee Home.",
+    "zh-cn": "\u5199\u5165 true \u4EE5\u4ECE Govee \u4E91\u91CD\u65B0\u62C9\u53D6\u672C\u8BBE\u5907\u7684\u573A\u666F\u3001\u5FEB\u7167\u548C\u529F\u80FD\u3002\u5728 Govee Home \u5E94\u7528\u4E2D\u65B0\u5EFA\u5FEB\u7167\u540E\u4F7F\u7528\u3002"
   },
   manualSegmentsDesc: {
     en: "Enable manual segment list (e.g. for cut LED strips with fewer physical segments than reported)",

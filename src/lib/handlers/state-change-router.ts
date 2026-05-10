@@ -239,12 +239,6 @@ export async function onStateChange(
     return;
   }
 
-  if (id === `${adapter.namespace}.info.refresh_cloud_data` && state.val) {
-    await cloudRetryHandler.handleManualCloudRefresh(adapter as unknown as cloudRetryHandler.CloudRetryHandlerAdapter);
-    await adapter.setStateAsync(id, { val: false, ack: true });
-    return;
-  }
-
   const localId = id.replace(`${adapter.namespace}.`, "");
   if (!localId.startsWith("devices.") && !localId.startsWith("groups.")) {
     return;
@@ -296,6 +290,26 @@ export async function onStateChange(
   if (stateSuffix === "snapshots.snapshot_delete" && typeof val === "string" && val.trim()) {
     adapter.snapshotHandler!.delete(device, val.trim());
     await adapter.setStateAsync(id, { val: "", ack: true });
+    return;
+  }
+
+  // Per-device cloud refresh — "I just created a snapshot in the Govee Home
+  // app, pull the new list for THIS light". Replaces the global
+  // info.refresh_cloud_data button (removed in v2.7.0); see
+  // DeviceManager.refreshSceneDataForDevice for the API-budget rationale.
+  if (stateSuffix === "snapshots.refresh_cloud" && val) {
+    if (adapter.deviceManager) {
+      adapter.log.info(`Refresh cloud data for ${device.name} (${device.sku}): re-fetching scenes and snapshots`);
+      try {
+        const changed = await adapter.deviceManager.refreshSceneDataForDevice(device.deviceId);
+        if (changed) {
+          await cloudRetryHandler.reloadCloudStates(adapter as unknown as cloudRetryHandler.CloudRetryHandlerAdapter);
+        }
+      } catch (e) {
+        adapter.log.warn(`Refresh cloud data for ${device.name} failed: ${errMessage(e)}`);
+      }
+    }
+    await adapter.setStateAsync(id, { val: false, ack: true });
     return;
   }
 
