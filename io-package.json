@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.6.5",
+    "version": "2.6.6",
     "news": {
-      "NEXT": {
+      "2.6.6": {
         "en": "Internal refactoring (main.ts on plan target ~800 LOC, 11 handler modules in lib/handlers/). No changes for users.",
         "de": "Internes Refactoring (main.ts auf Plan-Ziel ~800 LOC, 11 Handler-Module in lib/handlers/). Keine Änderungen für Benutzer.",
         "ru": "Внутренний рефакторинг (main.ts на целевые ~800 LOC, 11 хендлеров в lib/handlers/). Для пользователей ничего не меняется.",
@@ -93,19 +93,6 @@
         "pl": "Wielojęzyczność: logi info/warn/error oraz nazwy/opisy stanów teraz w języku systemu ioBroker (11 języków). Debug i stack-trace pozostają po angielsku.",
         "uk": "Багатомовність: info/warn/error-логи та імена/описи станів тепер мовою системи ioBroker (11 мов). Debug та stack-traces лишаються англійськими.",
         "zh-cn": "多语言：info/warn/error 日志以及状态名称/描述现在使用 ioBroker 系统语言（11 种）。Debug 日志与堆栈跟踪保持英文。"
-      },
-      "2.5.4": {
-        "en": "Test-coverage expansion: mqtt.connect is now an injectable constructor parameter (like httpsRequest in v2.5.1), and 7 new mock tests cover the getIotKey path and persisted-credentials reuse.",
-        "de": "Test-Coverage erweitert: mqtt.connect ist jetzt als Konstruktor-Parameter injizierbar (wie httpsRequest in v2.5.1), 7 neue Mock-Tests decken getIotKey und Persisted-Credentials-Reuse ab.",
-        "ru": "Расширено покрытие тестами: mqtt.connect теперь принимается как параметр конструктора (как httpsRequest в v2.5.1), 7 новых mock-тестов покрывают getIotKey и persisted-credentials reuse.",
-        "pt": "Mais cobertura de testes: mqtt.connect agora e parametro injetavel do construtor (como httpsRequest em v2.5.1), 7 novos mock tests cobrem getIotKey e reuse das credenciais persistidas.",
-        "nl": "Test-dekking uitgebreid: mqtt.connect is nu een injecteerbare constructor-parameter (zoals httpsRequest in v2.5.1), 7 nieuwe mock-tests dekken getIotKey en persisted-credentials reuse.",
-        "fr": "Couverture de tests etendue : mqtt.connect est maintenant un parametre injectable du constructeur (comme httpsRequest en v2.5.1), 7 nouveaux mock tests couvrent getIotKey et la reutilisation des credentials persistes.",
-        "it": "Coverage di test ampliato: mqtt.connect ora e parametro iniettabile del costruttore (come httpsRequest in v2.5.1), 7 nuovi mock test coprono getIotKey e il riuso delle credenziali persistite.",
-        "es": "Cobertura de tests ampliada: mqtt.connect ahora es parametro inyectable del constructor (como httpsRequest en v2.5.1), 7 nuevos mock tests cubren getIotKey y la reutilizacion de credenciales persistidas.",
-        "pl": "Rozszerzone pokrycie testami: mqtt.connect jest teraz wstrzykiwanym parametrem konstruktora (jak httpsRequest w v2.5.1), 7 nowych mock-testow obejmuje getIotKey i reuse przechowanych poswiadczen.",
-        "uk": "Розширене покриття тестами: mqtt.connect тепер інжектована параметром конструктора (як httpsRequest у v2.5.1), 7 нових mock-тестів покривають getIotKey і повторне використання збережених credentials.",
-        "zh-cn": "测试覆盖扩展：mqtt.connect 现可作为构造器参数注入（与 v2.5.1 的 httpsRequest 一致），7 个新 mock 测试覆盖 getIotKey 路径和持久化凭据复用。"
       }
     },
     "titleLang": {

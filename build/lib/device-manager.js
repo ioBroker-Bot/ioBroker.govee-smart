@@ -693,8 +693,8 @@ class DeviceManager {
   /**
    * Public for sub-module helpers (cloud-merge).
    *
-   * @param sku
-   * @param displayName
+   * @param sku Product SKU
+   * @param displayName Display name from Cloud
    */
   maybeNudgeSeedSku(sku, displayName) {
     const upper = (typeof sku === "string" ? sku : "").toUpperCase();
