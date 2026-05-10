@@ -130,17 +130,17 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 -->
 ### 2.6.4 (2026-05-10)
 
-- Internal test-runner switched from mocha+ts-node to vitest. No user-facing changes, but the test suite runs in about a second instead of several seconds, and the maintainer-side test-loader bug that blocked some refactors is gone. Source code is byte-identical.
+- Internal tooling refresh. No changes for users.
 
 ### 2.6.3 (2026-05-10)
 
-- Real-time status push (`info.mqttConnected`, `info.openapiMqttConnected`) now recovers automatically after a brief Govee outage. Previously, a rare subscribe rejection could leave the indicator stuck on `false` until the next adapter restart.
-- Restoring a local snapshot on a multi-segment LED strip is fast again — a 30-segment snapshot replays in well under a second instead of about nine.
-- A wrong manual pairing IP, a network blip mid-request, or a Govee Cloud command that the cloud rejects with a payload-level error are now reported instead of failing silently.
-- LED segment number 0 displaying blue when a colour was set with a short hex value (e.g. `#FF`) is fixed — invalid colour input falls back to black instead of an unintended colour.
-- The segment-detection wizard now restores the strip's previous look on adapter-stop, so the test pattern doesn't stay on the wall when you click "Save adapter settings".
-- A configured but rejected Govee API key now surfaces as `Cloud: device list returned empty — check the API key matches the account that owns the devices` so you have a starting point.
-- Various behind-the-scenes hardening of all four communication channels (LAN, real-time MQTT, Cloud-events, Cloud REST) — invisible if everything was already running fine, robustness if something is unstable.
+- Connection-status indicators recover on their own after a brief Govee outage instead of staying stuck until you restart the adapter.
+- Restoring a snapshot on a multi-segment LED strip is fast again — a 30-segment snapshot replays in well under a second instead of about nine.
+- A wrong manual pairing IP, a network blip, or a Cloud command that Govee rejects are now reported in the log instead of failing silently.
+- LED segment 0 turning blue when a colour was set with a short hex value (e.g. `#FF`) is fixed — invalid colour input falls back to black.
+- The segment-detection wizard restores the strip's previous look on adapter-stop, so the test pattern doesn't stay on the wall when you save the adapter settings.
+- A rejected Govee API key now surfaces an actionable hint in the log so you know where to look.
+- Various behind-the-scenes hardening of all four communication channels (LAN, MQTT, Cloud-events, Cloud REST) — invisible if everything was already running fine, robustness if something is unstable.
 
 ### 2.6.2 (2026-05-09)
 
