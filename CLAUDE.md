@@ -7,7 +7,7 @@
 
 **ioBroker Govee Smart Adapter** — Steuert Govee WiFi-Geräte: Lights (LED-Strips, Lampen, Panels), Sensoren (Thermometer/Hygrometer), Appliances (Heater, Humidifier, Kettle, Ice Maker, Fan, Purifier). LAN first für Lights, App-API + OpenAPI-MQTT für Sensoren/Appliances, Cloud REST v2 für Capabilities + Steuer-Fallback.
 
-- **Version:** 2.6.1 (released 2026-05-07, npm latest) — Patch: README changelog English + @tsconfig/node22 bump. v2.6.0 (2026-05-06) Multi-Language-Welle: info/warn/error-Logs (`lib/i18n-logs.ts` 42 Keys × 11 Sprachen, Module-State `setActiveLang` aus `system.config.language`) + State-Namen / -Beschreibungen / Dropdown-Werte (`lib/i18n-states.ts` mit `STATE_NAMES`/`STATE_DESCS`/`STATE_LABELS`, ioBroker liest Translation-Object aus `common.name`/`.desc`/`.states`). Debug-Logs + Stack-Traces bleiben EN.
+- **Version:** 2.6.5 (released 2026-05-10) — Phase B Refactor: main.ts split in 8 lib/handlers/* (cloud-creds, cloud-retry, diagnostics, group-fanout, group-state-helpers, snapshot-handler-glue, state-change-router, wizard) + device-manager.ts split in 4 lib/device-manager/* (cache, cloud-merge, lookups, mapping). main.ts 2008→1159 LOC (-42%), device-manager.ts 1660→1268 (-24%). Free-fn-Pattern mit Adapter-Context-Interfaces; viele Klassen-Felder wurden public für strukturelles Typing. 768/768 tests grün throughout. v2.6.4 (2026-05-10) vitest-Migration. v2.6.3 (2026-05-10) 4-Pass-Audit ~62 Findings (MQTT-subscribe-silent-death, LAN-stop-race, HTTP-mid-stream, Snapshot-batch). v2.6.2 (2026-05-09) Logs revert to English. v2.6.0 (2026-05-06) Multi-Language-Welle.
 - **GitHub:** https://github.com/krobipd/ioBroker.govee-smart
 - **npm:** https://www.npmjs.com/package/iobroker.govee-smart
 - **Runtime-Deps:** `@iobroker/adapter-core`, `mqtt`, `node-forge`
@@ -53,24 +53,41 @@ Seit v2.0.0 (2026-04-25) gemerged in govee-smart. Repo `iobroker.govee-appliance
 ## Architektur
 
 ```
-src/main.ts                   → Lifecycle, StateChange, Cloud State Loading, Local Snapshots, Dropdown-Reset
-src/lib/segment-wizard.ts     → SegmentWizard + WizardHost — misst echte Strip-Länge, erkennt Lücken (v1.7.0 done-Flow)
-src/lib/cloud-retry.ts        → CloudRetryLoop + CloudRetryHost-Interface (v1.6.3 extracted for testability)
-src/lib/device-manager.ts     → Device-Map, Cloud-Loading, MQTT Status+Segment Handling, resolveSegmentCount (v1.7.0)
-src/lib/capability-mapper.ts  → Capability → State Definition + buildDeviceStateDefs + Quirks + Scene Speed (907 Zeilen)
-src/lib/command-router.ts     → Command Routing LAN → Cloud + Segment ptReal + Snapshot ptReal (677 Zeilen)
-src/lib/state-manager.ts      → State CRUD + Cleanup + Channel Routing + Groups Online + manual-state sync (v1.7.0)
-src/lib/govee-lan-client.ts   → LAN UDP (Discovery + Control + Status + ptReal BLE + Segments + Speed) (711 Zeilen)
-src/lib/govee-mqtt-client.ts  → AWS IoT MQTT (Auth + Status-Push, kein Command-Senden) (391 Zeilen)
-src/lib/types.ts              → Interfaces + Shared Utilities (rgbToHex, hexToRgb, classifyError) (435 Zeilen)
-src/lib/govee-api-client.ts   → Undocumented API (Scene/Music/DIY Libraries, Snapshots, SKU Features) (364 Zeilen)
-src/lib/govee-cloud-client.ts → Cloud REST API v2 (Devices, Capabilities, Szenen+Snapshots, Control)
-src/lib/sku-cache.ts          → Persistent SKU cache (device data, scene/music/DIY libraries, snapshots) (145 Zeilen)
-src/lib/rate-limiter.ts       → Rate-Limits für Cloud REST Calls
-src/lib/local-snapshots.ts    → Local Snapshot Store (LAN-based save/restore, JSON files)
-src/lib/device-registry.ts    → SKU-specific overrides aus devices.json (status-aware: verified/reported/seed)
-src/lib/diagnostics.ts        → Ringbuffer pro Device (logs/MQTT-Pakete/API-Responses) für strukturiertes Diagnostics-JSON
-src/lib/http-client.ts        → Shared HTTPS request (httpsRequest + HttpError)
+src/main.ts                              → Lifecycle, Wiring, Field-Declarations (v2.6.5: 1159 Zeilen, war 2008)
+src/lib/handlers/                        → 8 Handler-Files für main.ts (v2.6.5)
+  cloud-creds-handler.ts                 → MQTT-Creds: clearVerification + load/persist + cleanupLegacy
+  cloud-retry-handler.ts                 → cloudInitWithTimeout + buildCloudRetryHost + ensure + handleFailure + manualRefresh
+  diagnostics-handler.ts                 → handleDiagnosticsExport (Throttle + JSON-Dump)
+  group-fanout-handler.ts                → buildGroupFanoutHost + resolveGroupMembers + updateGroupReachability
+  group-state-helpers.ts                 → STATE_TO_COMMAND + COMMAND_DROPDOWN + MODE_DROPDOWNS + stateToCommand + reset-Helpers
+  snapshot-handler-glue.ts               → buildSnapshotHost (closure-Factory)
+  state-change-router.ts                 → onStateChange + sub-handlers + dropdown-resolver + sendMusicCommand + handleManualSegments
+  wizard-handler.ts                      → buildWizardHost + applyWizardResult + runWizardStep + deviceKey-Helpers
+src/lib/device-manager.ts                → DeviceManager-Class: Cloud-Load, MQTT-Handling, Group-Members, Cmd-Dispatch (v2.6.5: 1268 Zeilen, war 1660)
+src/lib/device-manager/                  → 4 Sub-Files für device-manager (v2.6.5)
+  cloud-merge.ts                         → mergeCloudDevices + applyOnlineCap (free fns mit CloudMergeAdapter)
+  device-cache.ts (cache.ts)             → cachedToGoveeDevice + goveeDeviceToCached + persistDeviceToCache + saveDevicesToCache + populateScenesFromLibrary
+  lookups.ts                             → MqttSegmentData + parseMqttSegmentData + getEffectiveSegmentIndices + resolveSegmentCount + SEGMENT_HARD_MAX + deviceKey + findDeviceBySkuAndId (alle pure)
+  mapping.ts                             → cloudDeviceToGoveeDevice + buildCapabilitiesFromAppEntry (pure)
+src/lib/segment-wizard.ts                → SegmentWizard + WizardHost — misst echte Strip-Länge, erkennt Lücken (v1.7.0 done-Flow)
+src/lib/cloud-retry.ts                   → CloudRetryLoop + CloudRetryHost-Interface (v1.6.3 extracted for testability)
+src/lib/capability-mapper.ts             → Capability → State Definition + buildDeviceStateDefs + Quirks + Scene Speed (907 Zeilen)
+src/lib/command-router.ts                → Command Routing LAN → Cloud + Segment ptReal + Snapshot ptReal (677 Zeilen)
+src/lib/state-manager.ts                 → State CRUD + Cleanup + Channel Routing + Groups Online + manual-state sync (v1.7.0)
+src/lib/govee-lan-client.ts              → LAN UDP (Discovery + Control + Status + ptReal BLE + Segments + Speed) (711 Zeilen)
+src/lib/govee-mqtt-client.ts             → AWS IoT MQTT (Auth + Status-Push, kein Command-Senden) (391 Zeilen)
+src/lib/types.ts                         → Interfaces + Shared Utilities (rgbToHex, hexToRgb, classifyError) (435 Zeilen)
+src/lib/govee-api-client.ts              → Undocumented API (Scene/Music/DIY Libraries, Snapshots, SKU Features) (364 Zeilen)
+src/lib/govee-cloud-client.ts            → Cloud REST API v2 (Devices, Capabilities, Szenen+Snapshots, Control)
+src/lib/sku-cache.ts                     → Persistent SKU cache (device data, scene/music/DIY libraries, snapshots) (145 Zeilen)
+src/lib/rate-limiter.ts                  → Rate-Limits für Cloud REST Calls
+src/lib/local-snapshots.ts               → Local Snapshot Store (LAN-based save/restore, JSON files)
+src/lib/device-registry.ts               → SKU-specific overrides aus devices.json (status-aware: verified/reported/seed)
+src/lib/diagnostics.ts                   → Ringbuffer pro Device (logs/MQTT-Pakete/API-Responses) für strukturiertes Diagnostics-JSON
+src/lib/http-client.ts                   → Shared HTTPS request (httpsRequest + HttpError)
+src/lib/message-router.ts                → MessageRouter (sendTo handler) — admin-jsonConfig-Befehle
+src/lib/snapshot-handler.ts              → SnapshotHandler-Class für lokale Snapshots
+src/lib/group-fanout.ts                  → GroupFanoutHandler-Class für Gruppen-Befehle
 ```
 
 ## State Tree
@@ -324,6 +341,10 @@ test/testPackageFiles.ts     → @iobroker/testing (57)
 
 | Version | Highlights |
 | ------- | ---------- |
+| 2.6.5 | **Phase B Modularisierung**: main.ts in 8 lib/handlers/* zerlegt (cloud-creds, cloud-retry, diagnostics, group-fanout, group-state-helpers, snapshot-handler-glue, state-change-router, wizard). device-manager.ts in 4 lib/device-manager/* zerlegt (cache, cloud-merge, lookups, mapping). Free-fn-Pattern mit Adapter-Context-Interfaces; Class-Felder public für strukturelles Typing. main.ts 2008→1159 LOC (-42%), device-manager.ts 1660→1268 (-24%). 768/768 Tests grün throughout. |
+| 2.6.4 | **Phase A Erweiterungs-Option**: Test-Runner mocha+ts-node → vitest. Tests laufen ~1s statt mehrere Sekunden, ESM-Loader-Bug aus mocha-Setup ist weg. Source-Code byte-identisch — keine User-Änderung. |
+| 2.6.3 | 4-Pass-Audit Hardening (~62 Findings): MQTT-subscribe-silent-death recovery, LAN-stop-race fix, HTTP-mid-stream error reporting, Snapshot-batch performance, segment-detection-wizard restore-on-stop, API-key-rejected actionable hint. |
+| 2.6.2 | Logs revert to English (mcm1957-Linie). Lokalisierte State-Namen/Descs/Labels (11 Sprachen) bleiben. |
 | 2.6.0 | Multi-Language i18n-Welle: `lib/i18n-logs.ts` (42 Keys × 11 Sprachen, `setActiveLang` Module-State, `tLog(key, params)` Helper) + `lib/i18n-states.ts` (38 Names + 7 Descs + 4 Labels × 11 Sprachen, `tName/tDesc/tLabel` für ioBroker-Translation-Objects in `common.name/.desc/.states`). 8 Library-Klassen + capability-mapper + state-manager umgestellt. Debug-Logs + Stack-Traces bleiben EN. Vollständigkeits-Check fand 2 Lücken (`loadedFromCache`, `deviceBeta` waren als Keys da, im Code noch hardcoded) + 3 fehlende Keys (`deviceBetaInactive`, `deviceUnknown`, `segmentsDetected`) — nachgezogen. |
 | 2.5.4 | mqtt.connect-DI als optionaler Konstruktor-Parameter (analog httpsRequest in v2.5.1), 7 neue Mock-Tests für getIotKey-Pfad + persisted-credentials reuse (670→677 Tests) |
 | 2.5.3 | Issue #8 (tukey42) Fix: Segment-Wizard-WARN-Spam für indices oberhalb device.segmentCount weg (defensive Cap-Filter in onSegmentBatchUpdate + onMqttSegmentUpdate). Plus: „No channel available"-WARN bei Cloud-Init-Race (Cloud-only Gerät direkt nach Restart) ist jetzt debug — false alarm |
