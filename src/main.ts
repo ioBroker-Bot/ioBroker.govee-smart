@@ -19,6 +19,7 @@ import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
+import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
 import { SegmentWizard, wizardIdleText, type WizardHost, type WizardResult } from "./lib/segment-wizard";
 import { SkuCache } from "./lib/sku-cache";
@@ -72,9 +73,12 @@ const STATE_TO_COMMAND: Readonly<Record<string, string>> = {
 };
 
 class GoveeAdapter extends utils.Adapter {
-  private deviceManager: DeviceManager | null = null;
-  private stateManager: StateManager | null = null;
-  private lanClient: GoveeLanClient | null = null;
+  /** Public for handler modules (state-change-router, group-fanout, wizard, snapshot, diagnostics). */
+  public deviceManager: DeviceManager | null = null;
+  /** Public for handler modules. */
+  public stateManager: StateManager | null = null;
+  /** Public for handler modules. */
+  public lanClient: GoveeLanClient | null = null;
   private mqttClient: GoveeMqttClient | null = null;
   private openapiMqttClient: GoveeOpenapiMqttClient | null = null;
   private cloudClient: GoveeCloudClient | null = null;
@@ -122,13 +126,15 @@ class GoveeAdapter extends utils.Adapter {
   private cleanupTimer: ioBroker.Timeout | undefined;
   private readyTimer: ioBroker.Timeout | undefined;
   private cloudRetry: CloudRetryLoop | null = null;
-  private segmentWizard: SegmentWizard | null = null;
+  /** Public for handlers/wizard-handler — lazily instantiated by `runWizardStep`. */
+  public segmentWizard: SegmentWizard | null = null;
   private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
   private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
   /** Per-device timestamp of the last diagnostics export — throttle gate */
   private diagnosticsLastRun = new Map<string, number>();
   /** Cached admin language from system.config — used for wizard UI text */
-  private adminLanguage = "en";
+  /** Public for handler modules. */
+  public adminLanguage = "en";
   /** Last time `requestCode` was triggered via onMessage — guards against double-click email spam. */
   private lastVerificationRequestMs = 0;
   /**
@@ -1531,7 +1537,8 @@ class GoveeAdapter extends utils.Adapter {
    * @param mode    Whether manual mode should be active
    * @param indices Physical indices when mode=true, ignored otherwise
    */
-  private async applyManualSegments(device: GoveeDevice, mode: boolean, indices?: number[]): Promise<void> {
+  /** Public for handler modules (wizard, state-change-router). */
+  public async applyManualSegments(device: GoveeDevice, mode: boolean, indices?: number[]): Promise<void> {
     if (!this.stateManager) {
       return;
     }
@@ -1614,11 +1621,11 @@ class GoveeAdapter extends utils.Adapter {
         return devices
           .filter(d => d.sku !== "BaseGroup" && d.state?.online === true && resolveSegmentCount(d) > 0)
           .map(d => ({
-            value: this.deviceKeyFor(d),
+            value: wizardHandler.deviceKeyFor(d),
             label: `${d.name} (${d.sku}, bisher ${resolveSegmentCount(d)} Segmente)`,
           }));
       },
-      runWizardStep: (action, deviceKey) => this.runWizardStep(action, deviceKey),
+      runWizardStep: (action, deviceKey) => wizardHandler.runWizardStep(this, action, deviceKey),
     };
   }
 
@@ -1636,99 +1643,6 @@ class GoveeAdapter extends utils.Adapter {
     if (obj.callback && obj.from) {
       this.sendTo(obj.from, obj.command, data as Record<string, unknown>, obj.callback);
     }
-  }
-
-  /**
-   * Stable device key for wizard session tracking.
-   *
-   * @param device Target device
-   */
-  private deviceKeyFor(device: GoveeDevice): string {
-    return `${device.sku}:${device.deviceId}`;
-  }
-
-  private findDeviceByKey(key: string): GoveeDevice | undefined {
-    const devices = this.deviceManager?.getDevices() ?? [];
-    return devices.find(d => this.deviceKeyFor(d) === key);
-  }
-
-  /** Construct the host object passed into SegmentWizard. */
-  private buildWizardHost(): WizardHost {
-    return {
-      log: this.log,
-      getState: id => this.getStateAsync(id),
-      sendCommand: async (device, command, value) => {
-        await this.deviceManager?.sendCommand(device, command, value);
-      },
-      flashSegmentAtomic: (device, idx) => {
-        if (!device.lanIp || !this.lanClient) {
-          return Promise.resolve(false);
-        }
-        this.lanClient.flashSingleSegment(device.lanIp, idx);
-        return Promise.resolve(true);
-      },
-      restoreStripAtomic: (device, total, color, brightness) => {
-        if (!device.lanIp || !this.lanClient) {
-          return Promise.resolve(false);
-        }
-        const r = (color >> 16) & 0xff;
-        const g = (color >> 8) & 0xff;
-        const b = color & 0xff;
-        this.lanClient.restoreAllSegments(device.lanIp, total, r, g, b, brightness);
-        return Promise.resolve(true);
-      },
-      findDevice: key => this.findDeviceByKey(key),
-      namespace: this.namespace,
-      devicePrefix: device => this.stateManager?.devicePrefix(device) ?? "",
-      setTimeout: (cb, ms) => this.setTimeout(cb, ms),
-      clearTimeout: h => this.clearTimeout(h as ioBroker.Timeout),
-      applyWizardResult: (device, result) => this.applyWizardResult(device, result),
-      getLanguage: () => this.adminLanguage,
-    };
-  }
-
-  /**
-   * Apply a finished wizard's measurement: set the real segment count, then
-   * route through {@link applyManualSegments} so the same state-tree rebuild
-   * and cache-persist path runs for both wizard results and user edits.
-   *
-   * @param device Target device
-   * @param result Wizard's measurement
-   */
-  private async applyWizardResult(device: GoveeDevice, result: WizardResult): Promise<void> {
-    device.segmentCount = result.segmentCount;
-    if (result.hasGaps) {
-      const parsed = parseSegmentList(result.manualList, result.segmentCount - 1);
-      await this.applyManualSegments(device, true, parsed.error ? undefined : parsed.indices);
-    } else {
-      await this.applyManualSegments(device, false);
-    }
-    this.log.debug(
-      `applyWizardResult: ${device.sku} → segmentCount=${result.segmentCount}, ` +
-        `manualMode=${device.manualMode}, list="${result.manualList}"`,
-    );
-  }
-
-  /**
-   * Execute one wizard step (start/yes/no/abort). Delegates to
-   * {@link SegmentWizard} — see `lib/segment-wizard.ts`.
-   *
-   * @param action "start" | "yes" | "no" | "abort"
-   * @param deviceKey device identifier (only required for "start")
-   */
-  private async runWizardStep(action: string, deviceKey: string): Promise<Record<string, unknown>> {
-    if (!this.segmentWizard) {
-      this.segmentWizard = new SegmentWizard(this.buildWizardHost());
-    }
-    const response = await this.segmentWizard.runStep(action, deviceKey);
-    // Mirror the current wizard status into a plain state so admin's
-    // `type: "state"` component can show it live via state subscription.
-    const statusText = this.segmentWizard.getStatusText();
-    await this.setStateAsync("info.wizardStatus", {
-      val: statusText,
-      ack: true,
-    });
-    return response;
   }
 
   /** Construct host object for SnapshotHandler — adapter dependencies injected. */
