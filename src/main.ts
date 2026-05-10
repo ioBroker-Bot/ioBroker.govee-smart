@@ -23,6 +23,7 @@ import * as cloudRetryHandler from "./lib/handlers/cloud-retry-handler";
 import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
 import * as groupStateHelpers from "./lib/handlers/group-state-helpers";
 import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
+import * as stateChangeRouter from "./lib/handlers/state-change-router";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
 import { SegmentWizard, wizardIdleText, type WizardHost, type WizardResult } from "./lib/segment-wizard";
@@ -104,8 +105,10 @@ class GoveeAdapter extends utils.Adapter {
   private skuCache: SkuCache | null = null;
   /** Public for handler modules. */
   public localSnapshots: LocalSnapshotStore | null = null;
-  private snapshotHandler: SnapshotHandler | null = null;
-  private groupFanout: GroupFanoutHandler | null = null;
+  /** Public for handler modules (state-change-router). */
+  public snapshotHandler: SnapshotHandler | null = null;
+  /** Public for handler modules (state-change-router). */
+  public groupFanout: GroupFanoutHandler | null = null;
   private messageRouter: MessageRouter | null = null;
   private stateCreationQueue: Promise<void>[] = [];
   private lanScanTimer: ioBroker.Timeout | undefined;
@@ -118,7 +121,8 @@ class GoveeAdapter extends utils.Adapter {
   private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
   private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
   /** Per-device timestamp of the last diagnostics export — throttle gate */
-  private diagnosticsLastRun = new Map<string, number>();
+  /** Public for handler modules (state-change-router, diagnostics). */
+  public diagnosticsLastRun = new Map<string, number>();
   /** Cached admin language from system.config — used for wizard UI text */
   /** Public for handler modules. */
   public adminLanguage = "en";
@@ -129,7 +133,8 @@ class GoveeAdapter extends utils.Adapter {
    * applyCloudCapabilities, retrySceneData, …) check this between awaits
    * and bail before further setStateAsync against a torn-down adapter.
    */
-  private unloading = false;
+  /** Public for handler modules (state-change-router). */
+  public unloading = false;
   /** Initial app-version-check timer (2 min after start) — kept so onUnload can clear it. */
   private appVersionInitialTimer: ioBroker.Timeout | undefined;
 
@@ -144,7 +149,9 @@ class GoveeAdapter extends utils.Adapter {
       ),
     );
     this.on("stateChange", (id, state) =>
-      this.onStateChange(id, state).catch(e => this.log.warn(`onStateChange crashed for ${id}: ${errMessage(e)}`)),
+      stateChangeRouter
+        .onStateChange(this, id, state)
+        .catch(e => this.log.warn(`onStateChange crashed for ${id}: ${errMessage(e)}`)),
     );
     this.on("message", obj => this.messageRouter?.onMessage(obj));
     this.on("unload", callback => this.onUnload(callback));
@@ -623,271 +630,14 @@ class GoveeAdapter extends utils.Adapter {
     callback();
   }
 
-  /**
-   * Handle state changes from user (write operations).
-   *
-   * @param id State ID
-   * @param state New state value
-   */
-  private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
-    if (!state || state.ack || !this.deviceManager || !this.stateManager || this.unloading) {
-      return;
-    }
-
-    // Global refresh button — triggers one fresh cloud fetch across all
-    // devices and re-builds the state tree. Handy after creating a new
-    // snapshot in the Govee Home app without restarting the adapter.
-    if (id === `${this.namespace}.info.refresh_cloud_data` && state.val) {
-      await cloudRetryHandler.handleManualCloudRefresh(this);
-      await this.setStateAsync(id, { val: false, ack: true });
-      return;
-    }
-
-    // Find which device this state belongs to
-    const localId = id.replace(`${this.namespace}.`, "");
-    if (!localId.startsWith("devices.") && !localId.startsWith("groups.")) {
-      return;
-    }
-
-    const device = this.findDeviceForState(localId);
-    if (!device) {
-      return;
-    }
-
-    // Determine command from state suffix after device prefix
-    const prefix = this.stateManager.devicePrefix(device);
-    const stateSuffix = localId.slice(prefix.length + 1);
-
-    // Resolve dropdown input — accept Number, numeric String, or label
-    // (case-insensitive) against the state's common.states map. Returns
-    // the canonical key as String so the rest of the handler sees the
-    // same shape it always saw (e.g. "1"). Non-dropdown states are
-    // passed through unchanged.
-    const resolved = await this.resolveDropdownInput(id, state.val);
-    if (!resolved.ok) {
-      this.log.warn(`Unknown dropdown value for ${id}: ${String(state.val)} — ignoring`);
-      return;
-    }
-    const val = resolved.val;
-
-    // Group fan-out: route commands to each member device
-    if (device.sku === "BaseGroup" && device.groupMembers) {
-      await this.groupFanout!.fanOut(device, stateSuffix, val);
-      await this.setStateAsync(id, { val, ack: true });
-      if (stateSuffix === "scenes.light_scene" || stateSuffix === "music.music_mode") {
-        await groupStateHelpers.resetRelatedDropdowns(this, prefix, stateSuffix === "scenes.light_scene" ? "lightScene" : "music");
-      }
-      return;
-    }
-
-    // Handle local snapshot commands (no Cloud/MQTT needed)
-    if (stateSuffix === "snapshots.snapshot_save" && typeof val === "string" && val.trim()) {
-      await this.snapshotHandler!.save(device, val.trim());
-      await this.setStateAsync(id, { val: "", ack: true });
-      return;
-    }
-    if (stateSuffix === "snapshots.snapshot_local") {
-      if (val !== "0" && val !== 0) {
-        await this.snapshotHandler!.restore(device, val);
-        await groupStateHelpers.resetRelatedDropdowns(this, prefix, "snapshotLocal");
-      }
-      await this.setStateAsync(id, { val, ack: true });
-      return;
-    }
-    if (stateSuffix === "snapshots.snapshot_delete" && typeof val === "string" && val.trim()) {
-      this.snapshotHandler!.delete(device, val.trim());
-      await this.setStateAsync(id, { val: "", ack: true });
-      return;
-    }
-
-    // Manual segments toggle/list — handler owns the ack because a parse
-    // error rewrites manual_mode to false, and an outer ack with the
-    // raw value would resurrect the rejected entry.
-    if (stateSuffix === "segments.manual_mode" || stateSuffix === "segments.manual_list") {
-      await this.handleManualSegmentsChange(device, stateSuffix, val);
-      return;
-    }
-
-    if (stateSuffix === "diag.export" && val) {
-      if (this.deviceManager) {
-        await diagnosticsHandler.handleDiagnosticsExport(
-          this,
-          this.deviceManager,
-          this.diagnosticsLastRun,
-          device,
-          prefix,
-          id,
-        );
-      }
-      return;
-    }
-
-    const command = this.stateToCommand(stateSuffix);
-
-    if (!command) {
-      await this.handleGenericCapabilityCommand(device, id, stateSuffix, val);
-      return;
-    }
-
-    // Dropdown reset to "---" (value 0) — acknowledge without sending command
-    if ((command === "lightScene" || command === "diyScene" || command === "snapshot") && (val === "0" || val === 0)) {
-      await this.setStateAsync(id, { val, ack: true });
-      return;
-    }
-
-    // Scene speed: store on device, applied on next scene activation.
-    // Persist to SKU cache so the user's choice survives a restart.
-    if (command === "sceneSpeed") {
-      const level = typeof val === "number" ? val : parseInt(String(val), 10);
-      if (!isNaN(level)) {
-        device.sceneSpeed = level;
-        this.deviceManager?.persistDeviceToCache(device);
-      }
-      await this.setStateAsync(id, { val, ack: true });
-      return;
-    }
-
-    try {
-      // Music mode: combine all music states into one STRUCT command
-      if (command === "music") {
-        // music_mode "---" (value 0) — acknowledge without sending command
-        if (stateSuffix === "music.music_mode" && (val === "0" || val === 0)) {
-          await this.setStateAsync(id, { val, ack: true });
-          return;
-        }
-        await this.sendMusicCommand(device, prefix, stateSuffix, val);
-        await this.setStateAsync(id, { val, ack: true });
-        // Reset scene/snapshot dropdowns when activating music mode
-        if (stateSuffix === "music.music_mode") {
-          await groupStateHelpers.resetRelatedDropdowns(this, prefix, "music");
-        }
-        return;
-      }
-
-      await this.deviceManager.sendCommand(device, command, val);
-      // Optimistic ack
-      await this.setStateAsync(id, { val, ack: true });
-      // Reset related dropdowns when switching modes.
-      // Power-off is a special case — the device is off, so no mode is
-      // active anymore; reset every mode dropdown so the UI reflects the
-      // reality (scene/music/snapshot selections are now just history).
-      if (command === "power" && val === false) {
-        await groupStateHelpers.resetModeDropdowns(this, prefix, "");
-      } else {
-        await groupStateHelpers.resetRelatedDropdowns(this, prefix, command);
-      }
-    } catch (err) {
-      this.log.warn(`Command failed for ${device.name}: ${errMessage(err)}`);
-    }
-  }
-
-  /**
-   * Resolve a dropdown-state input value against the state's common.states
-   * map. Returns the canonical key (always String form) so a user can write
-   * either the index ("1"), the index as a number (1) or the label name
-   * ("Aurora", case-insensitive) — all three land at the same canonical
-   * value for the rest of the handler.
-   *
-   * Non-dropdown states (no common.states), reset sentinels (0/"0"/"") and
-   * non-string/number inputs are passed through unchanged. A dropdown input
-   * that doesn't match any key or label returns ok=false so the caller can
-   * warn and skip the command.
-   *
-   * @param id Full state id
-   * @param raw Raw input value as provided by the user/script
-   */
-  private async resolveDropdownInput(
-    id: string,
-    raw: ioBroker.StateValue,
-  ): Promise<{ val: ioBroker.StateValue; ok: boolean }> {
-    if (raw === null || raw === undefined) {
-      return { val: raw, ok: true };
-    }
-    // Reset sentinels — let the existing branch handle them.
-    if (raw === 0 || raw === "0" || raw === "") {
-      return { val: raw, ok: true };
-    }
-    // Only dropdown candidates have common.states; non-dropdown inputs
-    // can't be resolved here so they pass through.
-    if (typeof raw !== "number" && typeof raw !== "string") {
-      return { val: raw, ok: true };
-    }
-    const obj = await this.getObjectAsync(id);
-    const states = obj?.common?.states;
-    if (!states || typeof states !== "object") {
-      return { val: raw, ok: true };
-    }
-    const resolved = resolveStatesValue(raw, states as Record<string, string>);
-    if (resolved) {
-      return { val: resolved.key, ok: true };
-    }
-    return { val: raw, ok: false };
-  }
-
-  /**
-   * Build and send a music_setting STRUCT command.
-   * Reads sibling music state values and combines them into one API call.
-   *
-   * @param device Target device
-   * @param prefix Device state prefix
-   * @param changedSuffix Which music state was changed
-   * @param newValue New value for the changed state
-   */
-  /** Public for handler modules (group-fanout, state-change-router). */
+  /** Public delegate to stateChangeRouter — required by GroupFanoutHandlerAdapter interface. */
   public async sendMusicCommand(
     device: GoveeDevice,
     prefix: string,
     changedSuffix: string,
     newValue: ioBroker.StateValue,
   ): Promise<void> {
-    const musicBase = `${this.namespace}.${prefix}.music`;
-
-    // Read current sibling values
-    const modeState = await this.getStateAsync(`${musicBase}.music_mode`);
-    const sensState = await this.getStateAsync(`${musicBase}.music_sensitivity`);
-    const autoState = await this.getStateAsync(`${musicBase}.music_auto_color`);
-
-    // Apply the changed value, use siblings for the rest
-    const musicMode =
-      changedSuffix === "music.music_mode" ? parseInt(String(newValue), 10) : parseInt(String(modeState?.val ?? 0), 10);
-    const sensitivity =
-      changedSuffix === "music.music_sensitivity" ? (newValue as number) : ((sensState?.val as number) ?? 100);
-    const autoColor = changedSuffix === "music.music_auto_color" ? (newValue ? 1 : 0) : autoState?.val ? 1 : 0;
-
-    if (!musicMode || musicMode === 0) {
-      this.log.debug("Music mode not selected, skipping command");
-      return;
-    }
-
-    // LAN first: send via ptReal BLE if device is on LAN
-    if (device.lanIp && this.lanClient) {
-      // Read current color for RGB-modes (Spectrum=1, Rolling=2)
-      let r = 0,
-        g = 0,
-        b = 0;
-      if (musicMode === 1 || musicMode === 2) {
-        const colorState = await this.getStateAsync(`${this.namespace}.${prefix}.control.colorRgb`);
-        if (colorState?.val && typeof colorState.val === "string") {
-          ({ r, g, b } = hexToRgb(colorState.val));
-        }
-      }
-      this.lanClient.setMusicMode(device.lanIp, musicMode, r, g, b);
-      return;
-    }
-
-    // Cloud fallback
-    const structValue: Record<string, unknown> = {
-      musicMode,
-      sensitivity,
-      autoColor,
-    };
-
-    await this.deviceManager!.sendCapabilityCommand(
-      device,
-      "devices.capabilities.music_setting",
-      "musicMode",
-      structValue,
-    );
+    return stateChangeRouter.sendMusicCommand(this, device, prefix, changedSuffix, newValue);
   }
 
   /**
@@ -1310,20 +1060,6 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param localId Local state ID without namespace prefix
    */
-  private findDeviceForState(localId: string): GoveeDevice | undefined {
-    if (!this.deviceManager || !this.stateManager) {
-      return undefined;
-    }
-
-    for (const device of this.deviceManager.getDevices()) {
-      const prefix = this.stateManager.devicePrefix(device);
-      if (localId.startsWith(`${prefix}.`)) {
-        return device;
-      }
-    }
-    return undefined;
-  }
-
   /**
    * Map state suffix to command name.
    *
@@ -1357,50 +1093,6 @@ class GoveeAdapter extends utils.Adapter {
     device.manualSegments = mode && Array.isArray(indices) && indices.length > 0 ? indices.slice() : undefined;
     await this.stateManager.createSegmentStates(device);
     this.deviceManager?.persistDeviceToCache(device);
-  }
-
-  /**
-   * React to manual-segments state changes — parses list, forwards to
-   * {@link applyManualSegments}. On parse error disables manual mode so the
-   * rejected value doesn't survive in the state tree.
-   *
-   * @param device Target device
-   * @param suffix State suffix (either "segments.manual_mode" or "segments.manual_list")
-   * @param newValue Written value
-   */
-  private async handleManualSegmentsChange(device: GoveeDevice, suffix: string, newValue: unknown): Promise<void> {
-    // Peer value that wasn't just written comes from the device object
-    // (kept in sync via createSegmentStates), not a separate state read.
-    const modeVal = suffix === "segments.manual_mode" ? Boolean(newValue) : device.manualMode === true;
-    const listVal =
-      suffix === "segments.manual_list"
-        ? typeof newValue === "string"
-          ? newValue
-          : ""
-        : Array.isArray(device.manualSegments)
-          ? device.manualSegments.join(",")
-          : "";
-
-    if (!modeVal) {
-      this.log.info(`${device.name}: manual segments disabled — strip treated as contiguous`);
-      await this.applyManualSegments(device, false);
-      return;
-    }
-
-    // Upper bound: cap at the real length if known, otherwise the protocol limit.
-    // Real length can still grow via MQTT discovery, so SEGMENT_HARD_MAX is the
-    // absolute safety net.
-    const maxIndex =
-      typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount - 1 : SEGMENT_HARD_MAX;
-    const parsed = parseSegmentList(listVal, maxIndex);
-    if (parsed.error) {
-      this.log.warn(`${device.name}: manual_list invalid (${parsed.error}) — disabling manual mode`);
-      await this.applyManualSegments(device, false);
-      return;
-    }
-
-    this.log.debug(`${device.name}: manual segments active — ${parsed.indices.length} physical indices (${listVal})`);
-    await this.applyManualSegments(device, true, parsed.indices);
   }
 
   // ───────── Segment-Detection-Wizard ─────────
@@ -1458,40 +1150,6 @@ class GoveeAdapter extends utils.Adapter {
 
   /** Construct host object for SnapshotHandler — adapter dependencies injected. */
   /** Dropdowns whose value is a mode-selection — reset to "---" (0) when the mode stops. */
-  /**
-   * Generischer Capability-Routing-Pfad für States die nicht im STATE_TO_COMMAND
-   * Mapping sind. Liest `native.capabilityType`/`capabilityInstance` aus dem
-   * State-Object und schickt das via Cloud-API.
-   *
-   * @param device Target device
-   * @param id Full state-id (für ack)
-   * @param stateSuffix State-Pfad innerhalb Device (für debug-log)
-   * @param val Value zum Senden
-   */
-  private async handleGenericCapabilityCommand(
-    device: GoveeDevice,
-    id: string,
-    stateSuffix: string,
-    val: ioBroker.StateValue,
-  ): Promise<void> {
-    if (!this.deviceManager) {
-      return;
-    }
-    const obj = await this.getObjectAsync(id);
-    const capType = obj?.native?.capabilityType;
-    const capInstance = obj?.native?.capabilityInstance;
-    if (typeof capType === "string" && typeof capInstance === "string") {
-      try {
-        await this.deviceManager.sendCapabilityCommand(device, capType, capInstance, val);
-        await this.setStateAsync(id, { val, ack: true });
-      } catch (err) {
-        this.log.warn(`Command failed for ${device.name}: ${errMessage(err)}`);
-      }
-    } else {
-      this.log.debug(`Unknown writable state: ${stateSuffix}`);
-    }
-  }
-
 }
 
 if (require.main !== module) {
