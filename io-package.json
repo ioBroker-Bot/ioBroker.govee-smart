@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.6.4",
     "news": {
+      "NEXT": {
+        "en": "Internal refactoring (main.ts and device-manager.ts split into smaller modules). No changes for users.",
+        "de": "Internes Refactoring (main.ts und device-manager.ts in kleinere Module aufgeteilt). Keine Änderungen für Benutzer.",
+        "ru": "Внутренний рефакторинг (main.ts и device-manager.ts разбиты на меньшие модули). Для пользователей ничего не меняется.",
+        "pt": "Refatoração interna (main.ts e device-manager.ts divididos em módulos menores). Sem alterações para utilizadores.",
+        "nl": "Interne refactoring (main.ts en device-manager.ts opgesplitst in kleinere modules). Geen wijzigingen voor gebruikers.",
+        "fr": "Refactorisation interne (main.ts et device-manager.ts divisés en modules plus petits). Aucun changement pour les utilisateurs.",
+        "it": "Refactoring interno (main.ts e device-manager.ts suddivisi in moduli più piccoli). Nessuna modifica per gli utenti.",
+        "es": "Refactorización interna (main.ts y device-manager.ts divididos en módulos más pequeños). Sin cambios para los usuarios.",
+        "pl": "Wewnętrzny refaktoring (main.ts i device-manager.ts podzielone na mniejsze moduły). Bez zmian dla użytkowników.",
+        "uk": "Внутрішній рефакторинг (main.ts і device-manager.ts розбиті на менші модулі). Без змін для користувачів.",
+        "zh-cn": "内部重构（main.ts 与 device-manager.ts 拆分为更小的模块）。用户无任何变化。"
+      },
       "2.6.4": {
         "en": "Internal tooling refresh. No changes for users.",
         "de": "Internes Tooling aufgefrischt. Keine Änderungen für Benutzer.",
