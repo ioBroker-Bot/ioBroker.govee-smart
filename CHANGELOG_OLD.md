@@ -1,4 +1,8 @@
 # Older Changes
+## 2.6.0 (2026-05-06)
+
+- Multi-language: state names, descriptions and dropdown labels are now in your ioBroker system language (11 languages).
+
 ## 2.5.4 (2026-05-04)
 
 - Test-coverage expansion: `mqtt.connect` is now an injectable constructor parameter (like `httpsRequest` in v2.5.1), and 7 new mock tests cover the getIotKey path and persisted-credentials reuse.

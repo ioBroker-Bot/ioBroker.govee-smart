@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.6.5 (2026-05-10)
 
 - Internal refactoring. No changes for users.
 
@@ -153,10 +153,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.6.1 (2026-05-06)
 
 - Documentation: changelog entries (v2.5.x–v2.6.0) restored to English — a few bullets had been left in German. No code changes.
-
-### 2.6.0 (2026-05-06)
-
-- Multi-language: state names, descriptions and dropdown labels are now in your ioBroker system language (11 languages).
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
