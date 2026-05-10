@@ -1,0 +1,83 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var cloud_state_loader_exports = {};
+__export(cloud_state_loader_exports, {
+  applyCloudCapabilities: () => applyCloudCapabilities,
+  loadCloudStates: () => loadCloudStates
+});
+module.exports = __toCommonJS(cloud_state_loader_exports);
+var import_capability_mapper = require("../capability-mapper");
+async function loadCloudStates(adapter) {
+  if (!adapter.cloudClient || !adapter.deviceManager || !adapter.stateManager) {
+    return;
+  }
+  const devices = adapter.deviceManager.getDevices();
+  const lanStateIds = new Set((0, import_capability_mapper.getDefaultLanStates)().map((s) => s.id));
+  let loaded = 0;
+  for (const device of devices) {
+    if (!device.channels.cloud || device.capabilities.length === 0) {
+      continue;
+    }
+    try {
+      const caps = await adapter.cloudClient.getDeviceState(device.sku, device.deviceId);
+      const prefix = adapter.stateManager.devicePrefix(device);
+      const writes = [];
+      for (const cap of caps) {
+        const mapped = (0, import_capability_mapper.mapCloudStateValue)(cap);
+        if (!mapped) {
+          continue;
+        }
+        if (device.lanIp && lanStateIds.has(mapped.stateId)) {
+          continue;
+        }
+        const statePath = adapter.stateManager.resolveStatePath(prefix, mapped.stateId);
+        writes.push(adapter.setStateAsync(statePath, { val: mapped.value, ack: true }).catch(() => void 0));
+      }
+      await Promise.all(writes);
+      loaded++;
+    } catch {
+      adapter.log.debug(`Could not load Cloud state for ${device.name} (${device.sku})`);
+    }
+  }
+  if (loaded > 0) {
+    adapter.log.debug(`Cloud states loaded for ${loaded} devices`);
+  }
+}
+async function applyCloudCapabilities(adapter, device, caps) {
+  if (!adapter.stateManager) {
+    return;
+  }
+  const lanStateIds = new Set((0, import_capability_mapper.getDefaultLanStates)().map((s) => s.id));
+  const prefix = adapter.stateManager.devicePrefix(device);
+  const planned = (0, import_capability_mapper.planCloudCapabilityWrites)(caps, Boolean(device.lanIp), lanStateIds);
+  for (const mapped of planned) {
+    await adapter.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
+  }
+  const writes = planned.map((mapped) => {
+    const statePath = adapter.stateManager.resolveStatePath(prefix, mapped.stateId);
+    return adapter.setStateAsync(statePath, { val: mapped.value, ack: true }).catch(() => void 0);
+  });
+  await Promise.all(writes);
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  applyCloudCapabilities,
+  loadCloudStates
+});
+//# sourceMappingURL=cloud-state-loader.js.map

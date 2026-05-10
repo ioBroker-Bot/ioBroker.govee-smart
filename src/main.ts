@@ -1,11 +1,5 @@
 import * as utils from "@iobroker/adapter-core";
-import {
-  buildDeviceStateDefs,
-  getDefaultLanStates,
-  mapCloudStateValue,
-  planCloudCapabilityWrites,
-} from "./lib/capability-mapper";
-import { getDeviceTier, initDeviceRegistry } from "./lib/device-registry";
+import { initDeviceRegistry } from "./lib/device-registry";
 import { DeviceManager, resolveSegmentCount } from "./lib/device-manager";
 import { GoveeApiClient } from "./lib/govee-api-client";
 import { GoveeCloudClient } from "./lib/govee-cloud-client";
@@ -19,6 +13,9 @@ import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import type { CloudRetryLoop } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import * as cloudRetryHandler from "./lib/handlers/cloud-retry-handler";
+import * as cloudStateLoader from "./lib/handlers/cloud-state-loader";
+import * as connectionState from "./lib/handlers/connection-state";
+import * as deviceEvents from "./lib/handlers/device-events";
 import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
 import * as groupStateHelpers from "./lib/handlers/group-state-helpers";
 import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
@@ -35,12 +32,9 @@ import {
   rgbToHex,
   type AdapterConfig,
   type CloudStateCapability,
-  type DeviceState,
   type GoveeDevice,
 } from "./lib/types";
 import { APP_API_INITIAL_DELAY_MS, APP_API_POLL_INTERVAL_MS, CLOUD_FULL_LIMITS } from "./lib/timing-constants";
-import { GOVEE_APP_VERSION } from "./lib/govee-constants";
-import { httpsRequest } from "./lib/http-client";
 
 // Rate-limit defaults moved to lib/timing-constants.ts as CLOUD_FULL_LIMITS so
 // every module that touches Govee budgeting reads the same canonical values.
@@ -52,8 +46,10 @@ class GoveeAdapter extends utils.Adapter {
   public stateManager: StateManager | null = null;
   /** Public for handler modules. */
   public lanClient: GoveeLanClient | null = null;
-  private mqttClient: GoveeMqttClient | null = null;
-  private openapiMqttClient: GoveeOpenapiMqttClient | null = null;
+  /** Public for handler modules (connection-state). */
+  public mqttClient: GoveeMqttClient | null = null;
+  /** Public for handler modules (connection-state). */
+  public openapiMqttClient: GoveeOpenapiMqttClient | null = null;
   /** Public for handler modules. */
   public cloudClient: GoveeCloudClient | null = null;
   private rateLimiter: RateLimiter | null = null;
@@ -71,21 +67,22 @@ class GoveeAdapter extends utils.Adapter {
    * Letzter info.connection-Wert — Cache damit nicht jeder device-update
    *  einen unnötigen setStateAsync macht (H4).
    */
-  private lastConnectionState: boolean | null = null;
+  /** Public for handler modules (connection-state). */
+  public lastConnectionState: boolean | null = null;
   // === Lifecycle-Flags (Adapter-Boot-Sequenz) ===
   // checkAllReady() prüft alle 5 Voraussetzungen gleichzeitig — sie laufen
   // parallel ab, kein lineares STATE_MACHINE-Pattern weil Channels
   // unabhängig connecten.
-  /** LAN-Scan-Initial-Wait abgeschlossen (3s nach Start). */
-  private lanScanDone = false;
-  /** State-Tree-Erstellung für alle Cached/Cloud-Devices fertig. */
-  private statesReady = false;
-  /** Cloud-Init-Phase abgeschlossen (mit oder ohne Erfolg). */
-  private cloudInitDone = false;
-  /** True nach dem ersten erfolgreichen App-API-Poll (für Sensoren mit Werten). */
-  private appApiInitialPollDone = false;
-  /** Verhindert Mehrfach-Ready-Log innerhalb derselben Adapter-Session. */
-  private readyLogged = false;
+  /** LAN-Scan-Initial-Wait abgeschlossen — public for connection-state handler. */
+  public lanScanDone = false;
+  /** State-Tree-Erstellung fertig — public for connection-state + device-events handlers. */
+  public statesReady = false;
+  /** Cloud-Init-Phase abgeschlossen — public for connection-state handler. */
+  public cloudInitDone = false;
+  /** App-API-Poll fertig — public for connection-state handler. */
+  public appApiInitialPollDone = false;
+  /** Mehrfach-Ready-Log-Guard — public for connection-state handler. */
+  public readyLogged = false;
   /** Cloud war mindestens einmal connected — für „restored"-Log nach Down. */
   /** Public for handler modules. */
   public cloudWasConnected = false;
@@ -100,7 +97,8 @@ class GoveeAdapter extends utils.Adapter {
   /** Public for handler modules (state-change-router). */
   public groupFanout: GroupFanoutHandler | null = null;
   private messageRouter: MessageRouter | null = null;
-  private stateCreationQueue: Promise<void>[] = [];
+  /** Public for handler modules (device-events). */
+  public stateCreationQueue: Promise<void>[] = [];
   private lanScanTimer: ioBroker.Timeout | undefined;
   private cleanupTimer: ioBroker.Timeout | undefined;
   private readyTimer: ioBroker.Timeout | undefined;
@@ -223,8 +221,8 @@ class GoveeAdapter extends utils.Adapter {
     this.deviceManager.setApiClient(apiClient);
 
     this.deviceManager.setCallbacks(
-      (device, state) => this.onDeviceStateUpdate(device, state),
-      devices => this.onDeviceListChanged(devices),
+      (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
+      devices => deviceEvents.onDeviceListChanged(this, devices),
     );
 
     // Update info.ip when LAN IP changes
@@ -327,7 +325,7 @@ class GoveeAdapter extends utils.Adapter {
     // Wait for first LAN scan responses (UDP multicast, devices respond within 1-2s)
     this.lanScanTimer = this.setTimeout(() => {
       this.lanScanDone = true;
-      this.checkAllReady();
+      connectionState.checkAllReady(this);
     }, 3_000);
 
     // --- MQTT (if account credentials provided) ---
@@ -385,9 +383,9 @@ class GoveeAdapter extends utils.Adapter {
             ack: true,
           }).catch(() => {});
           if (connected) {
-            this.checkAllReady();
+            connectionState.checkAllReady(this);
           }
-          this.updateConnectionState();
+          connectionState.updateConnectionState(this);
         },
         // Forward every fresh bearer token — fires on initial login and on
         // each reconnect-login, so the API client never runs with a stale one.
@@ -411,9 +409,9 @@ class GoveeAdapter extends utils.Adapter {
       // same setState pipeline as polled Cloud state. Keeps mapCloudStateValue
       // as the single source of truth for value coercion + state-id resolution.
       this.deviceManager.setOnCloudCapabilities((device, caps) => {
-        this.applyCloudCapabilities(device, caps).catch(e =>
-          this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${errMessage(e)}`),
-        );
+        cloudStateLoader
+          .applyCloudCapabilities(this, device, caps)
+          .catch(e => this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${errMessage(e)}`));
       });
 
       this.rateLimiter = new RateLimiter(this.log, this, CLOUD_FULL_LIMITS.perMinute, CLOUD_FULL_LIMITS.perDay);
@@ -446,7 +444,7 @@ class GoveeAdapter extends utils.Adapter {
             // Adapter „ready" loggen kann sobald Sensor-Werte da sind.
             if (!this.appApiInitialPollDone) {
               this.appApiInitialPollDone = true;
-              this.checkAllReady();
+              connectionState.checkAllReady(this);
             }
           })
           .catch(e => this.log.debug(`pollAppApi failed: ${errMessage(e)}`));
@@ -471,7 +469,7 @@ class GoveeAdapter extends utils.Adapter {
         this.stateManager?.updateGroupsOnline(result.ok).catch(() => {});
 
         if (result.ok) {
-          await this.loadCloudStates();
+          await cloudStateLoader.loadCloudStates(this);
         } else {
           cloudRetryHandler.handleCloudFailure(this, result);
         }
@@ -512,14 +510,16 @@ class GoveeAdapter extends utils.Adapter {
     // Reaps devices from every adapter-level map that was keyed on them so the
     // process doesn't leak memory across Cloud-side device turnover.
     this.cleanupTimer = this.setTimeout(() => {
-      this.reapStaleDevices().catch(e => this.log.debug(`Device cleanup failed: ${errMessage(e)}`));
+      connectionState.reapStaleDevices(this).catch(e => this.log.debug(`Device cleanup failed: ${errMessage(e)}`));
     }, 30_000);
 
     // App-Version-Drift-Monitor — daily check + initial nach 2 min wenn der
     // Adapter-Start ohne MQTT-Login durchgeschlagen ist (z.B. LAN-only).
     this.appVersionCheckTimer = this.setInterval(
       () => {
-        this.checkAppVersionDrift().catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
+        connectionState
+          .checkAppVersionDrift(this)
+          .catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
       },
       24 * 60 * 60 * 1000,
     );
@@ -529,15 +529,17 @@ class GoveeAdapter extends utils.Adapter {
         if (this.unloading) {
           return;
         }
-        this.checkAppVersionDrift().catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
+        connectionState
+          .checkAppVersionDrift(this)
+          .catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
       },
       2 * 60 * 1000,
     );
 
-    this.updateConnectionState();
+    connectionState.updateConnectionState(this);
 
     // Check if all channels are ready — may already be true if MQTT connected fast
-    this.checkAllReady();
+    connectionState.checkAllReady(this);
     // Safety timeout: log ready even if a channel takes too long.
     // 60s deckt normalen MQTT-Connect + 1 Reconnect-Attempt ab.
     this.readyTimer = this.setTimeout(() => {
@@ -545,7 +547,7 @@ class GoveeAdapter extends utils.Adapter {
         // Safety-Timeout: log ready trotzdem auch wenn ein Channel zu lange
         // braucht. READY_TIMEOUT_MS deckt normalen MQTT-Connect + 1 Reconnect.
         this.readyLogged = true;
-        this.logDeviceSummary();
+        connectionState.logDeviceSummary(this);
       }
     }, 60_000);
   }
@@ -642,28 +644,6 @@ class GoveeAdapter extends utils.Adapter {
    * @param device Updated device
    * @param state Changed state values
    */
-  private onDeviceStateUpdate(device: GoveeDevice, state: Partial<DeviceState>): void {
-    if (this.stateManager) {
-      this.stateManager.updateDeviceState(device, state).catch(() => {});
-    }
-    this.updateConnectionState();
-
-    // Update group reachability when member online status changes
-    if (state.online !== undefined) {
-      groupFanoutHandler.updateGroupReachability(this);
-    }
-
-    // Mirror power-off to mode-dropdown reset. Covers MQTT/LAN-initiated
-    // power changes (Govee app or physical remote) so the UI stays honest:
-    // a device that's off can't be "playing Aurora-A" anymore.
-    // L11 — defensive auch 0 als false akzeptieren (Govee schickt Power
-    // theoretisch als boolean, aber MQTT-Boundary könnte 0 durchschleusen).
-    const powerOff = state.power === false || (state.power as unknown) === 0;
-    if (powerOff && this.stateManager) {
-      const prefix = this.stateManager.devicePrefix(device);
-      groupStateHelpers.resetModeDropdowns(this, prefix, "").catch(() => undefined);
-    }
-  }
 
   /**
    * Rebuild state definitions for one device and feed them into StateManager.
@@ -675,40 +655,13 @@ class GoveeAdapter extends utils.Adapter {
    * @param allDevices Full device list (needed to resolve group members)
    */
   /**
-   * Public for handler modules (snapshot-glue, group-fanout, state-change-router).
+   * Public delegate for snapshot-glue + state-change-router modules.
    *
    * @param device
    * @param allDevices
    */
   public refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void {
-    if (!this.stateManager) {
-      return;
-    }
-    const localSnaps = this.localSnapshots?.getSnapshots(device.sku, device.deviceId);
-    let memberDevices: GoveeDevice[] | undefined;
-    if (device.sku === "BaseGroup" && device.groupMembers) {
-      memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
-    }
-    const stateDefs = buildDeviceStateDefs(device, localSnaps, memberDevices);
-    const p = this.stateManager
-      .createDeviceStates(device, stateDefs)
-      .then(async () => {
-        // v2.1.0 → v2.1.1 layout migration: drop legacy info.diagnostics_*
-        // before publishing the new diag.tier value. Idempotent.
-        await this.stateManager?.migrateLegacyDiagnostics(device);
-        await this.stateManager?.updateDeviceTier(device, getDeviceTier(device.sku));
-      })
-      .catch(e => {
-        this.log.error(`createDeviceStates failed for ${device.name}: ${errMessage(e)}`);
-      });
-    // Until ready, collect so onReady can await the whole initial batch.
-    // After ready, fire-and-forget — the queue would otherwise keep growing
-    // with resolved promises for the lifetime of the adapter.
-    if (!this.statesReady) {
-      this.stateCreationQueue.push(p);
-    } else {
-      void p;
-    }
+    deviceEvents.refreshDeviceStates(this, device, allDevices);
   }
 
   /**
@@ -716,344 +669,10 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param devices Current list of all devices
    */
-  private onDeviceListChanged(devices: GoveeDevice[]): void {
-    if (!this.stateManager) {
-      return;
-    }
 
-    for (const device of devices) {
-      this.refreshDeviceStates(device, devices);
-    }
-
-    this.updateConnectionState();
-    // Cache sync happens once after the initial setup completes (see
-    // checkAllReady) — triggering here would fire on every device update
-    // and spam the log.
-
-    // Keep adapter-level per-device maps (diagnosticsLastRun, ...) aligned
-    // with the new device list so removed devices don't leave orphan keys.
-    // Skip during the initial boot phase — the startup cleanupTimer handles
-    // that pass with proper LAN-scan-settled timing.
-    if (this.statesReady) {
-      this.reapStaleDevices().catch(() => undefined);
-    }
-  }
-
-  /**
-   * Update global `info.connection` — der ioBroker-IDC-Indikator.
-   *
-   * Semantik:
-   * - Mit Devices: `connected = true` wenn MIND. ein Device online ist.
-   *   Wenn alle offline → false (User sieht: kein Device antwortet).
-   * - Ohne Devices: `connected = true` wenn der LAN-Stack läuft. Sonst
-   *   false (z.B. EADDRINUSE oder bind-Fehler).
-   *
-   * H4 (geplant für Phase H): nur bei tatsächlichem Wechsel schreiben
-   * (cache lastConnectedValue). Aktuell läuft updateConnectionState bei
-   * jedem device-state-update — fire-and-forget setStateAsync, nur leichter
-   * Overhead.
-   */
-  private updateConnectionState(): void {
-    const devices = this.deviceManager?.getDevices() ?? [];
-    const hasDevices = devices.length > 0;
-    const anyOnline = devices.some(d => d.state.online);
-    const lanRunning = this.lanClient !== null;
-    const connected = hasDevices ? anyOnline : lanRunning;
-    if (connected !== this.lastConnectionState) {
-      this.lastConnectionState = connected;
-      this.setStateAsync("info.connection", { val: connected, ack: true }).catch(() => {});
-    }
-  }
-
-  /**
-   * Delete ioBroker objects for devices no longer present and drop the same
-   * devices from adapter-level maps. Called after the initial-discovery
-   * window and every time the device list changes.
-   *
-   * Scope of "stale" today: cleanupDevices compares the ioBroker object tree
-   * against the live device-manager registry — it deletes objects that
-   * outlive their entry in `DeviceManager.devices`. In v2.0 that registry is
-   * monotonically growing within a single adapter lifetime (entries only
-   * leave via cache pruning across restarts), so this primarily catches
-   * tree leftovers from a previous adapter version after upgrade. The
-   * adapter-level `diagnosticsLastRun` map is also reaped so it can't outlive
-   * its devices either.
-   *
-   * A future stale-pruning step that explicitly retires devices from the
-   * device-manager registry should also drop the device from
-   * `deviceManager.devices` and call `getDiagnostics().forget(deviceId)` for
-   * each retired device — those reaping APIs come in with the pruning patch,
-   * not before (Memory `feedback_kein_phantom_schema`).
-   */
-  /**
-   * App-Version-Drift-Check gegen iTunes-Lookup.
-   *
-   * Govee's app2.govee.com-Endpoints rejecten manchmal sehr alte
-   * User-Agent-Strings. Daily-Check fragt iTunes nach der aktuellen
-   * iOS-App-Version + vergleicht mit `GOVEE_APP_VERSION`. Bei Drift > 2
-   * minor versions: warn-Log + state `info.appVersionDrift` schreiben.
-   *
-   * Failures (5xx, network) werden silent debug-geloggt — kein User-Impact.
-   */
-  private async checkAppVersionDrift(): Promise<void> {
-    try {
-      const resp = await httpsRequest<{ resultCount?: number; results?: Array<{ version?: string }> }>({
-        method: "GET",
-        url: "https://itunes.apple.com/lookup?bundleId=com.ihoment.GoVeeSensor",
-        headers: { "User-Agent": "ioBroker.govee-smart" },
-        timeout: 10_000,
-      });
-      const liveVersion = resp.results?.[0]?.version;
-      if (typeof liveVersion !== "string" || liveVersion.length === 0) {
-        return;
-      }
-      const localParts = GOVEE_APP_VERSION.split(".").map(Number);
-      const liveParts = liveVersion.split(".").map(Number);
-      // Major + Minor vergleichen — patch-Differenz ist OK, Govee toleriert
-      // bis ~2 minor.
-      const localMajor = localParts[0] ?? 0;
-      const localMinor = localParts[1] ?? 0;
-      const liveMajor = liveParts[0] ?? 0;
-      const liveMinor = liveParts[1] ?? 0;
-      const liveTotal = liveMajor * 100 + liveMinor;
-      const localTotal = localMajor * 100 + localMinor;
-      const driftMinor = liveTotal - localTotal;
-      const driftMessage =
-        driftMinor === 0
-          ? `current (live=${liveVersion}, local=${GOVEE_APP_VERSION})`
-          : driftMinor <= 2
-            ? `minor drift (live=${liveVersion}, local=${GOVEE_APP_VERSION})`
-            : `STALE (live=${liveVersion}, local=${GOVEE_APP_VERSION}) — bump GOVEE_APP_VERSION`;
-      await this.setStateAsync("info.appVersionDrift", { val: driftMessage, ack: true }).catch(() => undefined);
-      if (driftMinor > 2) {
-        this.log.warn(
-          `Govee app version drift: live ${liveVersion} vs local ${GOVEE_APP_VERSION} — undocumented endpoints may start failing. Run sync-govee-app-version.py + release a new adapter version.`,
-        );
-      } else {
-        this.log.debug(`App version: ${driftMessage}`);
-      }
-    } catch (e) {
-      this.log.debug(`App version check failed: ${errMessage(e)}`);
-    }
-  }
-
-  private async reapStaleDevices(): Promise<void> {
-    if (!this.stateManager || !this.deviceManager) {
-      return;
-    }
-    const currentDevices = this.deviceManager.getDevices();
-    await this.stateManager.cleanupDevices(currentDevices);
-
-    // Diagnostics-buffer für entfernte Devices droppen damit Logs/Packets/
-    // Responses längst entfernter Geräte nicht im Speicher bleiben.
-    const liveDeviceIds = new Set(currentDevices.map(d => d.deviceId));
-    this.deviceManager.getDiagnostics().pruneOrphans(liveDeviceIds);
-
-    const liveKeys = new Set(currentDevices.map(d => `${d.sku}:${d.deviceId}`));
-    for (const key of this.diagnosticsLastRun.keys()) {
-      if (!liveKeys.has(key)) {
-        this.diagnosticsLastRun.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Check if all configured channels are initialized and log ready message.
-   * Called from MQTT onConnection callback and end of onReady.
-   */
-  private checkAllReady(): void {
-    if (this.readyLogged) {
-      return;
-    }
-    // Wait for first LAN scan (always active)
-    if (!this.lanScanDone) {
-      return;
-    }
-    // Wait for initial state creation to complete
-    if (!this.statesReady) {
-      return;
-    }
-    // Wait for Cloud init if configured
-    if (this.cloudClient && !this.cloudInitDone) {
-      return;
-    }
-    // Wait for MQTT connection if configured
-    if (this.mqttClient && !this.mqttClient.connected) {
-      return;
-    }
-    // H1 — Wait for OpenAPI-MQTT (Cloud-events for sensors/appliances)
-    // wenn konfiguriert. Vorher fehlte das — Adapter war "ready" obwohl
-    // Sensor-Events-Channel nicht connected war.
-    if (this.openapiMqttClient && !this.openapiMqttClient.connected) {
-      return;
-    }
-    // H2 — Wait for first App-API-Poll wenn ein Sensor-Device angemeldet
-    // ist. App-API liefert die Sensor-Werte (H5179 Temp/Humidity/Battery).
-    // Ohne diesen Check wäre der Adapter "ready" mit leeren Sensor-Werten
-    // für ~2 Minuten.
-    if (this.deviceManager?.hasDeviceNeedingAppApi() && !this.appApiInitialPollDone) {
-      return;
-    }
-    this.readyLogged = true;
-    this.logDeviceSummary();
-    // Persist any learned changes from the initial load (e.g. resolveSegmentCount
-    // collapsing Cloud's 15 to the real 10 on H70D1). One-shot on first ready;
-    // subsequent mutations persist themselves (MQTT bumps, wizard, manual-mode).
-    this.deviceManager?.saveDevicesToCache();
-  }
-
-  /**
-   * Log final ready message with device/group/channel summary.
-   */
-  private logDeviceSummary(): void {
-    if (!this.deviceManager) {
-      return;
-    }
-    const all = this.deviceManager.getDevices();
-    const devices = all.filter(d => d.sku !== "BaseGroup");
-    const groups = all.filter(d => d.sku === "BaseGroup");
-
-    // H5 — Ready-Log expliziter: Channel-Status (LAN+Cloud+MQTT+Cloud-events)
-    // plus Devices-Online-Count plus Sensor-Initial-Poll-Marker. User soll
-    // EINEN Blick auf den Log werfen und sehen was wirklich operational ist.
-    const channels: string[] = ["LAN"];
-    if (this.cloudWasConnected) {
-      channels.push("Cloud");
-    }
-    if (this.mqttClient?.connected) {
-      channels.push("MQTT");
-    }
-    if (this.openapiMqttClient?.connected) {
-      channels.push("Cloud-events");
-    }
-
-    // Device-summary mit Online-Count
-    const lightDevices = devices.filter(d => d.type === "devices.types.light");
-    const onlineDevices = devices.filter(d => d.state.online === true);
-    const parts: string[] = [];
-    if (devices.length > 0) {
-      const onlineLights = lightDevices.filter(d => d.state.online === true).length;
-      const totalLights = lightDevices.length;
-      if (totalLights > 0) {
-        parts.push(
-          totalLights === onlineLights
-            ? `${totalLights} light${totalLights > 1 ? "s" : ""} online`
-            : `${totalLights} light${totalLights > 1 ? "s" : ""} (${onlineLights} online, ${totalLights - onlineLights} offline)`,
-        );
-      }
-      const sensors = devices.length - lightDevices.length;
-      if (sensors > 0) {
-        const onlineSensors = onlineDevices.filter(d => d.type !== "devices.types.light").length;
-        parts.push(`${sensors} sensor${sensors > 1 ? "s" : ""} (${onlineSensors} with data)`);
-      }
-    }
-    if (groups.length > 0) {
-      parts.push(`${groups.length} group${groups.length > 1 ? "s" : ""}`);
-    }
-    const summary = parts.length > 0 ? parts.join(", ") : "no devices found";
-    this.log.info(`Govee adapter ready — ${summary} — channels: ${channels.join("+")}`);
-
-    // Surface configured-but-not-connected channels with a concrete reason.
-    // Truthful — never claim "still pending" when the channel actually failed.
-    if (this.cloudClient && !this.cloudWasConnected) {
-      const reason = this.cloudClient.getFailureReason();
-      this.log.warn(reason ? `Cloud not connected — ${reason}` : `Cloud not connected — see earlier errors`);
-    }
-    if (this.mqttClient && !this.mqttClient.connected) {
-      const reason = this.mqttClient.getFailureReason();
-      this.log.warn(reason ? `MQTT not connected — ${reason}` : `MQTT not connected — see earlier errors`);
-    }
-  }
-
-  /**
-   * Load current state for all Cloud devices and populate state values.
-   * Called once after initial Cloud device list load.
-   */
-  /** Public for handler modules (cloud-retry). */
-  public async loadCloudStates(): Promise<void> {
-    if (!this.cloudClient || !this.deviceManager || !this.stateManager) {
-      return;
-    }
-
-    const devices = this.deviceManager.getDevices();
-    // LAN-first: never overwrite LAN states with Cloud values
-    const lanStateIds = new Set(getDefaultLanStates().map(s => s.id));
-    let loaded = 0;
-
-    for (const device of devices) {
-      if (!device.channels.cloud || device.capabilities.length === 0) {
-        continue;
-      }
-
-      try {
-        const caps = await this.cloudClient.getDeviceState(device.sku, device.deviceId);
-        const prefix = this.stateManager.devicePrefix(device);
-
-        const writes: Promise<unknown>[] = [];
-        for (const cap of caps) {
-          const mapped = mapCloudStateValue(cap);
-          if (!mapped) {
-            continue;
-          }
-          // Skip LAN-covered states for LAN-capable devices
-          if (device.lanIp && lanStateIds.has(mapped.stateId)) {
-            continue;
-          }
-          const statePath = this.stateManager.resolveStatePath(prefix, mapped.stateId);
-          // Fire-and-forget — States are created before loadCloudStates runs;
-          // a rejection here means the state was deleted out-of-band and
-          // can be safely ignored.
-          writes.push(
-            this.setStateAsync(statePath, {
-              val: mapped.value,
-              ack: true,
-            }).catch(() => undefined),
-          );
-        }
-        await Promise.all(writes);
-        loaded++;
-      } catch {
-        this.log.debug(`Could not load Cloud state for ${device.name} (${device.sku})`);
-      }
-    }
-
-    if (loaded > 0) {
-      this.log.debug(`Cloud states loaded for ${loaded} devices`);
-    }
-  }
-
-  /**
-   * Apply a list of synthesized Cloud-state capabilities to a single
-   * device — the App-API poll and OpenAPI-MQTT events both use this path
-   * so their values flow through the same `mapCloudStateValue` pipeline
-   * that polled Cloud states use.
-   *
-   * @param device Target Govee device
-   * @param caps Capabilities to apply
-   */
-  private async applyCloudCapabilities(device: GoveeDevice, caps: CloudStateCapability[]): Promise<void> {
-    if (!this.stateManager) {
-      return;
-    }
-    const lanStateIds = new Set(getDefaultLanStates().map(s => s.id));
-    const prefix = this.stateManager.devicePrefix(device);
-    const planned = planCloudCapabilityWrites(caps, Boolean(device.lanIp), lanStateIds);
-    // App-API and OpenAPI-MQTT deliver state IDs (battery, temperature,
-    // humidity, lackWater, …) that the Cloud-capability pipeline doesn't
-    // declare for sensor/appliance SKUs — the state objects therefore
-    // don't exist yet on first write. ensureSyntheticStateObject creates
-    // them lazily with the right channel + role + unit.
-    for (const mapped of planned) {
-      await this.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
-    }
-    const writes = planned.map(mapped => {
-      const statePath = this.stateManager!.resolveStatePath(prefix, mapped.stateId);
-      return this.setStateAsync(statePath, {
-        val: mapped.value,
-        ack: true,
-      }).catch(() => undefined);
-    });
-    await Promise.all(writes);
+  /** Public delegate — connection-state handler exports the real implementation. */
+  public reapStaleDevices(): Promise<void> {
+    return connectionState.reapStaleDevices(this);
   }
 
   /**
@@ -1077,6 +696,21 @@ class GoveeAdapter extends utils.Adapter {
    */
   public stateToCommand(suffix: string): string | null {
     return groupStateHelpers.stateToCommand(suffix);
+  }
+
+  /** Public delegate for cloud-retry-handler's CloudRetryHandlerAdapter interface. */
+  public loadCloudStates(): Promise<void> {
+    return cloudStateLoader.loadCloudStates(this);
+  }
+
+  /**
+   * Public for OpenAPI-MQTT + App-API pipelines feeding sensor/appliance state.
+   *
+   * @param device
+   * @param caps
+   */
+  public applyCloudCapabilities(device: GoveeDevice, caps: CloudStateCapability[]): Promise<void> {
+    return cloudStateLoader.applyCloudCapabilities(this, device, caps);
   }
 
   /**

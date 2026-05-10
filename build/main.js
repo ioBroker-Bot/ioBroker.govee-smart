@@ -22,7 +22,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
-var import_capability_mapper = require("./lib/capability-mapper");
 var import_device_registry = require("./lib/device-registry");
 var import_device_manager = require("./lib/device-manager");
 var import_govee_api_client = require("./lib/govee-api-client");
@@ -36,6 +35,9 @@ var import_group_fanout = require("./lib/group-fanout");
 var import_message_router = require("./lib/message-router");
 var cloudCreds = __toESM(require("./lib/handlers/cloud-creds-handler"));
 var cloudRetryHandler = __toESM(require("./lib/handlers/cloud-retry-handler"));
+var cloudStateLoader = __toESM(require("./lib/handlers/cloud-state-loader"));
+var connectionState = __toESM(require("./lib/handlers/connection-state"));
+var deviceEvents = __toESM(require("./lib/handlers/device-events"));
 var groupFanoutHandler = __toESM(require("./lib/handlers/group-fanout-handler"));
 var groupStateHelpers = __toESM(require("./lib/handlers/group-state-helpers"));
 var snapshotHandlerGlue = __toESM(require("./lib/handlers/snapshot-handler-glue"));
@@ -47,8 +49,6 @@ var import_sku_cache = require("./lib/sku-cache");
 var import_state_manager = require("./lib/state-manager");
 var import_types = require("./lib/types");
 var import_timing_constants = require("./lib/timing-constants");
-var import_govee_constants = require("./lib/govee-constants");
-var import_http_client = require("./lib/http-client");
 class GoveeAdapter extends utils.Adapter {
   /** Public for handler modules (state-change-router, group-fanout, wizard, snapshot, diagnostics). */
   deviceManager = null;
@@ -56,7 +56,9 @@ class GoveeAdapter extends utils.Adapter {
   stateManager = null;
   /** Public for handler modules. */
   lanClient = null;
+  /** Public for handler modules (connection-state). */
   mqttClient = null;
+  /** Public for handler modules (connection-state). */
   openapiMqttClient = null;
   /** Public for handler modules. */
   cloudClient = null;
@@ -75,20 +77,21 @@ class GoveeAdapter extends utils.Adapter {
    * Letzter info.connection-Wert — Cache damit nicht jeder device-update
    *  einen unnötigen setStateAsync macht (H4).
    */
+  /** Public for handler modules (connection-state). */
   lastConnectionState = null;
   // === Lifecycle-Flags (Adapter-Boot-Sequenz) ===
   // checkAllReady() prüft alle 5 Voraussetzungen gleichzeitig — sie laufen
   // parallel ab, kein lineares STATE_MACHINE-Pattern weil Channels
   // unabhängig connecten.
-  /** LAN-Scan-Initial-Wait abgeschlossen (3s nach Start). */
+  /** LAN-Scan-Initial-Wait abgeschlossen — public for connection-state handler. */
   lanScanDone = false;
-  /** State-Tree-Erstellung für alle Cached/Cloud-Devices fertig. */
+  /** State-Tree-Erstellung fertig — public for connection-state + device-events handlers. */
   statesReady = false;
-  /** Cloud-Init-Phase abgeschlossen (mit oder ohne Erfolg). */
+  /** Cloud-Init-Phase abgeschlossen — public for connection-state handler. */
   cloudInitDone = false;
-  /** True nach dem ersten erfolgreichen App-API-Poll (für Sensoren mit Werten). */
+  /** App-API-Poll fertig — public for connection-state handler. */
   appApiInitialPollDone = false;
-  /** Verhindert Mehrfach-Ready-Log innerhalb derselben Adapter-Session. */
+  /** Mehrfach-Ready-Log-Guard — public for connection-state handler. */
   readyLogged = false;
   /** Cloud war mindestens einmal connected — für „restored"-Log nach Down. */
   /** Public for handler modules. */
@@ -104,6 +107,7 @@ class GoveeAdapter extends utils.Adapter {
   /** Public for handler modules (state-change-router). */
   groupFanout = null;
   messageRouter = null;
+  /** Public for handler modules (device-events). */
   stateCreationQueue = [];
   lanScanTimer;
   cleanupTimer;
@@ -210,8 +214,8 @@ class GoveeAdapter extends utils.Adapter {
     apiClient.setEmail(config.goveeEmail);
     this.deviceManager.setApiClient(apiClient);
     this.deviceManager.setCallbacks(
-      (device, state) => this.onDeviceStateUpdate(device, state),
-      (devices) => this.onDeviceListChanged(devices)
+      (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
+      (devices) => deviceEvents.onDeviceListChanged(this, devices)
     );
     this.deviceManager.onLanIpChanged = (device, ip) => {
       const prefix = this.stateManager.devicePrefix(device);
@@ -295,7 +299,7 @@ class GoveeAdapter extends utils.Adapter {
     );
     this.lanScanTimer = this.setTimeout(() => {
       this.lanScanDone = true;
-      this.checkAllReady();
+      connectionState.checkAllReady(this);
     }, 3e3);
     if (config.goveeEmail && config.goveePassword) {
       this.mqttClient = new import_govee_mqtt_client.GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
@@ -334,9 +338,9 @@ class GoveeAdapter extends utils.Adapter {
           }).catch(() => {
           });
           if (connected) {
-            this.checkAllReady();
+            connectionState.checkAllReady(this);
           }
-          this.updateConnectionState();
+          connectionState.updateConnectionState(this);
         },
         // Forward every fresh bearer token — fires on initial login and on
         // each reconnect-login, so the API client never runs with a stale one.
@@ -352,9 +356,7 @@ class GoveeAdapter extends utils.Adapter {
       });
       this.deviceManager.setCloudClient(this.cloudClient);
       this.deviceManager.setOnCloudCapabilities((device, caps) => {
-        this.applyCloudCapabilities(device, caps).catch(
-          (e) => this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${(0, import_types.errMessage)(e)}`)
-        );
+        cloudStateLoader.applyCloudCapabilities(this, device, caps).catch((e) => this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${(0, import_types.errMessage)(e)}`));
       });
       this.rateLimiter = new import_rate_limiter.RateLimiter(this.log, this, import_timing_constants.CLOUD_FULL_LIMITS.perMinute, import_timing_constants.CLOUD_FULL_LIMITS.perDay);
       this.rateLimiter.start();
@@ -378,7 +380,7 @@ class GoveeAdapter extends utils.Adapter {
         (_a2 = this.deviceManager) == null ? void 0 : _a2.pollAppApi().then(() => {
           if (!this.appApiInitialPollDone) {
             this.appApiInitialPollDone = true;
-            this.checkAllReady();
+            connectionState.checkAllReady(this);
           }
         }).catch((e) => this.log.debug(`pollAppApi failed: ${(0, import_types.errMessage)(e)}`));
       };
@@ -396,7 +398,7 @@ class GoveeAdapter extends utils.Adapter {
         (_c = this.stateManager) == null ? void 0 : _c.updateGroupsOnline(result.ok).catch(() => {
         });
         if (result.ok) {
-          await this.loadCloudStates();
+          await cloudStateLoader.loadCloudStates(this);
         } else {
           cloudRetryHandler.handleCloudFailure(this, result);
         }
@@ -425,11 +427,11 @@ class GoveeAdapter extends utils.Adapter {
     await this.subscribeStatesAsync("groups.*");
     await this.subscribeStatesAsync("info.refresh_cloud_data");
     this.cleanupTimer = this.setTimeout(() => {
-      this.reapStaleDevices().catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
+      connectionState.reapStaleDevices(this).catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
     }, 3e4);
     this.appVersionCheckTimer = this.setInterval(
       () => {
-        this.checkAppVersionDrift().catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
+        connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
       },
       24 * 60 * 60 * 1e3
     );
@@ -439,16 +441,16 @@ class GoveeAdapter extends utils.Adapter {
         if (this.unloading) {
           return;
         }
-        this.checkAppVersionDrift().catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
+        connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
       },
       2 * 60 * 1e3
     );
-    this.updateConnectionState();
-    this.checkAllReady();
+    connectionState.updateConnectionState(this);
+    connectionState.checkAllReady(this);
     this.readyTimer = this.setTimeout(() => {
       if (!this.readyLogged) {
         this.readyLogged = true;
-        this.logDeviceSummary();
+        connectionState.logDeviceSummary(this);
       }
     }, 6e4);
   }
@@ -536,21 +538,6 @@ class GoveeAdapter extends utils.Adapter {
    * @param device Updated device
    * @param state Changed state values
    */
-  onDeviceStateUpdate(device, state) {
-    if (this.stateManager) {
-      this.stateManager.updateDeviceState(device, state).catch(() => {
-      });
-    }
-    this.updateConnectionState();
-    if (state.online !== void 0) {
-      groupFanoutHandler.updateGroupReachability(this);
-    }
-    const powerOff = state.power === false || state.power === 0;
-    if (powerOff && this.stateManager) {
-      const prefix = this.stateManager.devicePrefix(device);
-      groupStateHelpers.resetModeDropdowns(this, prefix, "").catch(() => void 0);
-    }
-  }
   /**
    * Rebuild state definitions for one device and feed them into StateManager.
    * Used both from the full-list callback and from targeted refreshes
@@ -561,315 +548,22 @@ class GoveeAdapter extends utils.Adapter {
    * @param allDevices Full device list (needed to resolve group members)
    */
   /**
-   * Public for handler modules (snapshot-glue, group-fanout, state-change-router).
+   * Public delegate for snapshot-glue + state-change-router modules.
    *
    * @param device
    * @param allDevices
    */
   refreshDeviceStates(device, allDevices) {
-    var _a;
-    if (!this.stateManager) {
-      return;
-    }
-    const localSnaps = (_a = this.localSnapshots) == null ? void 0 : _a.getSnapshots(device.sku, device.deviceId);
-    let memberDevices;
-    if (device.sku === "BaseGroup" && device.groupMembers) {
-      memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
-    }
-    const stateDefs = (0, import_capability_mapper.buildDeviceStateDefs)(device, localSnaps, memberDevices);
-    const p = this.stateManager.createDeviceStates(device, stateDefs).then(async () => {
-      var _a2, _b;
-      await ((_a2 = this.stateManager) == null ? void 0 : _a2.migrateLegacyDiagnostics(device));
-      await ((_b = this.stateManager) == null ? void 0 : _b.updateDeviceTier(device, (0, import_device_registry.getDeviceTier)(device.sku)));
-    }).catch((e) => {
-      this.log.error(`createDeviceStates failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
-    });
-    if (!this.statesReady) {
-      this.stateCreationQueue.push(p);
-    } else {
-      void p;
-    }
+    deviceEvents.refreshDeviceStates(this, device, allDevices);
   }
   /**
    * Called by device-manager when the device list changes
    *
    * @param devices Current list of all devices
    */
-  onDeviceListChanged(devices) {
-    if (!this.stateManager) {
-      return;
-    }
-    for (const device of devices) {
-      this.refreshDeviceStates(device, devices);
-    }
-    this.updateConnectionState();
-    if (this.statesReady) {
-      this.reapStaleDevices().catch(() => void 0);
-    }
-  }
-  /**
-   * Update global `info.connection` — der ioBroker-IDC-Indikator.
-   *
-   * Semantik:
-   * - Mit Devices: `connected = true` wenn MIND. ein Device online ist.
-   *   Wenn alle offline → false (User sieht: kein Device antwortet).
-   * - Ohne Devices: `connected = true` wenn der LAN-Stack läuft. Sonst
-   *   false (z.B. EADDRINUSE oder bind-Fehler).
-   *
-   * H4 (geplant für Phase H): nur bei tatsächlichem Wechsel schreiben
-   * (cache lastConnectedValue). Aktuell läuft updateConnectionState bei
-   * jedem device-state-update — fire-and-forget setStateAsync, nur leichter
-   * Overhead.
-   */
-  updateConnectionState() {
-    var _a, _b;
-    const devices = (_b = (_a = this.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : [];
-    const hasDevices = devices.length > 0;
-    const anyOnline = devices.some((d) => d.state.online);
-    const lanRunning = this.lanClient !== null;
-    const connected = hasDevices ? anyOnline : lanRunning;
-    if (connected !== this.lastConnectionState) {
-      this.lastConnectionState = connected;
-      this.setStateAsync("info.connection", { val: connected, ack: true }).catch(() => {
-      });
-    }
-  }
-  /**
-   * Delete ioBroker objects for devices no longer present and drop the same
-   * devices from adapter-level maps. Called after the initial-discovery
-   * window and every time the device list changes.
-   *
-   * Scope of "stale" today: cleanupDevices compares the ioBroker object tree
-   * against the live device-manager registry — it deletes objects that
-   * outlive their entry in `DeviceManager.devices`. In v2.0 that registry is
-   * monotonically growing within a single adapter lifetime (entries only
-   * leave via cache pruning across restarts), so this primarily catches
-   * tree leftovers from a previous adapter version after upgrade. The
-   * adapter-level `diagnosticsLastRun` map is also reaped so it can't outlive
-   * its devices either.
-   *
-   * A future stale-pruning step that explicitly retires devices from the
-   * device-manager registry should also drop the device from
-   * `deviceManager.devices` and call `getDiagnostics().forget(deviceId)` for
-   * each retired device — those reaping APIs come in with the pruning patch,
-   * not before (Memory `feedback_kein_phantom_schema`).
-   */
-  /**
-   * App-Version-Drift-Check gegen iTunes-Lookup.
-   *
-   * Govee's app2.govee.com-Endpoints rejecten manchmal sehr alte
-   * User-Agent-Strings. Daily-Check fragt iTunes nach der aktuellen
-   * iOS-App-Version + vergleicht mit `GOVEE_APP_VERSION`. Bei Drift > 2
-   * minor versions: warn-Log + state `info.appVersionDrift` schreiben.
-   *
-   * Failures (5xx, network) werden silent debug-geloggt — kein User-Impact.
-   */
-  async checkAppVersionDrift() {
-    var _a, _b, _c, _d, _e, _f;
-    try {
-      const resp = await (0, import_http_client.httpsRequest)({
-        method: "GET",
-        url: "https://itunes.apple.com/lookup?bundleId=com.ihoment.GoVeeSensor",
-        headers: { "User-Agent": "ioBroker.govee-smart" },
-        timeout: 1e4
-      });
-      const liveVersion = (_b = (_a = resp.results) == null ? void 0 : _a[0]) == null ? void 0 : _b.version;
-      if (typeof liveVersion !== "string" || liveVersion.length === 0) {
-        return;
-      }
-      const localParts = import_govee_constants.GOVEE_APP_VERSION.split(".").map(Number);
-      const liveParts = liveVersion.split(".").map(Number);
-      const localMajor = (_c = localParts[0]) != null ? _c : 0;
-      const localMinor = (_d = localParts[1]) != null ? _d : 0;
-      const liveMajor = (_e = liveParts[0]) != null ? _e : 0;
-      const liveMinor = (_f = liveParts[1]) != null ? _f : 0;
-      const liveTotal = liveMajor * 100 + liveMinor;
-      const localTotal = localMajor * 100 + localMinor;
-      const driftMinor = liveTotal - localTotal;
-      const driftMessage = driftMinor === 0 ? `current (live=${liveVersion}, local=${import_govee_constants.GOVEE_APP_VERSION})` : driftMinor <= 2 ? `minor drift (live=${liveVersion}, local=${import_govee_constants.GOVEE_APP_VERSION})` : `STALE (live=${liveVersion}, local=${import_govee_constants.GOVEE_APP_VERSION}) \u2014 bump GOVEE_APP_VERSION`;
-      await this.setStateAsync("info.appVersionDrift", { val: driftMessage, ack: true }).catch(() => void 0);
-      if (driftMinor > 2) {
-        this.log.warn(
-          `Govee app version drift: live ${liveVersion} vs local ${import_govee_constants.GOVEE_APP_VERSION} \u2014 undocumented endpoints may start failing. Run sync-govee-app-version.py + release a new adapter version.`
-        );
-      } else {
-        this.log.debug(`App version: ${driftMessage}`);
-      }
-    } catch (e) {
-      this.log.debug(`App version check failed: ${(0, import_types.errMessage)(e)}`);
-    }
-  }
-  async reapStaleDevices() {
-    if (!this.stateManager || !this.deviceManager) {
-      return;
-    }
-    const currentDevices = this.deviceManager.getDevices();
-    await this.stateManager.cleanupDevices(currentDevices);
-    const liveDeviceIds = new Set(currentDevices.map((d) => d.deviceId));
-    this.deviceManager.getDiagnostics().pruneOrphans(liveDeviceIds);
-    const liveKeys = new Set(currentDevices.map((d) => `${d.sku}:${d.deviceId}`));
-    for (const key of this.diagnosticsLastRun.keys()) {
-      if (!liveKeys.has(key)) {
-        this.diagnosticsLastRun.delete(key);
-      }
-    }
-  }
-  /**
-   * Check if all configured channels are initialized and log ready message.
-   * Called from MQTT onConnection callback and end of onReady.
-   */
-  checkAllReady() {
-    var _a, _b;
-    if (this.readyLogged) {
-      return;
-    }
-    if (!this.lanScanDone) {
-      return;
-    }
-    if (!this.statesReady) {
-      return;
-    }
-    if (this.cloudClient && !this.cloudInitDone) {
-      return;
-    }
-    if (this.mqttClient && !this.mqttClient.connected) {
-      return;
-    }
-    if (this.openapiMqttClient && !this.openapiMqttClient.connected) {
-      return;
-    }
-    if (((_a = this.deviceManager) == null ? void 0 : _a.hasDeviceNeedingAppApi()) && !this.appApiInitialPollDone) {
-      return;
-    }
-    this.readyLogged = true;
-    this.logDeviceSummary();
-    (_b = this.deviceManager) == null ? void 0 : _b.saveDevicesToCache();
-  }
-  /**
-   * Log final ready message with device/group/channel summary.
-   */
-  logDeviceSummary() {
-    var _a, _b;
-    if (!this.deviceManager) {
-      return;
-    }
-    const all = this.deviceManager.getDevices();
-    const devices = all.filter((d) => d.sku !== "BaseGroup");
-    const groups = all.filter((d) => d.sku === "BaseGroup");
-    const channels = ["LAN"];
-    if (this.cloudWasConnected) {
-      channels.push("Cloud");
-    }
-    if ((_a = this.mqttClient) == null ? void 0 : _a.connected) {
-      channels.push("MQTT");
-    }
-    if ((_b = this.openapiMqttClient) == null ? void 0 : _b.connected) {
-      channels.push("Cloud-events");
-    }
-    const lightDevices = devices.filter((d) => d.type === "devices.types.light");
-    const onlineDevices = devices.filter((d) => d.state.online === true);
-    const parts = [];
-    if (devices.length > 0) {
-      const onlineLights = lightDevices.filter((d) => d.state.online === true).length;
-      const totalLights = lightDevices.length;
-      if (totalLights > 0) {
-        parts.push(
-          totalLights === onlineLights ? `${totalLights} light${totalLights > 1 ? "s" : ""} online` : `${totalLights} light${totalLights > 1 ? "s" : ""} (${onlineLights} online, ${totalLights - onlineLights} offline)`
-        );
-      }
-      const sensors = devices.length - lightDevices.length;
-      if (sensors > 0) {
-        const onlineSensors = onlineDevices.filter((d) => d.type !== "devices.types.light").length;
-        parts.push(`${sensors} sensor${sensors > 1 ? "s" : ""} (${onlineSensors} with data)`);
-      }
-    }
-    if (groups.length > 0) {
-      parts.push(`${groups.length} group${groups.length > 1 ? "s" : ""}`);
-    }
-    const summary = parts.length > 0 ? parts.join(", ") : "no devices found";
-    this.log.info(`Govee adapter ready \u2014 ${summary} \u2014 channels: ${channels.join("+")}`);
-    if (this.cloudClient && !this.cloudWasConnected) {
-      const reason = this.cloudClient.getFailureReason();
-      this.log.warn(reason ? `Cloud not connected \u2014 ${reason}` : `Cloud not connected \u2014 see earlier errors`);
-    }
-    if (this.mqttClient && !this.mqttClient.connected) {
-      const reason = this.mqttClient.getFailureReason();
-      this.log.warn(reason ? `MQTT not connected \u2014 ${reason}` : `MQTT not connected \u2014 see earlier errors`);
-    }
-  }
-  /**
-   * Load current state for all Cloud devices and populate state values.
-   * Called once after initial Cloud device list load.
-   */
-  /** Public for handler modules (cloud-retry). */
-  async loadCloudStates() {
-    if (!this.cloudClient || !this.deviceManager || !this.stateManager) {
-      return;
-    }
-    const devices = this.deviceManager.getDevices();
-    const lanStateIds = new Set((0, import_capability_mapper.getDefaultLanStates)().map((s) => s.id));
-    let loaded = 0;
-    for (const device of devices) {
-      if (!device.channels.cloud || device.capabilities.length === 0) {
-        continue;
-      }
-      try {
-        const caps = await this.cloudClient.getDeviceState(device.sku, device.deviceId);
-        const prefix = this.stateManager.devicePrefix(device);
-        const writes = [];
-        for (const cap of caps) {
-          const mapped = (0, import_capability_mapper.mapCloudStateValue)(cap);
-          if (!mapped) {
-            continue;
-          }
-          if (device.lanIp && lanStateIds.has(mapped.stateId)) {
-            continue;
-          }
-          const statePath = this.stateManager.resolveStatePath(prefix, mapped.stateId);
-          writes.push(
-            this.setStateAsync(statePath, {
-              val: mapped.value,
-              ack: true
-            }).catch(() => void 0)
-          );
-        }
-        await Promise.all(writes);
-        loaded++;
-      } catch {
-        this.log.debug(`Could not load Cloud state for ${device.name} (${device.sku})`);
-      }
-    }
-    if (loaded > 0) {
-      this.log.debug(`Cloud states loaded for ${loaded} devices`);
-    }
-  }
-  /**
-   * Apply a list of synthesized Cloud-state capabilities to a single
-   * device — the App-API poll and OpenAPI-MQTT events both use this path
-   * so their values flow through the same `mapCloudStateValue` pipeline
-   * that polled Cloud states use.
-   *
-   * @param device Target Govee device
-   * @param caps Capabilities to apply
-   */
-  async applyCloudCapabilities(device, caps) {
-    if (!this.stateManager) {
-      return;
-    }
-    const lanStateIds = new Set((0, import_capability_mapper.getDefaultLanStates)().map((s) => s.id));
-    const prefix = this.stateManager.devicePrefix(device);
-    const planned = (0, import_capability_mapper.planCloudCapabilityWrites)(caps, Boolean(device.lanIp), lanStateIds);
-    for (const mapped of planned) {
-      await this.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
-    }
-    const writes = planned.map((mapped) => {
-      const statePath = this.stateManager.resolveStatePath(prefix, mapped.stateId);
-      return this.setStateAsync(statePath, {
-        val: mapped.value,
-        ack: true
-      }).catch(() => void 0);
-    });
-    await Promise.all(writes);
+  /** Public delegate — connection-state handler exports the real implementation. */
+  reapStaleDevices() {
+    return connectionState.reapStaleDevices(this);
   }
   /**
    * Find device for a state ID
@@ -892,6 +586,19 @@ class GoveeAdapter extends utils.Adapter {
    */
   stateToCommand(suffix) {
     return groupStateHelpers.stateToCommand(suffix);
+  }
+  /** Public delegate for cloud-retry-handler's CloudRetryHandlerAdapter interface. */
+  loadCloudStates() {
+    return cloudStateLoader.loadCloudStates(this);
+  }
+  /**
+   * Public for OpenAPI-MQTT + App-API pipelines feeding sensor/appliance state.
+   *
+   * @param device
+   * @param caps
+   */
+  applyCloudCapabilities(device, caps) {
+    return cloudStateLoader.applyCloudCapabilities(this, device, caps);
   }
   /**
    * Central entry point for manual-segment updates. Sets the device flags,
