@@ -13,6 +13,7 @@ import {
   buildCapabilitiesFromAppEntry as buildCapabilitiesFromAppEntryHelper,
   cloudDeviceToGoveeDevice as cloudDeviceToGoveeDeviceHelper,
 } from "./device-manager/mapping";
+import * as cacheHelpers from "./device-manager/cache";
 import type { AppDeviceEntry, GoveeApiClient } from "./govee-api-client";
 import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
@@ -54,15 +55,18 @@ export { buildCapabilitiesFromAppEntry, cloudDeviceToGoveeDevice } from "./devic
  * MQTT is status-push only and never used for commands.
  */
 export class DeviceManager {
-  private readonly log: ioBroker.Logger;
-  private readonly devices = new Map<string, GoveeDevice>();
+  /** Public for sub-module helpers (cache, cloud-merge). */
+  public readonly log: ioBroker.Logger;
+  /** Public for sub-module helpers (cache, cloud-merge, lookups). */
+  public readonly devices = new Map<string, GoveeDevice>();
   private readonly commandRouter: CommandRouter;
   private readonly diagnostics: DiagnosticsCollector;
   /** SKUs we already nudged about — log only once per adapter lifetime, per SKU. */
   private readonly nudgedSeedSkus = new Set<string>();
   private cloudClient: GoveeCloudClient | null = null;
   private apiClient: GoveeApiClient | null = null;
-  private skuCache: SkuCache | null = null;
+  /** Public for sub-module helpers (cache). */
+  public skuCache: SkuCache | null = null;
   private onDeviceUpdate: ((device: GoveeDevice, state: Partial<DeviceState>) => void) | null = null;
   private onDeviceListChanged: ((devices: GoveeDevice[]) => void) | null = null;
   private onCloudCapabilities: ((device: GoveeDevice, caps: CloudStateCapability[]) => void) | null = null;
@@ -247,7 +251,7 @@ export class DeviceManager {
         existing.channels.cloud = entry.capabilities.length > 0;
         changed = true;
       } else {
-        this.devices.set(key, this.cachedToGoveeDevice(entry));
+        this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
         changed = true;
       }
     }
@@ -270,7 +274,7 @@ export class DeviceManager {
 
     // Fill scenes from sceneLibrary for devices where Cloud scenes are missing
     for (const device of this.devices.values()) {
-      this.populateScenesFromLibrary(device);
+      cacheHelpers.populateScenesFromLibrary(this, device);
     }
 
     if (changed) {
@@ -353,7 +357,7 @@ export class DeviceManager {
       this.saveDevicesToCache();
 
       for (const device of this.devices.values()) {
-        this.populateScenesFromLibrary(device);
+        cacheHelpers.populateScenesFromLibrary(this, device);
       }
 
       if (changed) {
@@ -433,7 +437,7 @@ export class DeviceManager {
     if (anyChanged) {
       this.saveDevicesToCache();
       for (const device of this.devices.values()) {
-        this.populateScenesFromLibrary(device);
+        cacheHelpers.populateScenesFromLibrary(this, device);
       }
       this.onDeviceListChanged?.(this.getDevices());
     }
@@ -756,32 +760,7 @@ export class DeviceManager {
 
   /** Save all devices to SKU cache, skipping only those never confirmed via Cloud yet. */
   public saveDevicesToCache(): void {
-    if (!this.skuCache) {
-      return;
-    }
-
-    let cachedCount = 0;
-    let skippedCount = 0;
-    for (const device of this.devices.values()) {
-      const isLight = device.type === "devices.types.light";
-      // Skip only if we never asked Cloud yet — empty scenes are legitimate
-      // once confirmed via scenesChecked=true.
-      if (isLight && !device.scenesChecked) {
-        skippedCount++;
-        this.log.debug(`Not caching ${device.name} (${device.sku}) — scenes not yet checked`);
-      } else {
-        this.skuCache.save(this.goveeDeviceToCached(device));
-        cachedCount++;
-      }
-    }
-    // Routine persistence — debug level only. Users don't need a play-by-play
-    // for every cache write. Significant events (scenes fetched, MQTT bumps)
-    // log themselves elsewhere.
-    if (skippedCount > 0) {
-      this.log.debug(`Cached ${cachedCount} device(s), skipped ${skippedCount} not yet checked`);
-    } else {
-      this.log.debug(`Cached ${cachedCount} device(s) — next start uses cache`);
-    }
+    cacheHelpers.saveDevicesToCache(this);
   }
 
   /**
@@ -972,7 +951,7 @@ export class DeviceManager {
           // Persist now so a restart starts from the real value instead of
           // falling back to Cloud capabilities and deleting the extra slots.
           if (this.skuCache) {
-            this.skuCache.save(this.goveeDeviceToCached(device));
+            this.skuCache.save(cacheHelpers.goveeDeviceToCached(device));
           }
           // Skip per-segment sync for this push — the new datapoints don't
           // exist yet. The next AA A5 push hits the fully-built tree.
@@ -1137,98 +1116,13 @@ export class DeviceManager {
   }
 
   /**
-   * Fill device.scenes from sceneLibrary when Cloud scenes are missing.
-   * ptReal activation matches by name, so sceneLibrary names are sufficient.
-   *
-   * @param device Device to populate scenes for
-   */
-  private populateScenesFromLibrary(device: GoveeDevice): void {
-    if (device.scenes.length === 0 && device.sceneLibrary.length > 0) {
-      device.scenes = device.sceneLibrary.map(entry => ({
-        name: entry.name,
-        value: {}, // ptReal uses sceneLibrary directly, Cloud payload not needed
-      }));
-      this.log.debug(`${device.sku}: ${device.scenes.length} scenes from library (Cloud scenes missing)`);
-    }
-  }
-
-  /**
-   * Convert cached data to a GoveeDevice (runtime fields set to defaults)
-   *
-   * @param cached Cached device data
-   */
-  private cachedToGoveeDevice(cached: CachedDeviceData): GoveeDevice {
-    return {
-      sku: cached.sku,
-      deviceId: cached.deviceId,
-      name: cached.name,
-      type: cached.type,
-      capabilities: cached.capabilities,
-      scenes: cached.scenes,
-      diyScenes: cached.diyScenes,
-      snapshots: cached.snapshots,
-      sceneLibrary: cached.sceneLibrary,
-      musicLibrary: cached.musicLibrary,
-      diyLibrary: cached.diyLibrary,
-      skuFeatures: cached.skuFeatures,
-      snapshotBleCmds: cached.snapshotBleCmds,
-      scenesChecked: cached.scenesChecked,
-      lastSeenOnNetwork: cached.lastSeenOnNetwork,
-      // Restore learned count so it wins over Cloud capability on next start.
-      segmentCount: cached.segmentCount,
-      manualMode: cached.manualMode,
-      manualSegments: cached.manualSegments,
-      sceneSpeed: cached.sceneSpeed,
-      state: { online: false },
-      channels: { lan: false, mqtt: false, cloud: false },
-    };
-  }
-
-  /**
-   * Persist a device's current runtime state to the SKU cache.
-   * Safe no-op when no cache is configured.
+   * Persist a device's current runtime state to the SKU cache. Safe no-op
+   * when no cache is configured.
    *
    * @param device Target device
    */
   public persistDeviceToCache(device: GoveeDevice): void {
-    if (!this.skuCache) {
-      return;
-    }
-    this.skuCache.save(this.goveeDeviceToCached(device));
-  }
-
-  /**
-   * Extract cacheable data from a GoveeDevice.
-   *
-   * @param device Runtime device
-   */
-  private goveeDeviceToCached(device: GoveeDevice): CachedDeviceData {
-    return {
-      sku: device.sku,
-      deviceId: device.deviceId,
-      name: device.name,
-      type: device.type,
-      capabilities: device.capabilities,
-      scenes: device.scenes,
-      diyScenes: device.diyScenes,
-      snapshots: device.snapshots,
-      sceneLibrary: device.sceneLibrary,
-      musicLibrary: device.musicLibrary,
-      diyLibrary: device.diyLibrary,
-      skuFeatures: device.skuFeatures,
-      snapshotBleCmds: device.snapshotBleCmds,
-      scenesChecked: device.scenesChecked,
-      lastSeenOnNetwork: device.lastSeenOnNetwork,
-      segmentCount:
-        typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : undefined,
-      manualMode: device.manualMode ? true : undefined,
-      manualSegments:
-        device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0
-          ? device.manualSegments.slice()
-          : undefined,
-      sceneSpeed: typeof device.sceneSpeed === "number" && device.sceneSpeed > 0 ? device.sceneSpeed : undefined,
-      cachedAt: Date.now(),
-    };
+    cacheHelpers.persistDeviceToCache(this, device);
   }
 
   /**
