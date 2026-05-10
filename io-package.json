@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.7.0",
+    "version": "2.7.1",
     "news": {
-      "NEXT": {
+      "2.7.1": {
         "en": "Cleaner start-up log: the 'Starting' line now hints to wait for the 'ready' message, and the 'MQTT connected' info line is dropped (the ready summary lists all active channels anyway).",
         "de": "Aufgeräumter Start-Log: die 'Starting'-Zeile weist jetzt darauf hin auf die 'ready'-Meldung zu warten, und die 'MQTT connected'-Info ist raus (die Ready-Zusammenfassung listet eh alle aktiven Kanäle).",
         "ru": "Чище стартовый лог: строка 'Starting' теперь подсказывает дождаться сообщения 'ready', а 'MQTT connected' убрана из info-уровня (ready-сводка и так показывает все активные каналы).",
@@ -93,19 +93,6 @@
         "pl": "Wskaźniki statusu połączenia same się przywracają po awarii Govee. Przywracanie snapshotu na taśmie LED z segmentami znów jest szybkie. Nieprawidłowe IP parowania i po cichu odrzucone polecenia Cloud są teraz raportowane. Segment 0 robił się niebieski przy krótkim hex – naprawione. Kreator wykrywania segmentów przywraca poprzedni widok przy zatrzymaniu adaptera. Odrzucony klucz API Govee daje teraz czytelną wskazówkę w logu.",
         "uk": "Індикатори стану з'єднання відновлюються самі після збою Govee. Відновлення знімка на LED-стрічці з сегментами знову швидке. Неправильні IP сполучення та тихо відхилені команди Cloud тепер повідомляються. Сегмент 0 ставав синім за коротким hex – виправлено. Майстер виявлення сегментів відновлює попередній вигляд при зупинці адаптера. Відхилений Govee API-ключ тепер дає зрозумілу підказку в журналі.",
         "zh-cn": "Govee 中断后连接状态指示自动恢复。多分段灯带的快照恢复再次变快。无效的配对 IP 和被悄悄拒绝的云命令现在都会上报。短 hex 输入下分段 0 显示蓝色已修复。停止适配器时段检测向导恢复先前画面。被拒绝的 Govee API key 现在会在日志中给出明确提示。"
-      },
-      "2.6.2": {
-        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) and the segment-detection wizard text remain unchanged.",
-        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen, Beschreibungen und Dropdown-Labels (11 Sprachen) sowie der Segment-Erkennungs-Wizard bleiben erhalten.",
-        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний, описания и подписи (11 языков), а также мастер обнаружения сегментов сохраняются.",
-        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Nomes de estados, descrições e rótulos localizados (11 idiomas) e o assistente de deteção de segmentos permanecem inalterados.",
-        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen, beschrijvingen en dropdown-labels (11 talen) en de segmentdetectie-wizard blijven ongewijzigd.",
-        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états, descriptions et libellés localisés (11 langues) ainsi que l'assistant de détection de segments restent inchangés.",
-        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati, descrizioni ed etichette localizzati (11 lingue) e la procedura guidata di rilevamento dei segmenti rimangono invariati.",
-        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados, descripciones y etiquetas localizados (11 idiomas) y el asistente de detección de segmentos permanecen sin cambios.",
-        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów, opisy i etykiety (11 języków) oraz kreator wykrywania segmentów pozostają bez zmian.",
-        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів, описи та мітки (11 мов) і майстер виявлення сегментів залишаються без змін.",
-        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称、描述和下拉标签（11 种语言）以及段检测向导保持不变。"
       }
     },
     "titleLang": {

@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.7.1 (2026-05-10)
 
 - Cleaner start-up log: the `Starting` line now hints to wait for the `ready` message, and the redundant `MQTT connected` info line is gone (the ready summary already lists all active channels).
 
@@ -151,10 +151,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.6.5 (2026-05-10)
 
 - Internal refactoring. No changes for users.
-
-### 2.6.4 (2026-05-10)
-
-- Internal tooling refresh. No changes for users.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

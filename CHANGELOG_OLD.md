@@ -1,4 +1,8 @@
 # Older Changes
+## 2.6.4 (2026-05-10)
+
+- Internal tooling refresh. No changes for users.
+
 ## 2.6.3 (2026-05-10)
 
 - Connection-status indicators recover on their own after a brief Govee outage instead of staying stuck until you restart the adapter.
