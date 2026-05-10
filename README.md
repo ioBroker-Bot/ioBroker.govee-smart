@@ -128,6 +128,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Internal test-runner switched from mocha+ts-node to vitest. No user-facing changes, but the test suite runs in about a second instead of several seconds, and the maintainer-side test-loader bug that blocked some refactors is gone. Source code is byte-identical.
+
 ### 2.6.3 (2026-05-10)
 
 - Real-time status push (`info.mqttConnected`, `info.openapiMqttConnected`) now recovers automatically after a brief Govee outage. Previously, a rare subscribe rejection could leave the indicator stuck on `false` until the next adapter restart.

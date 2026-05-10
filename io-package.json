@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.6.3",
     "news": {
+      "NEXT": {
+        "en": "Internal test-runner switched from mocha+ts-node to vitest. No user-facing changes — source code is byte-identical, the test suite just runs in about a second instead of several.",
+        "de": "Interner Test-Runner von mocha+ts-node auf vitest umgestellt. Keine User-sichtbaren Änderungen — Source-Code unverändert, Test-Suite läuft jetzt in rund einer Sekunde statt mehreren.",
+        "ru": "Внутренний тест-раннер переведён с mocha+ts-node на vitest. Для пользователя ничего не меняется — исходный код тот же, набор тестов просто выполняется примерно за секунду вместо нескольких.",
+        "pt": "Test-runner interno mudou de mocha+ts-node para vitest. Sem alterações visíveis ao utilizador — o código-fonte é idêntico; a suite de testes roda em cerca de um segundo em vez de vários.",
+        "nl": "Interne test-runner overgezet van mocha+ts-node naar vitest. Geen wijzigingen voor gebruikers — broncode identiek, test-suite draait nu in ongeveer een seconde in plaats van meerdere.",
+        "fr": "Test-runner interne migré de mocha+ts-node à vitest. Aucun changement visible — le code source reste identique, la suite de tests s'exécute en environ une seconde au lieu de plusieurs.",
+        "it": "Test-runner interno migrato da mocha+ts-node a vitest. Nessun cambiamento per l'utente — codice sorgente identico, la suite di test ora gira in circa un secondo invece di diversi.",
+        "es": "Test-runner interno migrado de mocha+ts-node a vitest. Sin cambios visibles para el usuario — el código fuente es idéntico; la suite de tests se ejecuta en cerca de un segundo en lugar de varios.",
+        "pl": "Wewnętrzny test-runner przeniesiony z mocha+ts-node na vitest. Brak zmian dla użytkownika — kod źródłowy bez zmian, suite testów wykonuje się teraz w około sekundę zamiast kilku.",
+        "uk": "Внутрішній тест-раннер переведений з mocha+ts-node на vitest. Без змін для користувача — вихідний код такий самий, набір тестів тепер виконується приблизно за секунду замість кількох.",
+        "zh-cn": "内部测试运行器从 mocha+ts-node 切换为 vitest。用户层面没有任何变化——源码完全一致；测试套件运行时间从数秒缩短到约一秒，并修复了一个困扰我们维护工作的测试加载器边界问题。"
+      },
       "2.6.3": {
         "en": "Status indicators recover automatically after a Govee outage, multi-segment snapshot restore is fast again, invalid manual pairing IP and silent Cloud errors are now reported.",
         "de": "Statusanzeigen erholen sich nach einem Govee-Ausfall automatisch, Snapshot-Wiederherstellung mit Segmenten ist wieder schnell, falsche Pairing-IP und stille Cloud-Fehler werden jetzt gemeldet.",
@@ -80,19 +93,6 @@
         "pl": "Wizard wykrywania segmentow nie spamuje juz 'has no existing object' dla indeksow powyzej rzeczywistej dlugosci tasmy. Plus: polecenie przed cloud-init jest teraz ciche.",
         "uk": "Wizard виявлення сегментів більше не спамить 'has no existing object' для індексів понад реальну довжину стрічки. Плюс: команда до cloud-init тепер тиха.",
         "zh-cn": "段检测向导不再为超出真实灯带长度的索引刷 'has no existing object' 警告。加上：cloud-init 完成前的命令现在不再产生 'No channel available' 警告。"
-      },
-      "2.5.2": {
-        "en": "Stops the 'membersUnreachable has no existing object' WARN spam every 2 min — group state stays present with empty value. Plus verified H61A8 Outdoor Neon LED Strip 10m.",
-        "de": "Behebt WARN-Spam 'membersUnreachable has no existing object' alle 2 Min — Gruppen-State bleibt existent mit leerem Wert. Plus verifiziert: H61A8 Outdoor Neon LED Strip 10m.",
-        "ru": "Устраняет WARN-спам 'membersUnreachable has no existing object' каждые 2 мин — state группы остается с пустым значением. Плюс H61A8 Outdoor Neon LED Strip 10m verified.",
-        "pt": "Corrige o WARN spam 'membersUnreachable has no existing object' a cada 2 min — state do grupo permanece com valor vazio. Plus H61A8 Outdoor Neon LED Strip 10m verificado.",
-        "nl": "Lost WARN-spam 'membersUnreachable has no existing object' elke 2 min op — group state blijft aanwezig met lege waarde. Plus H61A8 Outdoor Neon LED Strip 10m verified.",
-        "fr": "Corrige le spam WARN 'membersUnreachable has no existing object' toutes les 2 min — l'etat du groupe reste present avec valeur vide. Plus H61A8 Outdoor Neon LED Strip 10m verifie.",
-        "it": "Corregge lo spam WARN 'membersUnreachable has no existing object' ogni 2 min — lo state del gruppo resta presente con valore vuoto. Plus H61A8 Outdoor Neon LED Strip 10m verificato.",
-        "es": "Corrige el spam WARN 'membersUnreachable has no existing object' cada 2 min — el state del grupo permanece presente con valor vacio. Plus H61A8 Outdoor Neon LED Strip 10m verificado.",
-        "pl": "Usuwa WARN-spam 'membersUnreachable has no existing object' co 2 min — state grupy pozostaje obecny z pustą wartością. Plus H61A8 Outdoor Neon LED Strip 10m verified.",
-        "uk": "Усуває WARN-спам 'membersUnreachable has no existing object' кожні 2 хв — state групи залишається з порожнім значенням. Плюс H61A8 Outdoor Neon LED Strip 10m verified.",
-        "zh-cn": "修复每 2 分钟 'membersUnreachable has no existing object' WARN 刷屏 — 组 state 保持存在并写入空值。新增已验证设备：H61A8 Outdoor Neon LED Strip 10m。"
       }
     },
     "titleLang": {

@@ -24,6 +24,7 @@ export default [
       "test/**",
       "tools/**",
       "*.config.mjs",
+      "vitest.config.ts",
       "build",
       "admin",
       "node_modules",
