@@ -19,6 +19,7 @@ import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
+import * as cloudRetryHandler from "./lib/handlers/cloud-retry-handler";
 import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
 import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
@@ -83,7 +84,8 @@ class GoveeAdapter extends utils.Adapter {
   public lanClient: GoveeLanClient | null = null;
   private mqttClient: GoveeMqttClient | null = null;
   private openapiMqttClient: GoveeOpenapiMqttClient | null = null;
-  private cloudClient: GoveeCloudClient | null = null;
+  /** Public for handler modules. */
+  public cloudClient: GoveeCloudClient | null = null;
   private rateLimiter: RateLimiter | null = null;
   /** Repeating timer for the App-API poll (sensor-state pull). */
   private appApiPollTimer: ioBroker.Interval | undefined;
@@ -93,7 +95,8 @@ class GoveeAdapter extends utils.Adapter {
    */
   private appApiInitialTimer: ioBroker.Timeout | undefined;
   /** One-shot timer for cloud-init 60s safety timeout — gleiches Pattern. */
-  private cloudInitTimer: ioBroker.Timeout | undefined;
+  /** Public for handler modules. */
+  public cloudInitTimer: ioBroker.Timeout | undefined;
   /**
    * Letzter info.connection-Wert — Cache damit nicht jeder device-update
    *  einen unnötigen setStateAsync macht (H4).
@@ -114,7 +117,8 @@ class GoveeAdapter extends utils.Adapter {
   /** Verhindert Mehrfach-Ready-Log innerhalb derselben Adapter-Session. */
   private readyLogged = false;
   /** Cloud war mindestens einmal connected — für „restored"-Log nach Down. */
-  private cloudWasConnected = false;
+  /** Public for handler modules. */
+  public cloudWasConnected = false;
   /** Tägliches Interval für App-Version-Drift-Check gegen App-Store. */
   private appVersionCheckTimer: ioBroker.Interval | undefined;
   // === Sub-Komponenten ===
@@ -128,7 +132,8 @@ class GoveeAdapter extends utils.Adapter {
   private lanScanTimer: ioBroker.Timeout | undefined;
   private cleanupTimer: ioBroker.Timeout | undefined;
   private readyTimer: ioBroker.Timeout | undefined;
-  private cloudRetry: CloudRetryLoop | null = null;
+  /** Public for handler modules. Undefined until first ensureCloudRetry() call. */
+  public cloudRetry: CloudRetryLoop | undefined;
   /** Public for handlers/wizard-handler — lazily instantiated by `runWizardStep`. */
   public segmentWizard: SegmentWizard | null = null;
   private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
@@ -480,9 +485,9 @@ class GoveeAdapter extends utils.Adapter {
       if (!cachedOk) {
         // No cache — first start, fetch from Cloud with 60s hard-timeout.
         // If Cloud hangs/fails, we don't want to block adapter startup indefinitely.
-        const result = await this.cloudInitWithTimeout();
+        const result = await cloudRetryHandler.cloudInitWithTimeout(this);
         this.cloudWasConnected = result.ok;
-        this.ensureCloudRetry().setConnected(result.ok);
+        cloudRetryHandler.ensureCloudRetry(this).setConnected(result.ok);
         this.setStateAsync("info.cloudConnected", {
           val: result.ok,
           ack: true,
@@ -492,12 +497,12 @@ class GoveeAdapter extends utils.Adapter {
         if (result.ok) {
           await this.loadCloudStates();
         } else {
-          this.handleCloudFailure(result);
+          cloudRetryHandler.handleCloudFailure(this, result);
         }
       } else {
         this.log.info(`Using cached device data — no Cloud calls needed`);
         this.cloudWasConnected = true;
-        this.ensureCloudRetry().setConnected(true);
+        cloudRetryHandler.ensureCloudRetry(this).setConnected(true);
         this.setStateAsync("info.cloudConnected", {
           val: true,
           ack: true,
@@ -569,100 +574,6 @@ class GoveeAdapter extends utils.Adapter {
     }, 60_000);
   }
 
-  /**
-   * Initial Cloud-Load mit 60-Sekunden-Hardtimeout.
-   * Blockiert nicht länger — wenn Cloud hängt, geht Adapter mit LAN+MQTT weiter,
-   * und der Retry-Loop probiert's passend zum Fehlergrund erneut.
-   */
-  private async cloudInitWithTimeout(): Promise<CloudLoadResult> {
-    if (!this.deviceManager) {
-      return { ok: false, reason: "transient" };
-    }
-    const loadPromise = this.deviceManager.loadFromCloud();
-    const timeoutPromise = new Promise<CloudLoadResult>(resolve => {
-      this.cloudInitTimer = this.setTimeout(() => resolve({ ok: false, reason: "transient" }), READY_TIMEOUT_MS);
-    });
-    try {
-      const result = await Promise.race([loadPromise, timeoutPromise]);
-      // Race finished — clear the timer in either success or timeout-but-
-      // load-still-running cases. Without this the timeout-leg would still
-      // fire after `ok` returned and dirty the resolve queue (resolved
-      // promise is harmless but the timer keeps an extra setTimeout-handle
-      // alive in `this.cloudInitTimer` until onUnload).
-      if (this.cloudInitTimer) {
-        this.clearTimeout(this.cloudInitTimer);
-        this.cloudInitTimer = undefined;
-      }
-      return result;
-    } catch {
-      if (this.cloudInitTimer) {
-        this.clearTimeout(this.cloudInitTimer);
-        this.cloudInitTimer = undefined;
-      }
-      return { ok: false, reason: "transient" };
-    }
-  }
-
-  /** Build the host object for {@link CloudRetryLoop}. */
-  private buildCloudRetryHost(): CloudRetryHost {
-    return {
-      log: this.log,
-      setTimeout: (cb, ms) => this.setTimeout(cb, ms),
-      clearTimeout: h => this.clearTimeout(h as ioBroker.Timeout),
-      loadFromCloud: () => this.cloudInitWithTimeout(),
-      onCloudRestored: async () => {
-        this.cloudWasConnected = true;
-        this.setStateAsync("info.cloudConnected", {
-          val: true,
-          ack: true,
-        }).catch(() => {});
-        this.stateManager?.updateGroupsOnline(true).catch(() => {});
-        await this.loadCloudStates();
-      },
-    };
-  }
-
-  /** Lazy-initialise the retry loop on first use. */
-  private ensureCloudRetry(): CloudRetryLoop {
-    if (!this.cloudRetry) {
-      this.cloudRetry = new CloudRetryLoop(this.buildCloudRetryHost());
-      this.cloudRetry.setConnected(this.cloudWasConnected);
-    }
-    return this.cloudRetry;
-  }
-
-  /**
-   * React to a Cloud-load outcome — delegates to {@link CloudRetryLoop}.
-   *
-   * @param result CloudLoadResult from initial load or retry attempt
-   */
-  private handleCloudFailure(result: CloudLoadResult): void {
-    this.ensureCloudRetry().handleResult(result);
-  }
-
-  /**
-   * React to the user writing `info.refresh_cloud_data = true`. Performs one
-   * full Cloud reload cycle so newly created scenes/snapshots from the Govee
-   * Home app show up without an adapter restart.
-   */
-  private async handleManualCloudRefresh(): Promise<void> {
-    if (!this.deviceManager || !this.cloudClient) {
-      this.log.info(`Refresh cloud data: no Cloud client configured (API key missing) — nothing to do`);
-      return;
-    }
-    this.log.info(`Refresh cloud data: re-fetching scenes and snapshots for all devices`);
-    try {
-      const changed = await this.deviceManager.refreshSceneData();
-      if (changed) {
-        await this.loadCloudStates();
-      }
-      // G2 — kein „done"-Log: User hat den Button gedrückt, sieht das
-      // Ergebnis am Adapter-Verhalten. „done" auf info-level wäre bei
-      // Erfolg redundant (Fehler-Pfad direkt darunter ist warn).
-    } catch (e) {
-      this.log.warn(`Refresh cloud data failed: ${errMessage(e)}`);
-    }
-  }
 
   /**
    * Adapter stopping — MUST be synchronous.
@@ -748,7 +659,7 @@ class GoveeAdapter extends utils.Adapter {
     // devices and re-builds the state tree. Handy after creating a new
     // snapshot in the Govee Home app without restarting the adapter.
     if (id === `${this.namespace}.info.refresh_cloud_data` && state.val) {
-      await this.handleManualCloudRefresh();
+      await cloudRetryHandler.handleManualCloudRefresh(this);
       await this.setStateAsync(id, { val: false, ack: true });
       return;
     }
@@ -1328,7 +1239,8 @@ class GoveeAdapter extends utils.Adapter {
    * Load current state for all Cloud devices and populate state values.
    * Called once after initial Cloud device list load.
    */
-  private async loadCloudStates(): Promise<void> {
+  /** Public for handler modules (cloud-retry). */
+  public async loadCloudStates(): Promise<void> {
     if (!this.cloudClient || !this.deviceManager || !this.stateManager) {
       return;
     }
