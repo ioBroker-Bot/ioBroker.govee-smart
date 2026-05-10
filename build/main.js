@@ -43,7 +43,6 @@ var import_types = require("./lib/types");
 var import_timing_constants = require("./lib/timing-constants");
 var import_govee_constants = require("./lib/govee-constants");
 var import_http_client = require("./lib/http-client");
-const FULL_LIMITS = { perMinute: 8, perDay: 9e3 };
 const STATE_TO_COMMAND = {
   "control.power": "power",
   "control.brightness": "brightness",
@@ -120,6 +119,14 @@ class GoveeAdapter extends utils.Adapter {
   adminLanguage = "en";
   /** Last time `requestCode` was triggered via onMessage — guards against double-click email spam. */
   lastVerificationRequestMs = 0;
+  /**
+   * Set true at the start of onUnload — async paths (onStateChange,
+   * applyCloudCapabilities, retrySceneData, …) check this between awaits
+   * and bail before further setStateAsync against a torn-down adapter.
+   */
+  unloading = false;
+  /** Initial app-version-check timer (2 min after start) — kept so onUnload can clear it. */
+  appVersionInitialTimer;
   /** @param options Adapter options */
   constructor(options = {}) {
     super({ ...options, name: "govee-smart" });
@@ -345,7 +352,7 @@ class GoveeAdapter extends utils.Adapter {
           (e) => this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${(0, import_types.errMessage)(e)}`)
         );
       });
-      this.rateLimiter = new import_rate_limiter.RateLimiter(this.log, this, FULL_LIMITS.perMinute, FULL_LIMITS.perDay);
+      this.rateLimiter = new import_rate_limiter.RateLimiter(this.log, this, import_timing_constants.CLOUD_FULL_LIMITS.perMinute, import_timing_constants.CLOUD_FULL_LIMITS.perDay);
       this.rateLimiter.start();
       this.deviceManager.setRateLimiter(this.rateLimiter);
       this.openapiMqttClient = new import_govee_openapi_mqtt_client.GoveeOpenapiMqttClient(config.apiKey, this.log, this);
@@ -422,8 +429,12 @@ class GoveeAdapter extends utils.Adapter {
       },
       24 * 60 * 60 * 1e3
     );
-    this.setTimeout(
+    this.appVersionInitialTimer = this.setTimeout(
       () => {
+        this.appVersionInitialTimer = void 0;
+        if (this.unloading) {
+          return;
+        }
         this.checkAppVersionDrift().catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
       },
       2 * 60 * 1e3
@@ -451,8 +462,17 @@ class GoveeAdapter extends utils.Adapter {
       this.cloudInitTimer = this.setTimeout(() => resolve({ ok: false, reason: "transient" }), import_timing_constants.READY_TIMEOUT_MS);
     });
     try {
-      return await Promise.race([loadPromise, timeoutPromise]);
+      const result = await Promise.race([loadPromise, timeoutPromise]);
+      if (this.cloudInitTimer) {
+        this.clearTimeout(this.cloudInitTimer);
+        this.cloudInitTimer = void 0;
+      }
+      return result;
     } catch {
+      if (this.cloudInitTimer) {
+        this.clearTimeout(this.cloudInitTimer);
+        this.cloudInitTimer = void 0;
+      }
       return { ok: false, reason: "transient" };
     }
   }
@@ -520,6 +540,7 @@ class GoveeAdapter extends utils.Adapter {
    */
   onUnload(callback) {
     var _a, _b, _c, _d, _e, _f;
+    this.unloading = true;
     try {
       if (this.lanScanTimer) {
         this.clearTimeout(this.lanScanTimer);
@@ -545,6 +566,10 @@ class GoveeAdapter extends utils.Adapter {
       if (this.appVersionCheckTimer) {
         this.clearInterval(this.appVersionCheckTimer);
         this.appVersionCheckTimer = void 0;
+      }
+      if (this.appVersionInitialTimer) {
+        this.clearTimeout(this.appVersionInitialTimer);
+        this.appVersionInitialTimer = void 0;
       }
       (_a = this.cloudRetry) == null ? void 0 : _a.dispose();
       (_b = this.segmentWizard) == null ? void 0 : _b.dispose();
@@ -583,7 +608,7 @@ class GoveeAdapter extends utils.Adapter {
    */
   async onStateChange(id, state) {
     var _a;
-    if (!state || state.ack || !this.deviceManager || !this.stateManager) {
+    if (!state || state.ack || !this.deviceManager || !this.stateManager || this.unloading) {
       return;
     }
     if (id === `${this.namespace}.info.refresh_cloud_data` && state.val) {
@@ -832,7 +857,18 @@ class GoveeAdapter extends utils.Adapter {
     if (!group.groupMembers) {
       return [];
     }
-    return group.groupMembers.map((m) => devices.find((d) => d.sku === m.sku && d.deviceId === m.deviceId)).filter((d) => d !== void 0);
+    const byKey = /* @__PURE__ */ new Map();
+    for (const d of devices) {
+      byKey.set(`${d.sku}:${d.deviceId}`, d);
+    }
+    const out = [];
+    for (const m of group.groupMembers) {
+      const d = byKey.get(`${m.sku}:${m.deviceId}`);
+      if (d) {
+        out.push(d);
+      }
+    }
+    return out;
   }
   /**
    * Recalculate info.membersUnreachable for all groups.

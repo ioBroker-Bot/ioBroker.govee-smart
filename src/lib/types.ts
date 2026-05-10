@@ -619,8 +619,10 @@ export function rgbToHex(r: number, g: number, b: number): string {
 }
 
 /**
- * Parse hex color string to RGB values. Returns black for non-string
- * or malformed input (defensive — upstream may pass unexpected types).
+ * Parse hex color string to RGB values. Returns black for non-string,
+ * wrong-length or malformed input (defensive — upstream may pass unexpected
+ * types or shortened forms like "FF" that would otherwise yield blue=255
+ * via the bitshift below).
  *
  * @param hex Color string (e.g. "#FF6600" or "FF6600")
  */
@@ -628,7 +630,14 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   if (typeof hex !== "string") {
     return { r: 0, g: 0, b: 0 };
   }
-  const num = parseInt(hex.replace("#", ""), 16) || 0;
+  const cleaned = hex.replace("#", "");
+  // Reject anything that isn't exactly 6 hex digits — accepting "FF" or
+  // "FFAABBCC" would silently yield non-obvious RGB values via parseInt
+  // truncation/sign-extension.
+  if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+    return { r: 0, g: 0, b: 0 };
+  }
+  const num = parseInt(cleaned, 16) || 0;
   return { r: (num >> 16) & 0xff, g: (num >> 8) & 0xff, b: num & 0xff };
 }
 
@@ -666,7 +675,10 @@ export interface SegmentListParseResult {
  * @returns SegmentListParseResult with indices + optional error
  */
 export function parseSegmentList(input: string, maxIndex: number): SegmentListParseResult {
-  const HARD_MAX = 99; // backstop, covers every realistic Govee device
+  // Backstop matches the Govee bitmask protocol limit (`SEGMENT_HARD_MAX = 55`
+  // in device-manager). Higher values would be silently dropped at the
+  // ptReal layer anyway; rejecting them up front gives a clearer user error.
+  const HARD_MAX = 55;
   if (typeof input !== "string") {
     return { indices: [], error: "input must be a string" };
   }

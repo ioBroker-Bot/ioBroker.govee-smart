@@ -161,6 +161,13 @@ class StateManager {
   prefixMap = /* @__PURE__ */ new Map();
   /** Maps "prefix.stateId" → channel name (populated during createDeviceStates) */
   stateChannelMap = /* @__PURE__ */ new Map();
+  /**
+   * Cache of state IDs already created via {@link ensureState} — skips the
+   * `extendObjectAsync` round-trip on the hot path. Refreshed on
+   * {@link removeDevice}/{@link forgetPrefix} so a re-pair doesn't reuse stale
+   * cache entries.
+   */
+  ensuredStates = /* @__PURE__ */ new Set();
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter) {
     this.adapter = adapter;
@@ -321,15 +328,23 @@ class StateManager {
       ack: true
     });
     if (!isGroup) {
-      await this.ensureState(`${prefix}.info.online`, "Online", "boolean", "indicator.reachable", false);
+      await this.ensureState(
+        `${prefix}.info.online`,
+        "Online",
+        "boolean",
+        "indicator.reachable",
+        false,
+        void 0,
+        false
+      );
       await this.adapter.setStateAsync(`${prefix}.info.online`, {
         val: (_a = device.state.online) != null ? _a : false,
         ack: true
       });
-      await this.ensureState(`${prefix}.info.model`, "Model", "string", "text", false);
-      await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false);
-      await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false);
-      await this.ensureState(`${prefix}.info.type`, "Device Type", "string", "text", false);
+      await this.ensureState(`${prefix}.info.model`, "Model", "string", "text", false, void 0, "");
+      await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false, void 0, "");
+      await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false, void 0, "");
+      await this.ensureState(`${prefix}.info.type`, "Device Type", "string", "text", false, void 0, "");
       await this.adapter.setStateAsync(`${prefix}.info.model`, {
         val: device.sku,
         ack: true
@@ -578,6 +593,8 @@ class StateManager {
       const segIdx = parseInt(segPart, 10);
       if (!isNaN(segIdx) && !valid.has(segIdx)) {
         this.adapter.log.debug(`Removing excess segment: ${localId}`);
+        await this.adapter.delStateAsync(`${localId}.color`).catch(() => void 0);
+        await this.adapter.delStateAsync(`${localId}.brightness`).catch(() => void 0);
         await this.adapter.delObjectAsync(localId, { recursive: true });
       }
     }
@@ -694,10 +711,18 @@ class StateManager {
     const currentPrefixes = new Set(currentDevices.map((d) => this.devicePrefix(d)));
     const removed = [];
     for (const folder of ["devices", "groups"]) {
-      const existingObjects = await this.adapter.getObjectViewAsync("system", "device", {
-        startkey: `${this.adapter.namespace}.${folder}.`,
-        endkey: `${this.adapter.namespace}.${folder}.\u9999`
-      });
+      let existingObjects;
+      try {
+        existingObjects = await this.adapter.getObjectViewAsync("system", "device", {
+          startkey: `${this.adapter.namespace}.${folder}.`,
+          endkey: `${this.adapter.namespace}.${folder}.\u9999`
+        });
+      } catch (e) {
+        this.adapter.log.debug(
+          `cleanupDevices: getObjectViewAsync failed for ${folder}: ${e instanceof Error ? e.message : String(e)}`
+        );
+        continue;
+      }
       if (!(existingObjects == null ? void 0 : existingObjects.rows)) {
         continue;
       }
@@ -814,6 +839,12 @@ class StateManager {
         this.stateChannelMap.delete(key);
       }
     }
+    const stalePrefixFull = `${this.adapter.namespace}.${prefix}.`;
+    for (const id of this.ensuredStates) {
+      if (id === `${this.adapter.namespace}.${prefix}` || id.startsWith(stalePrefixFull)) {
+        this.ensuredStates.delete(id);
+      }
+    }
   }
   /**
    * Unique key for internal tracking (not used as object ID).
@@ -824,7 +855,9 @@ class StateManager {
     return `${device.sku}_${(0, import_types.normalizeDeviceId)(device.deviceId)}`;
   }
   /**
-   * Create a state if it doesn't exist
+   * Create a state if it doesn't exist. Cached after the first successful
+   * `extendObjectAsync` so hot-path callers (e.g. `updateGroupMembersUnreachable`
+   * fires per status update) skip the Redis round-trip.
    *
    * @param id State object ID
    * @param name Display name
@@ -832,8 +865,14 @@ class StateManager {
    * @param role ioBroker role
    * @param write Whether state is writable
    * @param unit Optional unit of measurement
+   * @param def Optional default value — set so the state has a sensible
+   *            initial value before the first writeback (avoids `null`
+   *            display in admin between create and first setState).
    */
-  async ensureState(id, name, type, role, write, unit) {
+  async ensureState(id, name, type, role, write, unit, def) {
+    if (this.ensuredStates.has(id)) {
+      return;
+    }
     const common = {
       name,
       type,
@@ -844,11 +883,15 @@ class StateManager {
     if (unit) {
       common.unit = unit;
     }
+    if (def !== void 0) {
+      common.def = def;
+    }
     await this.adapter.extendObjectAsync(id, {
       type: "state",
       common,
       native: {}
     });
+    this.ensuredStates.add(id);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

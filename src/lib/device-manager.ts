@@ -10,6 +10,7 @@ import type { CachedDeviceData, SkuCache } from "./sku-cache";
 import {
   classifyError,
   coerceFiniteNumber,
+  logDedup,
   normalizeDeviceId,
   rgbToHex,
   type CloudDevice,
@@ -209,6 +210,8 @@ export class DeviceManager {
   /** Per-source dedup so a Cloud NETWORK error doesn't shadow an App-API one. */
   private lastErrorCategory: ErrorCategory | null = null;
   private lastAppApiErrorCategory: ErrorCategory | null = null;
+  /** Dedup tracker for `loadGroupMembers` errors — first warn per category, rest debug. */
+  private lastGroupMembersErrorCategory: ErrorCategory | null = null;
 
   /**
    * @param log    ioBroker logger
@@ -875,9 +878,19 @@ export class DeviceManager {
       if (changed) {
         this.onDeviceListChanged?.(this.getDevices());
       }
+      // Reset dedup on success so a future failure warns again.
+      this.lastGroupMembersErrorCategory = null;
       return changed;
     } catch (e) {
-      this.log.debug(`Could not load group members: ${errMessage(e)}`);
+      // Group-membership is best-effort — but a persistent failure (e.g. API
+      // permission revoked) should still surface once so the user knows
+      // groups won't fan-out. logDedup demotes repeats to debug.
+      this.lastGroupMembersErrorCategory = logDedup(
+        this.log,
+        this.lastGroupMembersErrorCategory,
+        "Group membership",
+        e,
+      );
       return false;
     }
   }
@@ -1448,31 +1461,41 @@ export class DeviceManager {
     }
     // Reset on success so the next failure warns again.
     this.lastAppApiErrorCategory = null;
-    let updated = 0;
-    for (const entry of entries) {
-      const device = this.devices.get(this.deviceKey(entry.sku, entry.device));
-      if (!device) {
-        continue;
-      }
-      const caps = buildCapabilitiesFromAppEntry(entry);
-      if (caps.length === 0) {
-        continue;
-      }
-      // Route synthetic capabilities through the existing
-      // onCloudCapabilities callback so main.ts's normal setState
-      // pipeline (mapCloudStateValue + setStateAsync) handles them.
-      this.onCloudCapabilities?.(device, caps);
-      // mapSingleCapability returns null for the synthetic `online`
-      // cap (online is a device-level property, not a regular state),
-      // so onCloudCapabilities never reaches info.online via the
-      // capability pipeline. Pluck it out and apply it directly —
-      // otherwise sensor SKUs like H5179 stay at info.online=false
-      // forever even while their readings keep updating.
-      this.applyOnlineCap(device, caps);
-      this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
-      updated++;
-    }
-    return updated;
+    // Process all entries in parallel — each entry only touches its own
+    // device (no shared mutation), and the downstream callbacks (onCloud-
+    // Capabilities → main.applyCloudCapabilities → setStateAsync queue)
+    // are async-safe. Sequential `for` blocked the App-API tick on a slow
+    // setStateAsync round-trip per device.
+    // Wrap each per-entry block in `Promise.resolve` so the iterable is a
+    // true Thenable — synchronous returns confuse `await Promise.all`'s
+    // type-checker (await-thenable lint rule) even though the runtime would
+    // accept them. No-op at runtime, makes the intent explicit and lints
+    // without `require-await`.
+    const results = await Promise.all(
+      entries.map(entry =>
+        Promise.resolve().then(() => {
+          const device = this.devices.get(this.deviceKey(entry.sku, entry.device));
+          if (!device) {
+            return false;
+          }
+          const caps = buildCapabilitiesFromAppEntry(entry);
+          if (caps.length === 0) {
+            return false;
+          }
+          this.onCloudCapabilities?.(device, caps);
+          // mapSingleCapability returns null for the synthetic `online` cap
+          // (online is a device-level property, not a regular state), so
+          // onCloudCapabilities never reaches info.online via the capability
+          // pipeline. Pluck it out and apply it directly — otherwise sensor
+          // SKUs like H5179 stay at info.online=false forever even while
+          // their readings keep updating.
+          this.applyOnlineCap(device, caps);
+          this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
+          return true;
+        }),
+      ),
+    );
+    return results.filter(Boolean).length;
   }
 
   /**

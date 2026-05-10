@@ -207,6 +207,13 @@ export class StateManager {
   private readonly prefixMap = new Map<string, string>();
   /** Maps "prefix.stateId" → channel name (populated during createDeviceStates) */
   private readonly stateChannelMap = new Map<string, string>();
+  /**
+   * Cache of state IDs already created via {@link ensureState} — skips the
+   * `extendObjectAsync` round-trip on the hot path. Refreshed on
+   * {@link removeDevice}/{@link forgetPrefix} so a re-pair doesn't reuse stale
+   * cache entries.
+   */
+  private readonly ensuredStates = new Set<string>();
 
   /** @param adapter The ioBroker adapter instance */
   constructor(adapter: utils.AdapterInstance) {
@@ -396,18 +403,26 @@ export class StateManager {
     });
 
     if (!isGroup) {
-      await this.ensureState(`${prefix}.info.online`, "Online", "boolean", "indicator.reachable", false);
+      await this.ensureState(
+        `${prefix}.info.online`,
+        "Online",
+        "boolean",
+        "indicator.reachable",
+        false,
+        undefined,
+        false,
+      );
       await this.adapter.setStateAsync(`${prefix}.info.online`, {
         val: device.state.online ?? false,
         ack: true,
       });
-      await this.ensureState(`${prefix}.info.model`, "Model", "string", "text", false);
-      await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false);
-      await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false);
+      await this.ensureState(`${prefix}.info.model`, "Model", "string", "text", false, undefined, "");
+      await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false, undefined, "");
+      await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false, undefined, "");
       // Device-type marker — short label like "light", "thermometer",
       // "heater" (Govee API type without the "devices.types." prefix).
       // Lets scripts filter `*.info.type === "light"` without parsing.
-      await this.ensureState(`${prefix}.info.type`, "Device Type", "string", "text", false);
+      await this.ensureState(`${prefix}.info.type`, "Device Type", "string", "text", false, undefined, "");
       await this.adapter.setStateAsync(`${prefix}.info.model`, {
         val: device.sku,
         ack: true,
@@ -718,6 +733,13 @@ export class StateManager {
       const segIdx = parseInt(segPart, 10);
       if (!isNaN(segIdx) && !valid.has(segIdx)) {
         this.adapter.log.debug(`Removing excess segment: ${localId}`);
+        // Drop orphan state values too — `delObjectAsync(recursive)` removes
+        // the object tree but leaves the state-table values for color and
+        // brightness behind. Without these explicit `delStateAsync` calls,
+        // historical values would resurrect into a re-created segment after
+        // a length change.
+        await this.adapter.delStateAsync(`${localId}.color`).catch(() => undefined);
+        await this.adapter.delStateAsync(`${localId}.brightness`).catch(() => undefined);
         await this.adapter.delObjectAsync(localId, { recursive: true });
       }
     }
@@ -848,10 +870,21 @@ export class StateManager {
 
     // Cleanup both devices/ and groups/ folders
     for (const folder of ["devices", "groups"]) {
-      const existingObjects = await this.adapter.getObjectViewAsync("system", "device", {
-        startkey: `${this.adapter.namespace}.${folder}.`,
-        endkey: `${this.adapter.namespace}.${folder}.\u9999`,
-      });
+      // getObjectViewAsync can throw on transient js-controller hiccups \u2014
+      // wrapping it lets cleanupDevices proceed with the other folder
+      // instead of bailing out of the whole cleanup pass.
+      let existingObjects;
+      try {
+        existingObjects = await this.adapter.getObjectViewAsync("system", "device", {
+          startkey: `${this.adapter.namespace}.${folder}.`,
+          endkey: `${this.adapter.namespace}.${folder}.\u9999`,
+        });
+      } catch (e) {
+        this.adapter.log.debug(
+          `cleanupDevices: getObjectViewAsync failed for ${folder}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        continue;
+      }
 
       if (!existingObjects?.rows) {
         continue;
@@ -981,6 +1014,15 @@ export class StateManager {
         this.stateChannelMap.delete(key);
       }
     }
+    // Drop ensureState cache for this device too — a re-pair must run the
+    // full extendObjectAsync path again so the new device's name/type get
+    // applied (cache hit would skip the round-trip and keep stale common.*).
+    const stalePrefixFull = `${this.adapter.namespace}.${prefix}.`;
+    for (const id of this.ensuredStates) {
+      if (id === `${this.adapter.namespace}.${prefix}` || id.startsWith(stalePrefixFull)) {
+        this.ensuredStates.delete(id);
+      }
+    }
   }
 
   /**
@@ -995,7 +1037,9 @@ export class StateManager {
   }
 
   /**
-   * Create a state if it doesn't exist
+   * Create a state if it doesn't exist. Cached after the first successful
+   * `extendObjectAsync` so hot-path callers (e.g. `updateGroupMembersUnreachable`
+   * fires per status update) skip the Redis round-trip.
    *
    * @param id State object ID
    * @param name Display name
@@ -1003,6 +1047,9 @@ export class StateManager {
    * @param role ioBroker role
    * @param write Whether state is writable
    * @param unit Optional unit of measurement
+   * @param def Optional default value — set so the state has a sensible
+   *            initial value before the first writeback (avoids `null`
+   *            display in admin between create and first setState).
    */
   private async ensureState(
     id: string,
@@ -1011,7 +1058,11 @@ export class StateManager {
     role: string,
     write: boolean,
     unit?: string,
+    def?: ioBroker.StateValue,
   ): Promise<void> {
+    if (this.ensuredStates.has(id)) {
+      return;
+    }
     const common: Partial<ioBroker.StateCommon> = {
       name,
       type,
@@ -1022,10 +1073,14 @@ export class StateManager {
     if (unit) {
       common.unit = unit;
     }
+    if (def !== undefined) {
+      common.def = def;
+    }
     await this.adapter.extendObjectAsync(id, {
       type: "state",
       common: common as ioBroker.StateCommon,
       native: {},
     });
+    this.ensuredStates.add(id);
   }
 }

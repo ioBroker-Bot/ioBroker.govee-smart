@@ -22,6 +22,13 @@ export class RateLimiter {
   private minuteResetTimer: ioBroker.Interval | undefined = undefined;
   private dayResetTimer: ioBroker.Interval | undefined = undefined;
   private dayResetKickoff: ioBroker.Timeout | undefined = undefined;
+  /**
+   * True after `stop()`. Guards the dayResetKickoff callback so a stop() that
+   * fires between kickoff-schedule and kickoff-execute can't leave behind a
+   * runaway dayResetTimer interval — without this, a stop+restart cycle would
+   * leak one interval per restart.
+   */
+  private stopped = false;
 
   /** Max calls per minute */
   private perMinuteLimit: number;
@@ -57,6 +64,7 @@ export class RateLimiter {
 
   /** Start the rate limiter — resets counters periodically */
   start(): void {
+    this.stopped = false;
     // Reset minute counter every 60s
     this.minuteResetTimer = this.timers.setInterval(() => {
       this.callsThisMinute = 0;
@@ -70,6 +78,12 @@ export class RateLimiter {
     // next day even though Govee gives you a fresh budget at 00:00.
     const msUntilMidnight = this.millisUntilNextUtcMidnight();
     this.dayResetKickoff = this.timers.setTimeout(() => {
+      this.dayResetKickoff = undefined;
+      // stop() may have fired between schedule and execute — bail before
+      // installing the recurring 24 h timer, which would otherwise leak.
+      if (this.stopped) {
+        return;
+      }
       this.resetDaily();
       this.dayResetTimer = this.timers.setInterval(() => this.resetDaily(), 86_400_000);
     }, msUntilMidnight);
@@ -82,6 +96,7 @@ export class RateLimiter {
 
   /** Stop the rate limiter */
   stop(): void {
+    this.stopped = true;
     if (this.minuteResetTimer) {
       this.timers.clearInterval(this.minuteResetTimer);
       this.minuteResetTimer = undefined;
@@ -156,6 +171,9 @@ export class RateLimiter {
 
   /** Process queued calls */
   private processQueue(): void {
+    if (this.stopped) {
+      return;
+    }
     while (this.queue.length > 0 && this.canMakeCall()) {
       const call = this.queue.shift();
       if (call) {

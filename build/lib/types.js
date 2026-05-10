@@ -140,14 +140,18 @@ function hexToRgb(hex) {
   if (typeof hex !== "string") {
     return { r: 0, g: 0, b: 0 };
   }
-  const num = parseInt(hex.replace("#", ""), 16) || 0;
+  const cleaned = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+    return { r: 0, g: 0, b: 0 };
+  }
+  const num = parseInt(cleaned, 16) || 0;
   return { r: num >> 16 & 255, g: num >> 8 & 255, b: num & 255 };
 }
 function rgbIntToHex(rgb) {
   return `#${(rgb & 16777215).toString(16).padStart(6, "0")}`;
 }
 function parseSegmentList(input, maxIndex) {
-  const HARD_MAX = 99;
+  const HARD_MAX = 55;
   if (typeof input !== "string") {
     return { indices: [], error: "input must be a string" };
   }

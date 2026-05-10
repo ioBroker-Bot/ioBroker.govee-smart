@@ -122,14 +122,49 @@ export class SnapshotHandler {
       } else {
         await this.host.sendCommand(device, "colorRgb", snap.colorRgb);
       }
-      // Restore per-segment states via ptReal
+      // Restore per-segment states via ptReal. Group segments by identical
+      // (color, brightness) values and send one segmentBatch per group —
+      // a sequential per-segment loop would multiply forceColorMode's 150 ms
+      // settle delay by N×2 (~9 s for a 30-segment strip).
       if (snap.segments && snap.segments.length > 0) {
-        for (let i = 0; i < snap.segments.length; i++) {
-          const seg = snap.segments[i];
-          await this.host.sendCommand(device, `segmentColor:${i}`, seg.color);
-          await this.host.sendCommand(device, `segmentBrightness:${i}`, seg.brightness);
-        }
+        await this.restoreSegments(device, snap.segments);
       }
+    }
+  }
+
+  /**
+   * Restore per-segment color + brightness via segmentBatch commands.
+   * Groups segments by identical (color, brightness) so a uniform-coloured
+   * strip restores in 1 batch, a 3-zone snapshot in 3 batches — instead of
+   * the old N×2 sequential pattern that paid the forceColorMode 150 ms
+   * settle delay per segment.
+   *
+   * @param device Target device
+   * @param segments Per-segment color + brightness data
+   */
+  private async restoreSegments(device: GoveeDevice, segments: SnapshotSegment[]): Promise<void> {
+    // Group by (color, brightness) tuple — index in tuple-key acts as group id.
+    const groups = new Map<string, { segments: number[]; color: number; brightness: number }>();
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      // Parse "#RRGGBB" → packed int. Default to black on malformed entries
+      // (matches save-time default in `host.getState` fallback).
+      const hex = typeof seg.color === "string" && /^#?[0-9a-fA-F]{6}$/.test(seg.color) ? seg.color : "#000000";
+      const color = parseInt(hex.replace("#", ""), 16);
+      const brightness = typeof seg.brightness === "number" ? seg.brightness : 100;
+      const key = `${color}:${brightness}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.segments.push(i);
+      } else {
+        groups.set(key, { segments: [i], color, brightness });
+      }
+    }
+    // One batch per (color, brightness) group. Each batch goes through
+    // command-router's segmentBatch path → single forceColorMode delay,
+    // single ptReal datagram for all segments in the group.
+    for (const group of groups.values()) {
+      await this.host.sendCommand(device, "segmentBatch", group);
     }
   }
 

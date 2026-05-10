@@ -49,7 +49,6 @@ export class LocalSnapshotStore {
     this.dir = path.join(dataDir, "snapshots");
     this.log = log;
     // mkdir try/catch — Permission/Read-only-FS soll Constructor nicht crashen.
-    // Bei Fehlschlag wird dataAvailable=false markiert; save/load skippen.
     try {
       if (!fs.existsSync(this.dir)) {
         fs.mkdirSync(this.dir, { recursive: true });
@@ -61,7 +60,7 @@ export class LocalSnapshotStore {
     }
   }
 
-  /** False wenn Snapshot-Dir nicht zugreifbar ist — save/load skipt dann. */
+  /** False wenn Snapshot-Dir nicht zugreifbar ist — save/load skippen dann. */
   private dataAvailable = false;
 
   /**
@@ -71,6 +70,9 @@ export class LocalSnapshotStore {
    * @param deviceId Device identifier
    */
   getSnapshots(sku: string, deviceId: string): LocalSnapshot[] {
+    if (!this.dataAvailable) {
+      return [];
+    }
     const file = this.snapshotFile(sku, deviceId);
     try {
       if (fs.existsSync(file)) {
@@ -93,6 +95,10 @@ export class LocalSnapshotStore {
    * @param snapshot Snapshot data to save
    */
   saveSnapshot(sku: string, deviceId: string, snapshot: LocalSnapshot): void {
+    if (!this.dataAvailable) {
+      this.log.warn(`Cannot save snapshot "${snapshot.name}" — snapshot directory not writable`);
+      return;
+    }
     const snapshots = this.getSnapshots(sku, deviceId);
     const existing = snapshots.findIndex(s => s.name === snapshot.name);
     if (existing >= 0) {
@@ -112,6 +118,9 @@ export class LocalSnapshotStore {
    * @param name Snapshot name to delete
    */
   deleteSnapshot(sku: string, deviceId: string, name: string): boolean {
+    if (!this.dataAvailable) {
+      return false;
+    }
     const snapshots = this.getSnapshots(sku, deviceId);
     const idx = snapshots.findIndex(s => s.name === name);
     if (idx < 0) {

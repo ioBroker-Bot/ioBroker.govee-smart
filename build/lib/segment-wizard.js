@@ -23,6 +23,7 @@ __export(segment_wizard_exports, {
 });
 module.exports = __toCommonJS(segment_wizard_exports);
 var import_device_manager = require("./device-manager");
+var import_timing_constants = require("./timing-constants");
 const WIZARD_STRINGS = {
   en: {
     idle: "No wizard active. Pick an LED strip above and click \u25B6 Start.",
@@ -109,7 +110,6 @@ function format(template, params) {
   }
   return template.replace(/\{(\w+)\}/g, (m, key) => key in params ? String(params[key]) : m);
 }
-const IDLE_TIMEOUT_MS = 5 * 6e4;
 function wizardIdleText(lang) {
   return WIZARD_STRINGS[lang === "de" ? "de" : "en"].idle;
 }
@@ -168,9 +168,23 @@ ${this.t("seenSoFar", { list: visibleStr })}`;
    * start-Log.
    */
   dispose() {
+    var _a, _b;
     if (this.session) {
+      const session = this.session;
+      const device = this.host.findDevice(session.deviceKey);
+      if (device) {
+        try {
+          const total = (_a = device.segmentCount) != null ? _a : 0;
+          if (total > 0 && session.baseline.colorRgb && /^#[0-9a-fA-F]{6}$/.test(session.baseline.colorRgb)) {
+            const color = parseInt(session.baseline.colorRgb.slice(1), 16);
+            const brightness = (_b = session.baseline.brightness) != null ? _b : 100;
+            void this.host.restoreStripAtomic(device, total, color, brightness);
+          }
+        } catch {
+        }
+      }
       this.host.log.warn(
-        "Segment wizard active during adapter stop \u2014 strip stays in test pattern. Run wizard 'done' or 'abort' next time."
+        "Segment wizard active during adapter stop \u2014 best-effort baseline restore sent. Run wizard 'done' or 'abort' next time for a clean finish."
       );
     }
     this.clearIdleTimer();
@@ -384,7 +398,7 @@ ${this.t("finishTreeRebuilt")}`,
         );
         this.session = null;
       });
-    }, IDLE_TIMEOUT_MS);
+    }, import_timing_constants.WIZARD_IDLE_TIMEOUT_MS);
   }
   /** Cancel the idle timer without running its callback. */
   clearIdleTimer() {
@@ -400,17 +414,24 @@ ${this.t("finishTreeRebuilt")}`,
    * @param device Target device
    */
   async captureBaseline(device) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a;
     const prefix = this.host.devicePrefix(device);
     const ns = this.host.namespace;
-    const power = (_a = await this.host.getState(`${ns}.${prefix}.control.power`)) == null ? void 0 : _a.val;
-    const brightness = (_b = await this.host.getState(`${ns}.${prefix}.control.brightness`)) == null ? void 0 : _b.val;
-    const colorRgb = (_c = await this.host.getState(`${ns}.${prefix}.control.colorRgb`)) == null ? void 0 : _c.val;
-    const segmentColors = [];
-    const currentCount = (_d = device.segmentCount) != null ? _d : 0;
+    const currentCount = (_a = device.segmentCount) != null ? _a : 0;
+    const segIds = [];
     for (let i = 0; i < currentCount; i++) {
-      const c = (_e = await this.host.getState(`${ns}.${prefix}.segments.${i}.color`)) == null ? void 0 : _e.val;
-      const b = (_f = await this.host.getState(`${ns}.${prefix}.segments.${i}.brightness`)) == null ? void 0 : _f.val;
+      segIds.push(`${ns}.${prefix}.segments.${i}.color`, `${ns}.${prefix}.segments.${i}.brightness`);
+    }
+    const [power, brightness, colorRgb, ...segValues] = await Promise.all([
+      this.host.getState(`${ns}.${prefix}.control.power`).then((s) => s == null ? void 0 : s.val),
+      this.host.getState(`${ns}.${prefix}.control.brightness`).then((s) => s == null ? void 0 : s.val),
+      this.host.getState(`${ns}.${prefix}.control.colorRgb`).then((s) => s == null ? void 0 : s.val),
+      ...segIds.map((id) => this.host.getState(id).then((s) => s == null ? void 0 : s.val))
+    ]);
+    const segmentColors = [];
+    for (let i = 0; i < currentCount; i++) {
+      const c = segValues[i * 2];
+      const b = segValues[i * 2 + 1];
       segmentColors.push({
         idx: i,
         color: typeof c === "string" ? c : "#ffffff",

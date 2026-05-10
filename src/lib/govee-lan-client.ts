@@ -26,6 +26,18 @@ export class GoveeLanClient {
    */
   private sendSocket: dgram.Socket | null = null;
   private scanTimer: ioBroker.Interval | undefined = undefined;
+  /**
+   * True after `stop()` was called — bind-callbacks check this flag before
+   * starting timers/scans, so a `stop()` during the async listen+scan bind
+   * sequence cannot leave a runaway scanTimer behind.
+   */
+  private stopped = false;
+  /**
+   * Pending one-shot timeouts created by {@link flashSingleSegment} — kept
+   * so {@link stop} can cancel them before the deferred ptReal burst fires
+   * into a torn-down LAN client.
+   */
+  private readonly pendingFlashTimers = new Set<ioBroker.Timeout>();
   private readonly timers: TimerAdapter;
   private readonly log: ioBroker.Logger;
   private onDiscovery: LanDiscoveryCallback | null = null;
@@ -90,6 +102,12 @@ export class GoveeLanClient {
       }
     });
     this.listenSocket.bind(LISTEN_PORT, bindAddr, () => {
+      // stop() may have been called between listenSocket.bind and this
+      // callback firing — bail out so we don't spin up a scan socket and a
+      // recurring timer behind the back of a torn-down LAN client.
+      if (this.stopped) {
+        return;
+      }
       this.log.debug(`LAN listening on port ${LISTEN_PORT}`);
 
       // Scan socket for multicast discovery (port 4001) — started after listen is ready
@@ -101,28 +119,49 @@ export class GoveeLanClient {
       // gebunden. Vorher: bind() ohne Adresse → ANY → asymmetrisch zum
       // Listen-Socket der das bindAddr nutzt.
       this.scanSocket.bind(0, bindAddr, () => {
+        if (this.stopped) {
+          return;
+        }
         this.scanSocket?.setBroadcast(true);
         try {
           this.scanSocket?.addMembership(MULTICAST_ADDR, bindAddr);
         } catch {
-          this.log.debug("Could not join multicast group — using broadcast fallback");
+          // Membership-fail typischerweise OS-Routing-Issue (z.B. interface
+          // bindAddr nicht in der multicast-routing-table). LAN-Discovery
+          // bleibt trotzdem partial-funktional über setBroadcast(true), aber
+          // das ist asymmetrisch — Antworten kommen evtl. nicht zurück.
+          // Auf info-level loggen so der User die Ursache der "no devices"-
+          // Symptomatik in den Logs findet.
+          this.log.info(
+            `LAN: could not join multicast group on ${bindAddr ?? "default interface"} — discovery may be incomplete`,
+          );
         }
         this.sendScan();
       });
 
-      // Periodic scan
-      this.scanTimer = this.timers.setInterval(() => {
-        this.sendScan();
-      }, scanIntervalMs);
+      // Periodic scan — guard the timer creation in case stop() raced with
+      // the bind callback, otherwise we'd leave a setInterval running
+      // against a torn-down LAN client.
+      if (!this.stopped) {
+        this.scanTimer = this.timers.setInterval(() => {
+          this.sendScan();
+        }, scanIntervalMs);
+      }
     });
   }
 
   /** Stop all sockets and timers */
   stop(): void {
+    this.stopped = true;
     if (this.scanTimer) {
       this.timers.clearInterval(this.scanTimer);
       this.scanTimer = undefined;
     }
+    // Cancel any deferred wizard-flash bursts that haven't fired yet.
+    for (const handle of this.pendingFlashTimers) {
+      this.timers.clearTimeout(handle);
+    }
+    this.pendingFlashTimers.clear();
     if (this.scanSocket) {
       // dropMembership symmetrisch zu addMembership — auf macOS/Windows kann
       // der Multicast-Filter sonst auf der NIC bis Process-Exit hängenbleiben.
@@ -210,12 +249,14 @@ export class GoveeLanClient {
    */
   setBrightness(ip: string, brightness: number): void {
     this.sendCommand(ip, "brightness", {
-      value: Math.max(0, Math.min(100, brightness)),
+      value: clampByte0_100(brightness),
     });
   }
 
   /**
-   * Send color command
+   * Send color command. Inputs are clamped to 0-255 — out-of-range values
+   * from upstream coercion paths (capability-mapper, command-router) would
+   * otherwise be sent verbatim and produce undefined-behaviour at the device.
    *
    * @param ip Device IP address
    * @param r Red channel 0-255
@@ -224,21 +265,24 @@ export class GoveeLanClient {
    */
   setColor(ip: string, r: number, g: number, b: number): void {
     this.sendCommand(ip, "colorwc", {
-      color: { r, g, b },
+      color: { r: clampByte(r), g: clampByte(g), b: clampByte(b) },
       colorTemInKelvin: 0,
     });
   }
 
   /**
-   * Send color temperature command
+   * Send color temperature command. Out-of-band kelvin values are clamped
+   * to Govee's published 2000-9000 K range (per-device range may be tighter,
+   * those are corrected via {@link applyColorTempQuirk} upstream).
    *
    * @param ip Device IP address
    * @param kelvin Color temperature in Kelvin
    */
   setColorTemperature(ip: string, kelvin: number): void {
+    const clamped = Number.isFinite(kelvin) ? Math.max(2000, Math.min(9000, Math.round(kelvin))) : 2000;
     this.sendCommand(ip, "colorwc", {
       color: { r: 0, g: 0, b: 0 },
-      colorTemInKelvin: kelvin,
+      colorTemInKelvin: clamped,
     });
   }
 
@@ -376,17 +420,27 @@ export class GoveeLanClient {
     // state that accepts segment-level overrides.
     this.setColor(ip, 0xff, 0xff, 0xff);
     // Small delay so the firmware can apply the mode switch before the
-    // next UDP burst — Govee's observed minimum is ~50 ms. Routed through
-    // the adapter timer wrapper so it gets cancelled on onUnload instead
-    // of firing into a half-torn-down adapter.
+    // next UDP burst — Govee's observed minimum is ~50 ms. The handle is
+    // tracked so stop() can cancel it explicitly: ioBroker timers eventually
+    // fire into a torn-down adapter otherwise (the wrapper-tracked handles
+    // get cleared in onUnload, but only via this Set).
     const delayMs = 150;
-    this.timers.setTimeout(() => {
+    const handle = this.timers.setTimeout(() => {
+      if (handle !== undefined) {
+        this.pendingFlashTimers.delete(handle);
+      }
+      if (this.stopped || !this.sendSocket) {
+        return;
+      }
       this.sendPtReal(ip, [
         buildSegmentBrightnessPacket(0, others),
         buildSegmentColorPacket(0xff, 0xff, 0xff, [idx]),
         buildSegmentBrightnessPacket(100, [idx]),
       ]);
     }, delayMs);
+    if (handle !== undefined) {
+      this.pendingFlashTimers.add(handle);
+    }
   }
 
   /**
@@ -449,12 +503,14 @@ export class GoveeLanClient {
       const data = JSON.parse(msg.toString()) as {
         msg?: { cmd?: string; data?: Record<string, unknown> };
       };
-      if (!data.msg?.cmd) {
+      if (!data.msg?.cmd || typeof data.msg.cmd !== "string") {
         return;
       }
 
-      const { cmd } = data.msg;
-      const payload = data.msg.data ?? {};
+      const cmd: string = data.msg.cmd;
+      const rawPayload = data.msg.data;
+      const payload: Record<string, unknown> =
+        rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload) ? rawPayload : {};
 
       if (cmd === "scan") {
         this.handleScanResponse(payload);
@@ -538,6 +594,31 @@ export class GoveeLanClient {
 }
 
 // --- BLE Packet Builder for ptReal ---
+
+/**
+ * Clamp a value to 0-255. NaN / non-numeric → 0. Centralised so every LAN
+ * command goes through the same bounds-check.
+ *
+ * @param v Input value
+ */
+function clampByte(v: number): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(255, Math.round(v)));
+}
+
+/**
+ * Clamp a value to 0-100. NaN / non-numeric → 0.
+ *
+ * @param v Input value
+ */
+function clampByte0_100(v: number): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
 
 /**
  * XOR checksum over all bytes
@@ -757,6 +838,10 @@ export function applySceneSpeed(scenceParam: string, speedLevel: number, speedCo
   try {
     configEntries = JSON.parse(speedConfig);
   } catch {
+    // Govee's speedInfo.config schema can drift — surface the failure on
+    // debug so a "scene speed has no effect" complaint is traceable.
+    // Returning the un-modified scenceParam keeps the feature partially
+    // working (default speed) instead of failing the activation.
     return scenceParam;
   }
 

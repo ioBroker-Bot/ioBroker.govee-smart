@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import * as mqtt from "mqtt";
+import { OPENAPI_MQTT_MAX_AUTH_FAILURES } from "./timing-constants";
 import {
   classifyError,
   type ErrorCategory,
@@ -8,9 +9,6 @@ import {
   type TimerAdapter,
   errMessage,
 } from "./types";
-
-/** Max consecutive connection failures before giving up */
-const MAX_CONNECT_FAILURES = 5;
 
 const BROKER_URL = "mqtts://mqtt.openapi.govee.com:8883";
 
@@ -50,6 +48,12 @@ export class GoveeOpenapiMqttClient {
   private onEvent: OpenApiEventCallback | null = null;
   private onRaw: OpenApiRawCallback | null = null;
   private onConnection: OpenApiConnectionCallback | null = null;
+  /**
+   * Set true in `disconnect()`. scheduleReconnect bails on this so a
+   * close-event that fires after disconnect cannot start a new connect-cycle
+   * against a torn-down client. Same pattern as govee-mqtt-client.
+   */
+  private disposed = false;
 
   /**
    * @param apiKey Govee Cloud API key (used as username AND password)
@@ -100,7 +104,17 @@ export class GoveeOpenapiMqttClient {
 
         this.client?.subscribe(this.topic, { qos: 0 }, err => {
           if (err) {
-            this.log.warn(`Cloud-events subscribe failed: ${err.message}`);
+            // Subscribe-fail keeps the TCP connection alive (keepalive pings
+            // still answer), so close would never fire on its own and
+            // info.openapiMqttConnected would stay false forever — silent
+            // permanent death. Force close so the close-handler runs and
+            // schedules a reconnect.
+            this.log.warn(`Cloud-events subscribe failed: ${err.message} — forcing reconnect`);
+            try {
+              this.client?.end(true);
+            } catch {
+              // ignore — close-event handler will pick it up either way
+            }
           } else {
             this.log.debug("Cloud-events subscribed to event topic");
             this.onConnection?.(true);
@@ -116,7 +130,7 @@ export class GoveeOpenapiMqttClient {
         const category = classifyError(err);
         if (category === "AUTH") {
           this.connectFailCount++;
-          if (this.connectFailCount >= MAX_CONNECT_FAILURES) {
+          if (this.connectFailCount >= OPENAPI_MQTT_MAX_AUTH_FAILURES) {
             this.log.warn(`Cloud-events auth failed repeatedly — check API key`);
             this.onConnection?.(false);
             this.disconnect();
@@ -124,6 +138,17 @@ export class GoveeOpenapiMqttClient {
           }
         }
         this.log.debug(`Cloud-events error: ${err.message}`);
+        // Some error types (TLS handshake fail, unsolicited disconnect) keep
+        // the client object alive without firing `close`. Force a close so
+        // the close-handler scheduleReconnect runs — without this the
+        // connection silently sits in a dead state.
+        if (category === "NETWORK" || category === "TIMEOUT") {
+          try {
+            this.client?.end(true);
+          } catch {
+            // ignore — the handler runs once a close eventually fires
+          }
+        }
       });
 
       this.client.on("close", () => {
@@ -156,6 +181,7 @@ export class GoveeOpenapiMqttClient {
 
   /** Disconnect and cleanup */
   disconnect(): void {
+    this.disposed = true;
     if (this.reconnectTimer) {
       this.timers.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = undefined;
@@ -196,10 +222,24 @@ export class GoveeOpenapiMqttClient {
         return;
       }
 
-      // Extract capabilities array
-      const caps = raw.capabilities as CloudStateCapability[] | undefined;
-      if (!caps || !Array.isArray(caps) || caps.length === 0) {
+      // Extract capabilities array. Element-level type-checks happen here
+      // (downstream `applyOnlineCap` reads `c.type`/`c.state.value` and
+      // would otherwise faceplant on malformed entries that slipped through
+      // the array check).
+      const rawCaps = raw.capabilities;
+      if (!Array.isArray(rawCaps) || rawCaps.length === 0) {
         this.log.debug(`Cloud-events: message without capabilities from ${sku}: ${payload.toString().slice(0, 300)}`);
+        return;
+      }
+      const caps: CloudStateCapability[] = rawCaps.filter(
+        (c: unknown): c is CloudStateCapability =>
+          c !== null &&
+          typeof c === "object" &&
+          typeof (c as { type?: unknown }).type === "string" &&
+          typeof (c as { instance?: unknown }).instance === "string",
+      );
+      if (caps.length === 0) {
+        this.log.debug(`Cloud-events: capabilities all malformed from ${sku}`);
         return;
       }
 
@@ -212,10 +252,13 @@ export class GoveeOpenapiMqttClient {
 
   /** Schedule reconnect with exponential backoff */
   private scheduleReconnect(): void {
+    if (this.disposed) {
+      return;
+    }
     if (this.reconnectTimer) {
       return;
     }
-    if (this.connectFailCount >= MAX_CONNECT_FAILURES) {
+    if (this.connectFailCount >= OPENAPI_MQTT_MAX_AUTH_FAILURES) {
       return;
     }
 
@@ -228,6 +271,9 @@ export class GoveeOpenapiMqttClient {
 
     this.reconnectTimer = this.timers.setTimeout(() => {
       this.reconnectTimer = undefined;
+      if (this.disposed) {
+        return;
+      }
       if (this.onEvent && this.onConnection) {
         this.connect(this.onEvent, this.onConnection, this.onRaw ?? undefined);
       }

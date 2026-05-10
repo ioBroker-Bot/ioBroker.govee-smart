@@ -24,10 +24,21 @@ module.exports = __toCommonJS(govee_cloud_client_exports);
 var import_http_client = require("./http-client");
 var import_types = require("./types");
 const BASE_URL = "https://openapi.api.govee.com";
+let requestIdCounter = 0;
+function nextRequestId(prefix) {
+  requestIdCounter = (requestIdCounter + 1) % 1e6;
+  return `${prefix}_${Date.now()}_${requestIdCounter}`;
+}
 class GoveeCloudClient {
   apiKey;
   log;
   httpsRequestImpl;
+  /**
+   * True if a previous getDevices call returned an empty array — the first
+   * empty result emits an info log so the user has a starting point for
+   * "where are my devices?", repeats stay silent.
+   */
+  warnedEmptyDeviceList = false;
   /**
    * Diagnostics hook — receives (deviceId, endpoint, body) for each
    * response. Optional; the adapter wires it to a DiagnosticsCollector
@@ -84,7 +95,14 @@ class GoveeCloudClient {
   /** Fetch all devices with their capabilities */
   async getDevices() {
     const resp = await this.request("GET", "/router/api/v1/user/devices");
-    return Array.isArray(resp == null ? void 0 : resp.data) ? resp.data : [];
+    const devices = Array.isArray(resp == null ? void 0 : resp.data) ? resp.data : [];
+    if (devices.length === 0 && !this.warnedEmptyDeviceList) {
+      this.warnedEmptyDeviceList = true;
+      this.log.info(`Cloud: device list returned empty \u2014 check the API key matches the account that owns the devices`);
+    } else if (devices.length > 0) {
+      this.warnedEmptyDeviceList = false;
+    }
+    return devices;
   }
   /**
    * Fetch current state of a device
@@ -95,7 +113,7 @@ class GoveeCloudClient {
   async getDeviceState(sku, device) {
     var _a, _b;
     const resp = await this.request("POST", "/router/api/v1/device/state", {
-      requestId: `state_${Date.now()}`,
+      requestId: nextRequestId("state"),
       payload: { sku, device }
     });
     (_a = this.onResponse) == null ? void 0 : _a.call(this, device, "/router/api/v1/device/state", resp);
@@ -114,7 +132,7 @@ class GoveeCloudClient {
   async controlDevice(sku, device, capabilityType, instance, value) {
     var _a;
     const reqBody = {
-      requestId: `ctrl_${Date.now()}`,
+      requestId: nextRequestId("ctrl"),
       payload: {
         sku,
         device,
@@ -125,8 +143,17 @@ class GoveeCloudClient {
         }
       }
     };
-    const resp = await this.request("POST", "/router/api/v1/device/control", reqBody);
+    const resp = await this.request(
+      "POST",
+      "/router/api/v1/device/control",
+      reqBody
+    );
     (_a = this.onResponse) == null ? void 0 : _a.call(this, device, "/router/api/v1/device/control", { request: reqBody.payload.capability, response: resp });
+    if (resp && typeof resp.code === "number" && resp.code !== 200 && resp.code !== 0) {
+      throw new Error(
+        `Cloud control rejected for ${sku}/${device}/${instance}: code=${resp.code}${resp.message ? ` \u2014 ${resp.message}` : ""}`
+      );
+    }
   }
   /**
    * Fetch dynamic scenes and snapshots for a device.
@@ -138,7 +165,7 @@ class GoveeCloudClient {
   async getScenes(sku, device) {
     var _a, _b, _c;
     const resp = await this.request("POST", "/router/api/v1/device/scenes", {
-      requestId: "scenes",
+      requestId: nextRequestId("scenes"),
       payload: { sku, device }
     });
     (_a = this.onResponse) == null ? void 0 : _a.call(this, device, "/router/api/v1/device/scenes", resp);
@@ -177,7 +204,7 @@ class GoveeCloudClient {
   async getDiyScenes(sku, device) {
     var _a, _b, _c;
     const resp = await this.request("POST", "/router/api/v1/device/diy-scenes", {
-      requestId: "diy-scenes",
+      requestId: nextRequestId("diy"),
       payload: { sku, device }
     });
     (_a = this.onResponse) == null ? void 0 : _a.call(this, device, "/router/api/v1/device/diy-scenes", resp);

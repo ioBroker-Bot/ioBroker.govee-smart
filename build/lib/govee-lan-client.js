@@ -54,6 +54,18 @@ class GoveeLanClient {
    */
   sendSocket = null;
   scanTimer = void 0;
+  /**
+   * True after `stop()` was called — bind-callbacks check this flag before
+   * starting timers/scans, so a `stop()` during the async listen+scan bind
+   * sequence cannot leave a runaway scanTimer behind.
+   */
+  stopped = false;
+  /**
+   * Pending one-shot timeouts created by {@link flashSingleSegment} — kept
+   * so {@link stop} can cancel them before the deferred ptReal burst fires
+   * into a torn-down LAN client.
+   */
+  pendingFlashTimers = /* @__PURE__ */ new Set();
   timers;
   log;
   onDiscovery = null;
@@ -102,6 +114,9 @@ class GoveeLanClient {
       }
     });
     this.listenSocket.bind(LISTEN_PORT, bindAddr, () => {
+      if (this.stopped) {
+        return;
+      }
       this.log.debug(`LAN listening on port ${LISTEN_PORT}`);
       this.scanSocket = dgram.createSocket({ type: "udp4", reuseAddr: true });
       this.scanSocket.on("error", (err) => {
@@ -109,25 +124,37 @@ class GoveeLanClient {
       });
       this.scanSocket.bind(0, bindAddr, () => {
         var _a, _b;
+        if (this.stopped) {
+          return;
+        }
         (_a = this.scanSocket) == null ? void 0 : _a.setBroadcast(true);
         try {
           (_b = this.scanSocket) == null ? void 0 : _b.addMembership(MULTICAST_ADDR, bindAddr);
         } catch {
-          this.log.debug("Could not join multicast group \u2014 using broadcast fallback");
+          this.log.info(
+            `LAN: could not join multicast group on ${bindAddr != null ? bindAddr : "default interface"} \u2014 discovery may be incomplete`
+          );
         }
         this.sendScan();
       });
-      this.scanTimer = this.timers.setInterval(() => {
-        this.sendScan();
-      }, scanIntervalMs);
+      if (!this.stopped) {
+        this.scanTimer = this.timers.setInterval(() => {
+          this.sendScan();
+        }, scanIntervalMs);
+      }
     });
   }
   /** Stop all sockets and timers */
   stop() {
+    this.stopped = true;
     if (this.scanTimer) {
       this.timers.clearInterval(this.scanTimer);
       this.scanTimer = void 0;
     }
+    for (const handle of this.pendingFlashTimers) {
+      this.timers.clearTimeout(handle);
+    }
+    this.pendingFlashTimers.clear();
     if (this.scanSocket) {
       try {
         if (this.multicastBind) {
@@ -200,11 +227,13 @@ class GoveeLanClient {
    */
   setBrightness(ip, brightness) {
     this.sendCommand(ip, "brightness", {
-      value: Math.max(0, Math.min(100, brightness))
+      value: clampByte0_100(brightness)
     });
   }
   /**
-   * Send color command
+   * Send color command. Inputs are clamped to 0-255 — out-of-range values
+   * from upstream coercion paths (capability-mapper, command-router) would
+   * otherwise be sent verbatim and produce undefined-behaviour at the device.
    *
    * @param ip Device IP address
    * @param r Red channel 0-255
@@ -213,20 +242,23 @@ class GoveeLanClient {
    */
   setColor(ip, r, g, b) {
     this.sendCommand(ip, "colorwc", {
-      color: { r, g, b },
+      color: { r: clampByte(r), g: clampByte(g), b: clampByte(b) },
       colorTemInKelvin: 0
     });
   }
   /**
-   * Send color temperature command
+   * Send color temperature command. Out-of-band kelvin values are clamped
+   * to Govee's published 2000-9000 K range (per-device range may be tighter,
+   * those are corrected via {@link applyColorTempQuirk} upstream).
    *
    * @param ip Device IP address
    * @param kelvin Color temperature in Kelvin
    */
   setColorTemperature(ip, kelvin) {
+    const clamped = Number.isFinite(kelvin) ? Math.max(2e3, Math.min(9e3, Math.round(kelvin))) : 2e3;
     this.sendCommand(ip, "colorwc", {
       color: { r: 0, g: 0, b: 0 },
-      colorTemInKelvin: kelvin
+      colorTemInKelvin: clamped
     });
   }
   /**
@@ -352,13 +384,22 @@ class GoveeLanClient {
     const others = Array.from({ length: MAX_SEGMENTS }, (_, i) => i).filter((i) => i !== idx);
     this.setColor(ip, 255, 255, 255);
     const delayMs = 150;
-    this.timers.setTimeout(() => {
+    const handle = this.timers.setTimeout(() => {
+      if (handle !== void 0) {
+        this.pendingFlashTimers.delete(handle);
+      }
+      if (this.stopped || !this.sendSocket) {
+        return;
+      }
       this.sendPtReal(ip, [
         buildSegmentBrightnessPacket(0, others),
         buildSegmentColorPacket(255, 255, 255, [idx]),
         buildSegmentBrightnessPacket(100, [idx])
       ]);
     }, delayMs);
+    if (handle !== void 0) {
+      this.pendingFlashTimers.add(handle);
+    }
   }
   /**
    * Restore a segment strip to a uniform color + brightness in one atomic
@@ -407,18 +448,19 @@ class GoveeLanClient {
    * @param sourceIp Source IP address from UDP rinfo
    */
   handleMessage(msg, sourceIp) {
-    var _a, _b;
+    var _a;
     if (msg.length > 8192) {
       this.log.debug(`LAN message dropped from ${sourceIp}: oversize ${msg.length} bytes`);
       return;
     }
     try {
       const data = JSON.parse(msg.toString());
-      if (!((_a = data.msg) == null ? void 0 : _a.cmd)) {
+      if (!((_a = data.msg) == null ? void 0 : _a.cmd) || typeof data.msg.cmd !== "string") {
         return;
       }
-      const { cmd } = data.msg;
-      const payload = (_b = data.msg.data) != null ? _b : {};
+      const cmd = data.msg.cmd;
+      const rawPayload = data.msg.data;
+      const payload = rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload) ? rawPayload : {};
       if (cmd === "scan") {
         this.handleScanResponse(payload);
       } else if (cmd === "devStatus") {
@@ -480,6 +522,18 @@ class GoveeLanClient {
     };
     (_a = this.onStatus) == null ? void 0 : _a.call(this, sourceIp, status);
   }
+}
+function clampByte(v) {
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(255, Math.round(v)));
+}
+function clampByte0_100(v) {
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(v)));
 }
 function xorChecksum(data) {
   let checksum = 0;

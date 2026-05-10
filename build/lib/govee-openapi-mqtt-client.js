@@ -33,8 +33,8 @@ __export(govee_openapi_mqtt_client_exports, {
 module.exports = __toCommonJS(govee_openapi_mqtt_client_exports);
 var crypto = __toESM(require("node:crypto"));
 var mqtt = __toESM(require("mqtt"));
+var import_timing_constants = require("./timing-constants");
 var import_types = require("./types");
-const MAX_CONNECT_FAILURES = 5;
 const BROKER_URL = "mqtts://mqtt.openapi.govee.com:8883";
 class GoveeOpenapiMqttClient {
   apiKey;
@@ -57,6 +57,12 @@ class GoveeOpenapiMqttClient {
   onEvent = null;
   onRaw = null;
   onConnection = null;
+  /**
+   * Set true in `disconnect()`. scheduleReconnect bails on this so a
+   * close-event that fires after disconnect cannot start a new connect-cycle
+   * against a torn-down client. Same pattern as govee-mqtt-client.
+   */
+  disposed = false;
   /**
    * @param apiKey Govee Cloud API key (used as username AND password)
    * @param log ioBroker logger
@@ -98,12 +104,16 @@ class GoveeOpenapiMqttClient {
           this.lastErrorCategory = null;
         }
         (_a = this.client) == null ? void 0 : _a.subscribe(this.topic, { qos: 0 }, (err) => {
-          var _a2;
+          var _a2, _b;
           if (err) {
-            this.log.warn(`Cloud-events subscribe failed: ${err.message}`);
+            this.log.warn(`Cloud-events subscribe failed: ${err.message} \u2014 forcing reconnect`);
+            try {
+              (_a2 = this.client) == null ? void 0 : _a2.end(true);
+            } catch {
+            }
           } else {
             this.log.debug("Cloud-events subscribed to event topic");
-            (_a2 = this.onConnection) == null ? void 0 : _a2.call(this, true);
+            (_b = this.onConnection) == null ? void 0 : _b.call(this, true);
           }
         });
       });
@@ -111,11 +121,11 @@ class GoveeOpenapiMqttClient {
         this.handleMessage(payload);
       });
       this.client.on("error", (err) => {
-        var _a;
+        var _a, _b;
         const category = (0, import_types.classifyError)(err);
         if (category === "AUTH") {
           this.connectFailCount++;
-          if (this.connectFailCount >= MAX_CONNECT_FAILURES) {
+          if (this.connectFailCount >= import_timing_constants.OPENAPI_MQTT_MAX_AUTH_FAILURES) {
             this.log.warn(`Cloud-events auth failed repeatedly \u2014 check API key`);
             (_a = this.onConnection) == null ? void 0 : _a.call(this, false);
             this.disconnect();
@@ -123,6 +133,12 @@ class GoveeOpenapiMqttClient {
           }
         }
         this.log.debug(`Cloud-events error: ${err.message}`);
+        if (category === "NETWORK" || category === "TIMEOUT") {
+          try {
+            (_b = this.client) == null ? void 0 : _b.end(true);
+          } catch {
+          }
+        }
       });
       this.client.on("close", () => {
         var _a;
@@ -152,6 +168,7 @@ class GoveeOpenapiMqttClient {
   }
   /** Disconnect and cleanup */
   disconnect() {
+    this.disposed = true;
     if (this.reconnectTimer) {
       this.timers.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = void 0;
@@ -182,9 +199,16 @@ class GoveeOpenapiMqttClient {
         this.log.debug(`Cloud-events: message without device info: ${payload.toString().slice(0, 200)}`);
         return;
       }
-      const caps = raw.capabilities;
-      if (!caps || !Array.isArray(caps) || caps.length === 0) {
+      const rawCaps = raw.capabilities;
+      if (!Array.isArray(rawCaps) || rawCaps.length === 0) {
         this.log.debug(`Cloud-events: message without capabilities from ${sku}: ${payload.toString().slice(0, 300)}`);
+        return;
+      }
+      const caps = rawCaps.filter(
+        (c) => c !== null && typeof c === "object" && typeof c.type === "string" && typeof c.instance === "string"
+      );
+      if (caps.length === 0) {
+        this.log.debug(`Cloud-events: capabilities all malformed from ${sku}`);
         return;
       }
       const event = { sku, device, capabilities: caps };
@@ -195,10 +219,13 @@ class GoveeOpenapiMqttClient {
   }
   /** Schedule reconnect with exponential backoff */
   scheduleReconnect() {
+    if (this.disposed) {
+      return;
+    }
     if (this.reconnectTimer) {
       return;
     }
-    if (this.connectFailCount >= MAX_CONNECT_FAILURES) {
+    if (this.connectFailCount >= import_timing_constants.OPENAPI_MQTT_MAX_AUTH_FAILURES) {
       return;
     }
     this.reconnectAttempts++;
@@ -209,6 +236,9 @@ class GoveeOpenapiMqttClient {
     this.reconnectTimer = this.timers.setTimeout(() => {
       var _a;
       this.reconnectTimer = void 0;
+      if (this.disposed) {
+        return;
+      }
       if (this.onEvent && this.onConnection) {
         this.connect(this.onEvent, this.onConnection, (_a = this.onRaw) != null ? _a : void 0);
       }

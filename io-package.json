@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.6.2",
     "news": {
+      "NEXT": {
+        "en": "Status indicators recover automatically after a Govee outage, multi-segment snapshot restore is fast again, invalid manual pairing IP and silent Cloud errors are now reported.",
+        "de": "Statusanzeigen erholen sich nach einem Govee-Ausfall automatisch, Snapshot-Wiederherstellung mit Segmenten ist wieder schnell, falsche Pairing-IP und stille Cloud-Fehler werden jetzt gemeldet.",
+        "ru": "Индикаторы статуса автоматически восстанавливаются после сбоя Govee, восстановление снапшота с сегментами снова быстрое, неверный IP сопряжения и тихие Cloud-ошибки теперь сообщаются.",
+        "pt": "Indicadores de estado recuperam automaticamente após uma falha Govee, restore de snapshot com segmentos voltou a ser rápido, IP de pairing inválido e erros Cloud silenciosos são reportados.",
+        "nl": "Statusindicatoren herstellen automatisch na een Govee-storing, snapshot-restore met segmenten is weer snel, ongeldige pairing-IP en stille Cloud-fouten worden nu gemeld.",
+        "fr": "Les indicateurs d'état se rétablissent automatiquement après une panne Govee, restore snapshot multi-segments redevient rapide, IP d'appairage invalide et erreurs Cloud silencieuses signalées.",
+        "it": "Gli indicatori di stato si ripristinano automaticamente dopo un'interruzione Govee, restore snapshot con segmenti torna veloce, IP di accoppiamento non valido ed errori Cloud silenziosi segnalati.",
+        "es": "Los indicadores de estado se recuperan tras una caída Govee, restore de snapshot con segmentos vuelve a ser rápido, IP de emparejamiento no válido y errores Cloud silenciosos se reportan.",
+        "pl": "Wskaźniki stanu wracają automatycznie po awarii Govee, restore snapshotu z segmentami znów jest szybki, nieprawidłowy IP parowania i ciche błędy Cloud są teraz raportowane.",
+        "uk": "Індикатори стану автоматично відновлюються після збою Govee, restore снапшота з сегментами знову швидкий, неправильний IP сполучення та тихі Cloud-помилки тепер повідомляються.",
+        "zh-cn": "Govee 中断后状态指示器自动恢复，多分段快照恢复再次变快，错误的手动配对 IP 与无声 Cloud 错误现在都会被上报。"
+      },
       "2.6.2": {
         "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) and the segment-detection wizard text remain unchanged.",
         "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen, Beschreibungen und Dropdown-Labels (11 Sprachen) sowie der Segment-Erkennungs-Wizard bleiben erhalten.",
@@ -80,19 +93,6 @@
         "pl": "Usuwa WARN-spam 'membersUnreachable has no existing object' co 2 min — state grupy pozostaje obecny z pustą wartością. Plus H61A8 Outdoor Neon LED Strip 10m verified.",
         "uk": "Усуває WARN-спам 'membersUnreachable has no existing object' кожні 2 хв — state групи залишається з порожнім значенням. Плюс H61A8 Outdoor Neon LED Strip 10m verified.",
         "zh-cn": "修复每 2 分钟 'membersUnreachable has no existing object' WARN 刷屏 — 组 state 保持存在并写入空值。新增已验证设备：H61A8 Outdoor Neon LED Strip 10m。"
-      },
-      "2.5.1": {
-        "en": "Cloud rate-limit hint now reads 'rate-limited by Govee' on 429 instead of the generic cloud-error message. Plus 33 mock tests for cloud + MQTT login paths.",
-        "de": "Cloud-Rate-Limit-Hinweis zeigt bei 429 jetzt 'rate-limited by Govee' statt der generischen Cloud-Fehlermeldung. Plus 33 Mock-Tests fuer Cloud + MQTT-Login.",
-        "ru": "Сообщение о лимите Cloud при 429 теперь корректно показывает 'rate-limited by Govee' вместо общей ошибки Cloud. Плюс 33 mock-теста для cloud + MQTT-login.",
-        "pt": "Aviso de rate-limit Cloud agora mostra 'rate-limited by Govee' em 429 em vez do erro generico. Mais 33 mock tests para cloud + MQTT login.",
-        "nl": "Cloud rate-limit melding toont bij 429 nu 'rate-limited by Govee' i.p.v. de generieke cloud-fout. Plus 33 mock tests voor cloud + MQTT-login.",
-        "fr": "Le message de rate-limit Cloud affiche maintenant 'rate-limited by Govee' sur 429 au lieu de l'erreur generique. Plus 33 mock tests pour cloud + MQTT-login.",
-        "it": "Avviso rate-limit Cloud ora mostra 'rate-limited by Govee' su 429 invece dell'errore generico. Piu 33 mock test per cloud + MQTT-login.",
-        "es": "Aviso de rate-limit Cloud ahora muestra 'rate-limited by Govee' en 429 en vez del error generico. Mas 33 mock tests para cloud + MQTT-login.",
-        "pl": "Komunikat o limicie Cloud przy 429 teraz pokazuje 'rate-limited by Govee' zamiast generycznego bledu. Plus 33 mock-testy dla cloud + MQTT-login.",
-        "uk": "Повідомлення про ліміт Cloud при 429 тепер показує 'rate-limited by Govee' замість загальної помилки. Плюс 33 mock-тести для cloud + MQTT-login.",
-        "zh-cn": "Cloud 限流提示：429 现在正确显示 'rate-limited by Govee' 而非通用 Cloud 错误。新增 33 个 cloud + MQTT 登录路径 mock 测试。"
       }
     },
     "titleLang": {

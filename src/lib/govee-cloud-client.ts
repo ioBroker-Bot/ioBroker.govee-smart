@@ -13,6 +13,24 @@ import {
 const BASE_URL = "https://openapi.api.govee.com";
 
 /**
+ * Monotonic counter for `requestId` so two calls in the same millisecond
+ * don't collide. Govee uses requestId for idempotency on its side; concurrent
+ * calls with identical requestIds can be coalesced or rejected as duplicates.
+ * Module-level so all clients share the same sequence.
+ */
+let requestIdCounter = 0;
+
+/**
+ * Build a unique `requestId` (`<prefix>_<ms>_<counter>`).
+ *
+ * @param prefix Short label identifying the call site (e.g. "ctrl", "scenes").
+ */
+function nextRequestId(prefix: string): string {
+  requestIdCounter = (requestIdCounter + 1) % 1_000_000;
+  return `${prefix}_${Date.now()}_${requestIdCounter}`;
+}
+
+/**
  * Govee Cloud API v2 client.
  * Used for device list, capabilities, scenes, segments, and as control fallback.
  */
@@ -20,6 +38,12 @@ export class GoveeCloudClient {
   private readonly apiKey: string;
   private readonly log: ioBroker.Logger;
   private readonly httpsRequestImpl: HttpsRequestFn;
+  /**
+   * True if a previous getDevices call returned an empty array — the first
+   * empty result emits an info log so the user has a starting point for
+   * "where are my devices?", repeats stay silent.
+   */
+  private warnedEmptyDeviceList = false;
   /**
    * Diagnostics hook — receives (deviceId, endpoint, body) for each
    * response. Optional; the adapter wires it to a DiagnosticsCollector
@@ -82,7 +106,18 @@ export class GoveeCloudClient {
   async getDevices(): Promise<CloudDevice[]> {
     const resp = await this.request<CloudDeviceListResponse>("GET", "/router/api/v1/user/devices");
     // Defensive — API can drift. Guard for non-array to protect downstream iteration.
-    return Array.isArray(resp?.data) ? resp.data : [];
+    const devices = Array.isArray(resp?.data) ? resp.data : [];
+    if (devices.length === 0 && !this.warnedEmptyDeviceList) {
+      this.warnedEmptyDeviceList = true;
+      // First empty response is worth surfacing — common cause is "API key
+      // belongs to a different Govee account than where the devices were
+      // added" or "user hasn't enabled control-via-cloud per device". Repeat
+      // calls keep quiet so a temporarily flaky API doesn't spam.
+      this.log.info(`Cloud: device list returned empty — check the API key matches the account that owns the devices`);
+    } else if (devices.length > 0) {
+      this.warnedEmptyDeviceList = false;
+    }
+    return devices;
   }
 
   /**
@@ -93,7 +128,7 @@ export class GoveeCloudClient {
    */
   async getDeviceState(sku: string, device: string): Promise<CloudStateCapability[]> {
     const resp = await this.request<CloudDeviceStateResponse>("POST", "/router/api/v1/device/state", {
-      requestId: `state_${Date.now()}`,
+      requestId: nextRequestId("state"),
       payload: { sku, device },
     });
     this.onResponse?.(device, "/router/api/v1/device/state", resp);
@@ -118,7 +153,7 @@ export class GoveeCloudClient {
     value: unknown,
   ): Promise<void> {
     const reqBody = {
-      requestId: `ctrl_${Date.now()}`,
+      requestId: nextRequestId("ctrl"),
       payload: {
         sku,
         device,
@@ -129,8 +164,21 @@ export class GoveeCloudClient {
         },
       },
     };
-    const resp = await this.request("POST", "/router/api/v1/device/control", reqBody);
+    const resp = await this.request<{ code?: number; message?: string }>(
+      "POST",
+      "/router/api/v1/device/control",
+      reqBody,
+    );
     this.onResponse?.(device, "/router/api/v1/device/control", { request: reqBody.payload.capability, response: resp });
+    // Govee returns 200 with a payload-level `code`/`message` on logical
+    // failures (capability not allowed, device offline as seen by Cloud).
+    // Without this surface, the caller sees a "successful" command that the
+    // device never received.
+    if (resp && typeof resp.code === "number" && resp.code !== 200 && resp.code !== 0) {
+      throw new Error(
+        `Cloud control rejected for ${sku}/${device}/${instance}: code=${resp.code}${resp.message ? ` — ${resp.message}` : ""}`,
+      );
+    }
   }
 
   /**
@@ -149,7 +197,7 @@ export class GoveeCloudClient {
     snapshots: CloudScene[];
   }> {
     const resp = await this.request<CloudScenesResponse>("POST", "/router/api/v1/device/scenes", {
-      requestId: "scenes",
+      requestId: nextRequestId("scenes"),
       payload: { sku, device },
     });
     this.onResponse?.(device, "/router/api/v1/device/scenes", resp);
@@ -195,7 +243,7 @@ export class GoveeCloudClient {
    */
   async getDiyScenes(sku: string, device: string): Promise<CloudScene[]> {
     const resp = await this.request<CloudScenesResponse>("POST", "/router/api/v1/device/diy-scenes", {
-      requestId: "diy-scenes",
+      requestId: nextRequestId("diy"),
       payload: { sku, device },
     });
     this.onResponse?.(device, "/router/api/v1/device/diy-scenes", resp);

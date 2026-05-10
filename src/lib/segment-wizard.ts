@@ -1,4 +1,5 @@
 import { SEGMENT_HARD_MAX } from "./device-manager";
+import { WIZARD_IDLE_TIMEOUT_MS } from "./timing-constants";
 import type { GoveeDevice } from "./types";
 
 /**
@@ -196,7 +197,7 @@ export interface WizardHost {
   getLanguage(): string;
 }
 
-const IDLE_TIMEOUT_MS = 5 * 60_000;
+// IDLE_TIMEOUT_MS is now sourced from timing-constants (WIZARD_IDLE_TIMEOUT_MS).
 
 /**
  * Resolve the idle-state text in the requested language. Fallbacks to English
@@ -288,8 +289,29 @@ export class SegmentWizard {
    */
   public dispose(): void {
     if (this.session) {
+      // Best-effort restore on adapter-stop: fire-and-forget the baseline
+      // restore so the strip doesn't stay in the wizard's test pattern (one
+      // segment white, others off). onUnload itself runs synchronously, so
+      // we can't await this — but a single LAN/ptReal datagram leaves the
+      // adapter quickly enough that the os-level UDP send usually completes
+      // before the process exits. If it doesn't, the user-visible state is
+      // no worse than the previous "strip stuck in flash pattern" warning.
+      const session = this.session;
+      const device = this.host.findDevice(session.deviceKey);
+      if (device) {
+        try {
+          const total = device.segmentCount ?? 0;
+          if (total > 0 && session.baseline.colorRgb && /^#[0-9a-fA-F]{6}$/.test(session.baseline.colorRgb)) {
+            const color = parseInt(session.baseline.colorRgb.slice(1), 16);
+            const brightness = session.baseline.brightness ?? 100;
+            void this.host.restoreStripAtomic(device, total, color, brightness);
+          }
+        } catch {
+          // Last-mile error during teardown — nothing useful left to log.
+        }
+      }
       this.host.log.warn(
-        "Segment wizard active during adapter stop — strip stays in test pattern. Run wizard 'done' or 'abort' next time.",
+        "Segment wizard active during adapter stop — best-effort baseline restore sent. Run wizard 'done' or 'abort' next time for a clean finish.",
       );
     }
     this.clearIdleTimer();
@@ -523,7 +545,7 @@ export class SegmentWizard {
         );
         this.session = null;
       });
-    }, IDLE_TIMEOUT_MS);
+    }, WIZARD_IDLE_TIMEOUT_MS);
   }
 
   /** Cancel the idle timer without running its callback. */
@@ -543,14 +565,25 @@ export class SegmentWizard {
   private async captureBaseline(device: GoveeDevice): Promise<SegmentWizardSession["baseline"]> {
     const prefix = this.host.devicePrefix(device);
     const ns = this.host.namespace;
-    const power = (await this.host.getState(`${ns}.${prefix}.control.power`))?.val;
-    const brightness = (await this.host.getState(`${ns}.${prefix}.control.brightness`))?.val;
-    const colorRgb = (await this.host.getState(`${ns}.${prefix}.control.colorRgb`))?.val;
-    const segmentColors: SegmentWizardSession["baseline"]["segmentColors"] = [];
+    // Read all baseline states in parallel — sequentially the wizard-start
+    // delay scaled with segmentCount × 2 round-trips (Redis lookups, ~10 ms
+    // each → 600 ms for a 30-segment strip). Promise.all collapses that to
+    // one round-trip's worth of latency.
     const currentCount = device.segmentCount ?? 0;
+    const segIds: string[] = [];
     for (let i = 0; i < currentCount; i++) {
-      const c = (await this.host.getState(`${ns}.${prefix}.segments.${i}.color`))?.val;
-      const b = (await this.host.getState(`${ns}.${prefix}.segments.${i}.brightness`))?.val;
+      segIds.push(`${ns}.${prefix}.segments.${i}.color`, `${ns}.${prefix}.segments.${i}.brightness`);
+    }
+    const [power, brightness, colorRgb, ...segValues] = await Promise.all([
+      this.host.getState(`${ns}.${prefix}.control.power`).then(s => s?.val),
+      this.host.getState(`${ns}.${prefix}.control.brightness`).then(s => s?.val),
+      this.host.getState(`${ns}.${prefix}.control.colorRgb`).then(s => s?.val),
+      ...segIds.map(id => this.host.getState(id).then(s => s?.val)),
+    ]);
+    const segmentColors: SegmentWizardSession["baseline"]["segmentColors"] = [];
+    for (let i = 0; i < currentCount; i++) {
+      const c = segValues[i * 2];
+      const b = segValues[i * 2 + 1];
       segmentColors.push({
         idx: i,
         color: typeof c === "string" ? c : "#ffffff",

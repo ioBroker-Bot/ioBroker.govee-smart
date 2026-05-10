@@ -35,16 +35,17 @@ import {
   type GoveeDevice,
   type PersistedMqttCredentials,
 } from "./lib/types";
-import { APP_API_INITIAL_DELAY_MS, APP_API_POLL_INTERVAL_MS, READY_TIMEOUT_MS } from "./lib/timing-constants";
+import {
+  APP_API_INITIAL_DELAY_MS,
+  APP_API_POLL_INTERVAL_MS,
+  CLOUD_FULL_LIMITS,
+  READY_TIMEOUT_MS,
+} from "./lib/timing-constants";
 import { GOVEE_APP_VERSION } from "./lib/govee-constants";
 import { httpsRequest } from "./lib/http-client";
 
-/**
- * Rate limit defaults — full Cloud API budget (8/min, 9000/day). v2 no
- * longer halves this with govee-appliances because that adapter is
- * deprecated and won't run alongside govee-smart.
- */
-const FULL_LIMITS = { perMinute: 8, perDay: 9000 };
+// Rate-limit defaults moved to lib/timing-constants.ts as CLOUD_FULL_LIMITS so
+// every module that touches Govee budgeting reads the same canonical values.
 
 /**
  * State-suffix → command-name lookup for writable states. Segment indices
@@ -128,6 +129,14 @@ class GoveeAdapter extends utils.Adapter {
   private adminLanguage = "en";
   /** Last time `requestCode` was triggered via onMessage — guards against double-click email spam. */
   private lastVerificationRequestMs = 0;
+  /**
+   * Set true at the start of onUnload — async paths (onStateChange,
+   * applyCloudCapabilities, retrySceneData, …) check this between awaits
+   * and bail before further setStateAsync against a torn-down adapter.
+   */
+  private unloading = false;
+  /** Initial app-version-check timer (2 min after start) — kept so onUnload can clear it. */
+  private appVersionInitialTimer: ioBroker.Timeout | undefined;
 
   /** @param options Adapter options */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -415,7 +424,7 @@ class GoveeAdapter extends utils.Adapter {
         );
       });
 
-      this.rateLimiter = new RateLimiter(this.log, this, FULL_LIMITS.perMinute, FULL_LIMITS.perDay);
+      this.rateLimiter = new RateLimiter(this.log, this, CLOUD_FULL_LIMITS.perMinute, CLOUD_FULL_LIMITS.perDay);
       this.rateLimiter.start();
       this.deviceManager.setRateLimiter(this.rateLimiter);
 
@@ -522,8 +531,12 @@ class GoveeAdapter extends utils.Adapter {
       },
       24 * 60 * 60 * 1000,
     );
-    this.setTimeout(
+    this.appVersionInitialTimer = this.setTimeout(
       () => {
+        this.appVersionInitialTimer = undefined;
+        if (this.unloading) {
+          return;
+        }
         this.checkAppVersionDrift().catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
       },
       2 * 60 * 1000,
@@ -559,8 +572,22 @@ class GoveeAdapter extends utils.Adapter {
       this.cloudInitTimer = this.setTimeout(() => resolve({ ok: false, reason: "transient" }), READY_TIMEOUT_MS);
     });
     try {
-      return await Promise.race([loadPromise, timeoutPromise]);
+      const result = await Promise.race([loadPromise, timeoutPromise]);
+      // Race finished — clear the timer in either success or timeout-but-
+      // load-still-running cases. Without this the timeout-leg would still
+      // fire after `ok` returned and dirty the resolve queue (resolved
+      // promise is harmless but the timer keeps an extra setTimeout-handle
+      // alive in `this.cloudInitTimer` until onUnload).
+      if (this.cloudInitTimer) {
+        this.clearTimeout(this.cloudInitTimer);
+        this.cloudInitTimer = undefined;
+      }
+      return result;
     } catch {
+      if (this.cloudInitTimer) {
+        this.clearTimeout(this.cloudInitTimer);
+        this.cloudInitTimer = undefined;
+      }
       return { ok: false, reason: "transient" };
     }
   }
@@ -632,6 +659,9 @@ class GoveeAdapter extends utils.Adapter {
    * @param callback Completion callback
    */
   private onUnload(callback: () => void): void {
+    // Set first — async paths read this between awaits and bail before
+    // further setStateAsync, sendCommand, etc. against a torn-down adapter.
+    this.unloading = true;
     try {
       if (this.lanScanTimer) {
         this.clearTimeout(this.lanScanTimer);
@@ -657,6 +687,10 @@ class GoveeAdapter extends utils.Adapter {
       if (this.appVersionCheckTimer) {
         this.clearInterval(this.appVersionCheckTimer);
         this.appVersionCheckTimer = undefined;
+      }
+      if (this.appVersionInitialTimer) {
+        this.clearTimeout(this.appVersionInitialTimer);
+        this.appVersionInitialTimer = undefined;
       }
       this.cloudRetry?.dispose();
       this.segmentWizard?.dispose();
@@ -695,7 +729,7 @@ class GoveeAdapter extends utils.Adapter {
    * @param state New state value
    */
   private async onStateChange(id: string, state: ioBroker.State | null | undefined): Promise<void> {
-    if (!state || state.ack || !this.deviceManager || !this.stateManager) {
+    if (!state || state.ack || !this.deviceManager || !this.stateManager || this.unloading) {
       return;
     }
 
@@ -1012,9 +1046,22 @@ class GoveeAdapter extends utils.Adapter {
     if (!group.groupMembers) {
       return [];
     }
-    return group.groupMembers
-      .map(m => devices.find(d => d.sku === m.sku && d.deviceId === m.deviceId))
-      .filter((d): d is GoveeDevice => d !== undefined);
+    // Build a lookup index once per call instead of N×Array.find — the call
+    // fan-out (every state-update touches updateGroupReachability → all
+    // groups → resolveGroupMembers) made the linear scan dominate the hot
+    // path on accounts with many devices and many groups.
+    const byKey = new Map<string, GoveeDevice>();
+    for (const d of devices) {
+      byKey.set(`${d.sku}:${d.deviceId}`, d);
+    }
+    const out: GoveeDevice[] = [];
+    for (const m of group.groupMembers) {
+      const d = byKey.get(`${m.sku}:${m.deviceId}`);
+      if (d) {
+        out.push(d);
+      }
+    }
+    return out;
   }
 
   /**

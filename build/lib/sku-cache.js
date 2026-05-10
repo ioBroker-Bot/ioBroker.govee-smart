@@ -62,6 +62,9 @@ class SkuCache {
    * @param data Device data to persist
    */
   save(data) {
+    if (!this.dataAvailable) {
+      return;
+    }
     const file = this.cacheFile(data.sku, data.deviceId);
     try {
       const fd = fs.openSync(file, "w");
@@ -79,6 +82,9 @@ class SkuCache {
   /** Load all cached devices. */
   loadAll() {
     const results = [];
+    if (!this.dataAvailable) {
+      return results;
+    }
     try {
       if (!fs.existsSync(this.cacheDir)) {
         return results;

@@ -53,11 +53,23 @@ function httpsRequest(options) {
       timeout: (_a = options.timeout) != null ? _a : 15e3,
       agent: keepAliveAgent
     };
+    let onAbort = null;
+    const cleanupAbort = () => {
+      if (onAbort && options.signal) {
+        options.signal.removeEventListener("abort", onAbort);
+        onAbort = null;
+      }
+    };
     const req = https.request(reqOptions, (res) => {
       const chunks = [];
+      res.on("error", (err) => {
+        cleanupAbort();
+        reject(err);
+      });
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
         var _a2;
+        cleanupAbort();
         const raw = Buffer.concat(chunks).toString();
         const statusCode = (_a2 = res.statusCode) != null ? _a2 : 0;
         if (statusCode < 200 || statusCode >= 400) {
@@ -66,12 +78,17 @@ function httpsRequest(options) {
         }
         try {
           resolve(JSON.parse(raw));
-        } catch {
-          reject(new Error(`Invalid JSON in HTTP ${statusCode} response`));
+        } catch (parseErr) {
+          const snippet = raw.length > 100 ? `${raw.slice(0, 100)}\u2026` : raw;
+          const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
+          reject(new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} \u2014 body starts with: ${snippet}`));
         }
       });
     });
-    req.on("error", reject);
+    req.on("error", (err) => {
+      cleanupAbort();
+      reject(err);
+    });
     req.on("timeout", () => req.destroy(new Error("Timeout")));
     if (options.signal) {
       if (options.signal.aborted) {
@@ -79,7 +96,7 @@ function httpsRequest(options) {
         reject(new Error("Aborted"));
         return;
       }
-      const onAbort = () => {
+      onAbort = () => {
         req.destroy(new Error("Aborted"));
         reject(new Error("Aborted"));
       };

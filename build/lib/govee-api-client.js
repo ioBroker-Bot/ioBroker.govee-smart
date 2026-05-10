@@ -258,6 +258,9 @@ class GoveeApiClient {
     }
     const url = `https://app2.govee.com/appsku/v1/sku-supported-feature?sku=${encodeURIComponent(sku)}`;
     const resp = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    if (!resp || typeof resp !== "object") {
+      return null;
+    }
     return (_a = resp.data) != null ? _a : null;
   }
   /**

@@ -57,10 +57,31 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
       agent: keepAliveAgent,
     };
 
+    // Track the abort listener so we can detach it when the request resolves
+    // or rejects normally — without this the AbortSignal accumulates one
+    // dead listener per completed request, leaking memory if the same signal
+    // is re-used for many requests.
+    let onAbort: (() => void) | null = null;
+    const cleanupAbort = (): void => {
+      if (onAbort && options.signal) {
+        options.signal.removeEventListener("abort", onAbort);
+        onAbort = null;
+      }
+    };
+
     const req = https.request(reqOptions, res => {
       const chunks: Buffer[] = [];
+      // res.on("error") catches mid-stream failures (TCP RST after headers,
+      // socket-close before "end" fires). Without this, such errors propagate
+      // to the global "uncaughtException" handler instead of rejecting the
+      // promise — and the caller sees the request hang until the 15 s timeout.
+      res.on("error", err => {
+        cleanupAbort();
+        reject(err);
+      });
       res.on("data", (chunk: Buffer) => chunks.push(chunk));
       res.on("end", () => {
+        cleanupAbort();
         const raw = Buffer.concat(chunks).toString();
         const statusCode = res.statusCode ?? 0;
 
@@ -75,13 +96,22 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
 
         try {
           resolve(JSON.parse(raw) as T);
-        } catch {
-          reject(new Error(`Invalid JSON in HTTP ${statusCode} response`));
+        } catch (parseErr) {
+          // Include a 100-char prefix of the body so a "this endpoint
+          // returned HTML / a non-JSON 200" can be diagnosed without
+          // enabling debug log. Body cap is intentional — Govee may echo
+          // request data and we don't want full payloads in warn logs.
+          const snippet = raw.length > 100 ? `${raw.slice(0, 100)}…` : raw;
+          const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
+          reject(new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} — body starts with: ${snippet}`));
         }
       });
     });
 
-    req.on("error", reject);
+    req.on("error", err => {
+      cleanupAbort();
+      reject(err);
+    });
     req.on("timeout", () => req.destroy(new Error("Timeout")));
 
     // M3 — AbortSignal-Support. Wer den Request macht kann ihn abbrechen
@@ -93,7 +123,7 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
         reject(new Error("Aborted"));
         return;
       }
-      const onAbort = (): void => {
+      onAbort = (): void => {
         req.destroy(new Error("Aborted"));
         reject(new Error("Aborted"));
       };

@@ -3,6 +3,7 @@ import * as forge from "node-forge";
 import * as mqtt from "mqtt";
 import { httpsRequest, type HttpsRequestFn } from "./http-client";
 import { GOVEE_APP_VERSION, GOVEE_CLIENT_TYPE, GOVEE_USER_AGENT, deriveGoveeClientId } from "./govee-constants";
+import { MQTT_MAX_AUTH_FAILURES, VERIFICATION_REQUEST_THROTTLE_MS } from "./timing-constants";
 import {
   classifyError,
   logDedup,
@@ -14,9 +15,6 @@ import {
   type TimerAdapter,
   errMessage,
 } from "./types";
-
-/** Max consecutive auth failures before giving up */
-const MAX_AUTH_FAILURES = 3;
 
 const LOGIN_URL = "https://app2.govee.com/account/rest/account/v2/login";
 const IOT_KEY_URL = "https://app2.govee.com/app/v1/account/iot/key";
@@ -187,7 +185,7 @@ export class GoveeMqttClient {
       case "VERIFICATION_FAILED":
         return "verification code rejected — request a fresh code";
       case "AUTH":
-        return this.authFailCount >= MAX_AUTH_FAILURES
+        return this.authFailCount >= MQTT_MAX_AUTH_FAILURES
           ? "login rejected — check email/password"
           : "login failed (will retry)";
       case "RATE_LIMIT":
@@ -299,8 +297,13 @@ export class GoveeMqttClient {
         // Other account issues, maintenance, etc.
         throw new Error(`Govee login rejected: ${apiMsg} ${statusStr}`);
       }
-      // Login OK — if a verification code was used, signal the adapter to clear it
+      // Login OK — if a verification code was used, signal the adapter to
+      // clear the settings field AND clear the in-memory copy so a
+      // subsequent reconnect-login doesn't replay a now-consumed code (Govee
+      // would reject it as `Verification code invalid` and trip the
+      // VERIFICATION_FAILED branch unnecessarily).
       if (codeWasSent) {
+        this.verificationCode = "";
         this.onVerificationConsumed?.();
       }
       // H11 — Login-Response-Validation. Govee schickt accountId + topic
@@ -414,7 +417,7 @@ export class GoveeMqttClient {
       // Auth backoff — stop reconnecting after repeated auth failures
       if (category === "AUTH") {
         this.authFailCount++;
-        if (this.authFailCount >= MAX_AUTH_FAILURES) {
+        if (this.authFailCount >= MQTT_MAX_AUTH_FAILURES) {
           this.log.warn(`MQTT not connected: login rejected — check email/password`);
           return;
         }
@@ -508,10 +511,16 @@ export class GoveeMqttClient {
 
   /** Schedule reconnect with exponential backoff */
   private scheduleReconnect(): void {
+    // disposed-check guards the reconnect path against schedule-after-stop:
+    // disconnect() clears the timer, but a close-event-driven scheduleReconnect
+    // could fire AFTER disconnect() returned, leaving a future-firing timer.
+    if (this.disposed) {
+      return;
+    }
     if (this.reconnectTimer) {
       return;
     }
-    if (this.authFailCount >= MAX_AUTH_FAILURES) {
+    if (this.authFailCount >= MQTT_MAX_AUTH_FAILURES) {
       return;
     }
 
@@ -525,6 +534,9 @@ export class GoveeMqttClient {
 
     this.reconnectTimer = this.timers.setTimeout(() => {
       this.reconnectTimer = undefined;
+      if (this.disposed) {
+        return;
+      }
       if (this.onStatus && this.onConnection) {
         void this.connect(this.onStatus, this.onConnection);
       }
@@ -599,7 +611,18 @@ export class GoveeMqttClient {
       }
       this.client?.subscribe(this.accountTopic, { qos: 0 }, err => {
         if (err) {
-          this.log.warn(`MQTT subscribe failed: ${err.message}`);
+          // Subscribe-fail is rare (AWS-IoT policy mismatch, account flagged)
+          // but the TCP connection stays alive — protocol-level keepalive
+          // pings keep answering, so `close` would never fire on its own.
+          // Without forcing a close, `info.mqttConnected` would stay `false`
+          // indefinitely with no reconnect — permanent silent death.
+          // Forcing the close triggers the close-handler → scheduleReconnect.
+          this.log.warn(`MQTT subscribe failed: ${err.message} — forcing reconnect`);
+          try {
+            this.client?.end(true);
+          } catch {
+            // ignore — close-event handler will pick it up either way
+          }
         } else {
           this.log.debug("MQTT subscribed to account topic");
           this.onConnection?.(true);
@@ -750,16 +773,34 @@ export class GoveeMqttClient {
   }
 
   /**
+   * Last time `requestVerificationCode` actually issued a request — guards against
+   * Govee marking the account as suspicious from rapid-fire user clicks.
+   */
+  private lastVerificationRequestMs = 0;
+
+  /**
    * Trigger Govee's verification-code email. Govee sends a one-time code
    * to the account email; the user pastes it into Settings.
    *
    * Status 200 → email queued. The response body is irrelevant for the
    * adapter — Govee may include a tracking token but we don't use it.
    *
-   * Throws on non-200 or network failure so the caller (onMessage handler)
-   * can surface the error to the admin UI.
+   * In-memory throttle of {@link VERIFICATION_REQUEST_THROTTLE_MS} (30 s)
+   * mirrors the message-router's user-side throttle but lives here too so
+   * other entry points (programmatic restarts, future scripted access)
+   * can't bypass it.
+   *
+   * Throws on non-200, network failure or throttle-block so the caller
+   * (onMessage handler) can surface the error to the admin UI.
    */
   async requestVerificationCode(): Promise<void> {
+    const now = Date.now();
+    const elapsed = now - this.lastVerificationRequestMs;
+    if (this.lastVerificationRequestMs > 0 && elapsed < VERIFICATION_REQUEST_THROTTLE_MS) {
+      const waitSec = Math.ceil((VERIFICATION_REQUEST_THROTTLE_MS - elapsed) / 1000);
+      throw new Error(`Verification code request throttled — wait ${waitSec}s before retrying.`);
+    }
+    this.lastVerificationRequestMs = now;
     const url = "https://app2.govee.com/account/rest/account/v1/verification";
     await this.httpsRequestImpl<unknown>({
       method: "POST",

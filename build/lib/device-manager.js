@@ -140,6 +140,8 @@ class DeviceManager {
   /** Per-source dedup so a Cloud NETWORK error doesn't shadow an App-API one. */
   lastErrorCategory = null;
   lastAppApiErrorCategory = null;
+  /** Dedup tracker for `loadGroupMembers` errors — first warn per category, rest debug. */
+  lastGroupMembersErrorCategory = null;
   /**
    * @param log    ioBroker logger
    * @param timers Adapter timer wrapper (forwarded to CommandRouter for
@@ -693,9 +695,15 @@ class DeviceManager {
       if (changed) {
         (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
       }
+      this.lastGroupMembersErrorCategory = null;
       return changed;
     } catch (e) {
-      this.log.debug(`Could not load group members: ${(0, import_types.errMessage)(e)}`);
+      this.lastGroupMembersErrorCategory = (0, import_types.logDedup)(
+        this.log,
+        this.lastGroupMembersErrorCategory,
+        "Group membership",
+        e
+      );
       return false;
     }
   }
@@ -1151,7 +1159,6 @@ class DeviceManager {
    * @returns Number of devices that received an update
    */
   async pollAppApi() {
-    var _a;
     if (!this.apiClient || !this.apiClient.hasBearerToken()) {
       return 0;
     }
@@ -1173,22 +1180,26 @@ class DeviceManager {
       return 0;
     }
     this.lastAppApiErrorCategory = null;
-    let updated = 0;
-    for (const entry of entries) {
-      const device = this.devices.get(this.deviceKey(entry.sku, entry.device));
-      if (!device) {
-        continue;
-      }
-      const caps = buildCapabilitiesFromAppEntry(entry);
-      if (caps.length === 0) {
-        continue;
-      }
-      (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, caps);
-      this.applyOnlineCap(device, caps);
-      this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
-      updated++;
-    }
-    return updated;
+    const results = await Promise.all(
+      entries.map(
+        (entry) => Promise.resolve().then(() => {
+          var _a;
+          const device = this.devices.get(this.deviceKey(entry.sku, entry.device));
+          if (!device) {
+            return false;
+          }
+          const caps = buildCapabilitiesFromAppEntry(entry);
+          if (caps.length === 0) {
+            return false;
+          }
+          (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, caps);
+          this.applyOnlineCap(device, caps);
+          this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
+          return true;
+        })
+      )
+    );
+    return results.filter(Boolean).length;
   }
   /**
    * Pull the `devices.capabilities.online` entry (if any) out of a

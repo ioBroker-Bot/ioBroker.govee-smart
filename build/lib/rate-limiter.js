@@ -32,6 +32,13 @@ class RateLimiter {
   minuteResetTimer = void 0;
   dayResetTimer = void 0;
   dayResetKickoff = void 0;
+  /**
+   * True after `stop()`. Guards the dayResetKickoff callback so a stop() that
+   * fires between kickoff-schedule and kickoff-execute can't leave behind a
+   * runaway dayResetTimer interval — without this, a stop+restart cycle would
+   * leak one interval per restart.
+   */
+  stopped = false;
   /** Max calls per minute */
   perMinuteLimit;
   /** Max calls per day (with safety buffer) */
@@ -63,12 +70,17 @@ class RateLimiter {
   }
   /** Start the rate limiter — resets counters periodically */
   start() {
+    this.stopped = false;
     this.minuteResetTimer = this.timers.setInterval(() => {
       this.callsThisMinute = 0;
       this.processQueue();
     }, 6e4);
     const msUntilMidnight = this.millisUntilNextUtcMidnight();
     this.dayResetKickoff = this.timers.setTimeout(() => {
+      this.dayResetKickoff = void 0;
+      if (this.stopped) {
+        return;
+      }
       this.resetDaily();
       this.dayResetTimer = this.timers.setInterval(() => this.resetDaily(), 864e5);
     }, msUntilMidnight);
@@ -78,6 +90,7 @@ class RateLimiter {
   }
   /** Stop the rate limiter */
   stop() {
+    this.stopped = true;
     if (this.minuteResetTimer) {
       this.timers.clearInterval(this.minuteResetTimer);
       this.minuteResetTimer = void 0;
@@ -144,6 +157,9 @@ class RateLimiter {
   }
   /** Process queued calls */
   processQueue() {
+    if (this.stopped) {
+      return;
+    }
     while (this.queue.length > 0 && this.canMakeCall()) {
       const call = this.queue.shift();
       if (call) {

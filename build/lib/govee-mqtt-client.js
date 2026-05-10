@@ -36,8 +36,8 @@ var forge = __toESM(require("node-forge"));
 var mqtt = __toESM(require("mqtt"));
 var import_http_client = require("./http-client");
 var import_govee_constants = require("./govee-constants");
+var import_timing_constants = require("./timing-constants");
 var import_types = require("./types");
-const MAX_AUTH_FAILURES = 3;
 const LOGIN_URL = "https://app2.govee.com/account/rest/account/v2/login";
 const IOT_KEY_URL = "https://app2.govee.com/app/v1/account/iot/key";
 const AMAZON_ROOT_CA1 = `-----BEGIN CERTIFICATE-----
@@ -167,7 +167,7 @@ class GoveeMqttClient {
       case "VERIFICATION_FAILED":
         return "verification code rejected \u2014 request a fresh code";
       case "AUTH":
-        return this.authFailCount >= MAX_AUTH_FAILURES ? "login rejected \u2014 check email/password" : "login failed (will retry)";
+        return this.authFailCount >= import_timing_constants.MQTT_MAX_AUTH_FAILURES ? "login rejected \u2014 check email/password" : "login failed (will retry)";
       case "RATE_LIMIT":
         return "rate-limited by Govee \u2014 will retry";
       case "NETWORK":
@@ -258,6 +258,7 @@ class GoveeMqttClient {
         throw new Error(`Govee login rejected: ${apiMsg} ${statusStr}`);
       }
       if (codeWasSent) {
+        this.verificationCode = "";
         (_d = this.onVerificationConsumed) == null ? void 0 : _d.call(this);
       }
       const accIdRaw = loginResp.client.accountId;
@@ -335,7 +336,7 @@ class GoveeMqttClient {
       }
       if (category === "AUTH") {
         this.authFailCount++;
-        if (this.authFailCount >= MAX_AUTH_FAILURES) {
+        if (this.authFailCount >= import_timing_constants.MQTT_MAX_AUTH_FAILURES) {
           this.log.warn(`MQTT not connected: login rejected \u2014 check email/password`);
           return;
         }
@@ -415,10 +416,13 @@ class GoveeMqttClient {
   }
   /** Schedule reconnect with exponential backoff */
   scheduleReconnect() {
+    if (this.disposed) {
+      return;
+    }
     if (this.reconnectTimer) {
       return;
     }
-    if (this.authFailCount >= MAX_AUTH_FAILURES) {
+    if (this.authFailCount >= import_timing_constants.MQTT_MAX_AUTH_FAILURES) {
       return;
     }
     this.reconnectAttempts++;
@@ -428,6 +432,9 @@ class GoveeMqttClient {
     this.log.debug(`MQTT: Reconnecting in ${delay / 1e3}s (attempt ${this.reconnectAttempts})`);
     this.reconnectTimer = this.timers.setTimeout(() => {
       this.reconnectTimer = void 0;
+      if (this.disposed) {
+        return;
+      }
       if (this.onStatus && this.onConnection) {
         void this.connect(this.onStatus, this.onConnection);
       }
@@ -501,12 +508,16 @@ class GoveeMqttClient {
         this.log.info(`MQTT connected`);
       }
       (_a = this.client) == null ? void 0 : _a.subscribe(this.accountTopic, { qos: 0 }, (err) => {
-        var _a2;
+        var _a2, _b;
         if (err) {
-          this.log.warn(`MQTT subscribe failed: ${err.message}`);
+          this.log.warn(`MQTT subscribe failed: ${err.message} \u2014 forcing reconnect`);
+          try {
+            (_a2 = this.client) == null ? void 0 : _a2.end(true);
+          } catch {
+          }
         } else {
           this.log.debug("MQTT subscribed to account topic");
-          (_a2 = this.onConnection) == null ? void 0 : _a2.call(this, true);
+          (_b = this.onConnection) == null ? void 0 : _b.call(this, true);
         }
       });
     });
@@ -634,16 +645,33 @@ class GoveeMqttClient {
     });
   }
   /**
+   * Last time `requestVerificationCode` actually issued a request — guards against
+   * Govee marking the account as suspicious from rapid-fire user clicks.
+   */
+  lastVerificationRequestMs = 0;
+  /**
    * Trigger Govee's verification-code email. Govee sends a one-time code
    * to the account email; the user pastes it into Settings.
    *
    * Status 200 → email queued. The response body is irrelevant for the
    * adapter — Govee may include a tracking token but we don't use it.
    *
-   * Throws on non-200 or network failure so the caller (onMessage handler)
-   * can surface the error to the admin UI.
+   * In-memory throttle of {@link VERIFICATION_REQUEST_THROTTLE_MS} (30 s)
+   * mirrors the message-router's user-side throttle but lives here too so
+   * other entry points (programmatic restarts, future scripted access)
+   * can't bypass it.
+   *
+   * Throws on non-200, network failure or throttle-block so the caller
+   * (onMessage handler) can surface the error to the admin UI.
    */
   async requestVerificationCode() {
+    const now = Date.now();
+    const elapsed = now - this.lastVerificationRequestMs;
+    if (this.lastVerificationRequestMs > 0 && elapsed < import_timing_constants.VERIFICATION_REQUEST_THROTTLE_MS) {
+      const waitSec = Math.ceil((import_timing_constants.VERIFICATION_REQUEST_THROTTLE_MS - elapsed) / 1e3);
+      throw new Error(`Verification code request throttled \u2014 wait ${waitSec}s before retrying.`);
+    }
+    this.lastVerificationRequestMs = now;
     const url = "https://app2.govee.com/account/rest/account/v1/verification";
     await this.httpsRequestImpl({
       method: "POST",

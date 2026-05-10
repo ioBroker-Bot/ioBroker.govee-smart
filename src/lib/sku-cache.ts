@@ -111,6 +111,9 @@ export class SkuCache {
    * @param data Device data to persist
    */
   save(data: CachedDeviceData): void {
+    if (!this.dataAvailable) {
+      return;
+    }
     const file = this.cacheFile(data.sku, data.deviceId);
     try {
       // openSync + writeSync + fsyncSync + closeSync instead of writeFileSync
@@ -134,6 +137,9 @@ export class SkuCache {
   /** Load all cached devices. */
   loadAll(): CachedDeviceData[] {
     const results: CachedDeviceData[] = [];
+    if (!this.dataAvailable) {
+      return results;
+    }
     try {
       if (!fs.existsSync(this.cacheDir)) {
         return results;

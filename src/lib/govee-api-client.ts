@@ -428,7 +428,13 @@ export class GoveeApiClient {
     const url = `https://app2.govee.com/appsku/v1/sku-supported-feature?sku=${encodeURIComponent(sku)}`;
     const resp = await httpsRequest<{
       data?: Record<string, unknown>;
-    }>({ method: "GET", url, headers: this.authHeaders() });
+    } | null>({ method: "GET", url, headers: this.authHeaders() });
+    // Defensive: API can return literal `null` body on edge cases (Govee
+    // response wrapped as JSON-null on some unknown SKUs). Without this
+    // guard `resp.data` would throw on null-resp.
+    if (!resp || typeof resp !== "object") {
+      return null;
+    }
     return resp.data ?? null;
   }
 

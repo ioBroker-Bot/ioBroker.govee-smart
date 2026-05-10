@@ -128,6 +128,16 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Real-time status push (`info.mqttConnected`, `info.openapiMqttConnected`) now recovers automatically after a brief Govee outage. Previously, a rare subscribe rejection could leave the indicator stuck on `false` until the next adapter restart.
+- Restoring a local snapshot on a multi-segment LED strip is fast again — a 30-segment snapshot replays in well under a second instead of about nine.
+- A wrong manual pairing IP, a network blip mid-request, or a Govee Cloud command that the cloud rejects with a payload-level error are now reported instead of failing silently.
+- LED segment number 0 displaying blue when a colour was set with a short hex value (e.g. `#FF`) is fixed — invalid colour input falls back to black instead of an unintended colour.
+- The segment-detection wizard now restores the strip's previous look on adapter-stop, so the test pattern doesn't stay on the wall when you click "Save adapter settings".
+- A configured but rejected Govee API key now surfaces as `Cloud: device list returned empty — check the API key matches the account that owns the devices` so you have a starting point.
+- Various behind-the-scenes hardening of all four communication channels (LAN, real-time MQTT, Cloud-events, Cloud REST) — invisible if everything was already running fine, robustness if something is unstable.
+
 ### 2.6.2 (2026-05-09)
 
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged. The user-visible segment-detection wizard text in the admin UI also remains localized.

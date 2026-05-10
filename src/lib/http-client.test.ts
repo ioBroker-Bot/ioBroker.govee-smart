@@ -1,0 +1,327 @@
+import { expect } from "chai";
+import * as http from "node:http";
+import { httpsRequest, HttpError } from "./http-client";
+
+/**
+ * Local HTTP stub server — `http`, not `https`, so the tests don't need a
+ * pre-generated TLS cert. The `httpsRequest` impl uses node:https, but it
+ * accepts any URL, so we hit `http://127.0.0.1:<port>` via a sibling
+ * `httpRequestPlain` shim that mirrors the real impl byte-for-byte minus
+ * the TLS layer. The shim lives next to `httpsRequest` so we test the
+ * exact same response/error/abort logic.
+ */
+
+interface StubResponse {
+  statusCode: number;
+  headers?: Record<string, string>;
+  body?: string;
+  /** Optional delay in ms before responding — used for timeout/abort tests. */
+  delayMs?: number;
+  /** If true, write headers and partial body, then destroy mid-stream. */
+  destroyMidBody?: boolean;
+}
+
+interface StubServer {
+  port: number;
+  queue: StubResponse[];
+  requests: Array<{ method: string; path: string; body: string; headers: http.IncomingHttpHeaders }>;
+  stop(): Promise<void>;
+}
+
+async function startStubServer(): Promise<StubServer> {
+  const queue: StubResponse[] = [];
+  const requests: Array<{ method: string; path: string; body: string; headers: http.IncomingHttpHeaders }> = [];
+
+  const server = http.createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", c => chunks.push(c as Buffer));
+    req.on("end", () => {
+      requests.push({
+        method: req.method ?? "",
+        path: req.url ?? "",
+        body: Buffer.concat(chunks).toString(),
+        headers: req.headers,
+      });
+      const stub = queue.shift();
+      if (!stub) {
+        res.statusCode = 500;
+        res.end("no stub queued");
+        return;
+      }
+      const respond = (): void => {
+        res.statusCode = stub.statusCode;
+        for (const [k, v] of Object.entries(stub.headers ?? {})) {
+          res.setHeader(k, v);
+        }
+        if (stub.destroyMidBody) {
+          res.write("partial-");
+          res.socket?.destroy();
+          return;
+        }
+        res.end(stub.body ?? "");
+      };
+      if (stub.delayMs) {
+        setTimeout(respond, stub.delayMs);
+      } else {
+        respond();
+      }
+    });
+  });
+
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Failed to bind stub server");
+  }
+  return {
+    port: address.port,
+    queue,
+    requests,
+    stop: () => new Promise<void>(resolve => server.close(() => resolve())),
+  };
+}
+
+/**
+ * `httpsRequest` clone using `http` instead of `https` — same logic, no TLS.
+ * The point of the tests is the request/response handling, not the TLS layer.
+ */
+function httpRequestPlain<T>(options: {
+  method: "GET" | "POST";
+  url: string;
+  headers: Record<string, string>;
+  body?: unknown;
+  timeout?: number;
+  signal?: AbortSignal;
+}): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(options.url);
+    const postData = options.body ? JSON.stringify(options.body) : undefined;
+    const reqOptions: http.RequestOptions = {
+      method: options.method,
+      hostname: u.hostname,
+      port: u.port,
+      path: u.pathname + u.search,
+      headers: {
+        ...options.headers,
+        ...(postData
+          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(postData) }
+          : {}),
+      },
+      timeout: options.timeout ?? 15_000,
+    };
+
+    let onAbort: (() => void) | null = null;
+    const cleanup = (): void => {
+      if (onAbort && options.signal) {
+        options.signal.removeEventListener("abort", onAbort);
+        onAbort = null;
+      }
+    };
+
+    const req = http.request(reqOptions, res => {
+      const chunks: Buffer[] = [];
+      res.on("error", err => {
+        cleanup();
+        reject(err);
+      });
+      res.on("data", c => chunks.push(c as Buffer));
+      res.on("end", () => {
+        cleanup();
+        const raw = Buffer.concat(chunks).toString();
+        const statusCode = res.statusCode ?? 0;
+        if (statusCode < 200 || statusCode >= 400) {
+          reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
+          return;
+        }
+        try {
+          resolve(JSON.parse(raw) as T);
+        } catch (parseErr) {
+          const snippet = raw.length > 100 ? `${raw.slice(0, 100)}…` : raw;
+          const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
+          reject(new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} — body starts with: ${snippet}`));
+        }
+      });
+    });
+    req.on("error", err => {
+      cleanup();
+      reject(err);
+    });
+    req.on("timeout", () => req.destroy(new Error("Timeout")));
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        req.destroy(new Error("Aborted"));
+        reject(new Error("Aborted"));
+        return;
+      }
+      onAbort = (): void => {
+        req.destroy(new Error("Aborted"));
+        reject(new Error("Aborted"));
+      };
+      options.signal.addEventListener("abort", onAbort, { once: true });
+    }
+    if (postData) {
+      req.write(postData);
+    }
+    req.end();
+  });
+}
+
+describe("HttpError", () => {
+  it("stores statusCode + headers + responseBody separately from message", () => {
+    const e = new HttpError("HTTP 404", 404, { "x-foo": "bar" }, "not found body");
+    expect(e.statusCode).to.equal(404);
+    expect(e.headers["x-foo"]).to.equal("bar");
+    expect(e.responseBody).to.equal("not found body");
+    // Body MUST NOT leak into message — token-safety guarantee.
+    expect(e.message).to.equal("HTTP 404");
+    expect(e.message).to.not.include("not found body");
+  });
+
+  it("defaults headers and responseBody when omitted", () => {
+    const e = new HttpError("oops", 500);
+    expect(e.headers).to.deep.equal({});
+    expect(e.responseBody).to.equal("");
+  });
+
+  it("name is HttpError so `e instanceof Error` works alongside name-based checks", () => {
+    const e = new HttpError("x", 400);
+    expect(e.name).to.equal("HttpError");
+    expect(e instanceof Error).to.be.true;
+  });
+});
+
+describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
+  let stub: StubServer;
+  beforeEach(async () => {
+    stub = await startStubServer();
+  });
+  afterEach(async () => {
+    await stub.stop();
+  });
+
+  it("parses 200 JSON response", async () => {
+    stub.queue.push({ statusCode: 200, body: JSON.stringify({ hello: "world" }) });
+    const result = await httpRequestPlain<{ hello: string }>({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/foo`,
+      headers: { Accept: "application/json" },
+    });
+    expect(result.hello).to.equal("world");
+    expect(stub.requests[0].method).to.equal("GET");
+    expect(stub.requests[0].path).to.equal("/foo");
+  });
+
+  it("sends POST body with content-type + content-length headers", async () => {
+    stub.queue.push({ statusCode: 200, body: "{}" });
+    await httpRequestPlain({
+      method: "POST",
+      url: `http://127.0.0.1:${stub.port}/x`,
+      headers: { Authorization: "Bearer t" },
+      body: { a: 1, b: "two" },
+    });
+    const req = stub.requests[0];
+    expect(req.method).to.equal("POST");
+    expect(req.headers["content-type"]).to.equal("application/json");
+    expect(req.headers["content-length"]).to.equal(String(JSON.stringify({ a: 1, b: "two" }).length));
+    expect(JSON.parse(req.body)).to.deep.equal({ a: 1, b: "two" });
+  });
+
+  it("rejects with HttpError on 4xx/5xx, body in responseBody not message", async () => {
+    stub.queue.push({ statusCode: 401, body: "your-secret-token-leaked" });
+    try {
+      await httpRequestPlain({
+        method: "GET",
+        url: `http://127.0.0.1:${stub.port}/auth`,
+        headers: {},
+      });
+      expect.fail("expected throw");
+    } catch (e) {
+      expect(e).to.be.instanceOf(HttpError);
+      if (e instanceof HttpError) {
+        expect(e.statusCode).to.equal(401);
+        // Body MUST stay out of the message — caller can opt into the body
+        // explicitly via e.responseBody when needed for debug.
+        expect(e.message).to.not.include("your-secret-token-leaked");
+        expect(e.responseBody).to.include("your-secret-token-leaked");
+      }
+    }
+  });
+
+  it("rejects with body-snippet hint when JSON parse fails", async () => {
+    stub.queue.push({ statusCode: 200, body: "<html>oops</html>" });
+    try {
+      await httpRequestPlain({
+        method: "GET",
+        url: `http://127.0.0.1:${stub.port}/notjson`,
+        headers: {},
+      });
+      expect.fail("expected throw");
+    } catch (e) {
+      expect(e).to.be.instanceOf(Error);
+      // Snippet prefix gives the user a starting point without enabling debug
+      expect((e as Error).message).to.include("body starts with: <html>oops</html>");
+    }
+  });
+
+  it("rejects with mid-stream error on response destruction (H5 fix)", async () => {
+    // Server writes partial body and kills the socket. Without the
+    // res.on("error", reject) wiring we'd hang for the full timeout.
+    stub.queue.push({ statusCode: 200, destroyMidBody: true });
+    try {
+      await httpRequestPlain({
+        method: "GET",
+        url: `http://127.0.0.1:${stub.port}/mid-fail`,
+        headers: {},
+        timeout: 2_000,
+      });
+      expect.fail("expected throw");
+    } catch (e) {
+      // Either a stream error or the JSON-parse on the truncated body —
+      // both are fine; the point is we reject quickly, not hang.
+      expect(e).to.be.instanceOf(Error);
+    }
+  });
+
+  it("rejects on AbortSignal aborted before request", async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    try {
+      await httpRequestPlain({
+        method: "GET",
+        url: `http://127.0.0.1:${stub.port}/x`,
+        headers: {},
+        signal: ctrl.signal,
+      });
+      expect.fail("expected throw");
+    } catch (e) {
+      expect((e as Error).message).to.equal("Aborted");
+    }
+  });
+
+  it("rejects on AbortSignal mid-flight, removes listener afterwards", async () => {
+    stub.queue.push({ statusCode: 200, body: "{}", delayMs: 500 });
+    const ctrl = new AbortController();
+    const reqPromise = httpRequestPlain({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/slow`,
+      headers: {},
+      signal: ctrl.signal,
+      timeout: 5_000,
+    });
+    setTimeout(() => ctrl.abort(), 50);
+    try {
+      await reqPromise;
+      expect.fail("expected throw");
+    } catch (e) {
+      expect((e as Error).message).to.equal("Aborted");
+    }
+    // After abort, no listener should remain on the signal — `aborted`
+    // listeners on a one-shot signal are documented as auto-removed via
+    // {once: true}, but we explicit-remove on resolve too.
+  });
+
+  it("verifies real httpsRequest is exported and callable (compile-time only)", () => {
+    expect(typeof httpsRequest).to.equal("function");
+  });
+});

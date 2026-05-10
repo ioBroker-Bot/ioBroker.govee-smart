@@ -54,7 +54,7 @@ class LocalSnapshotStore {
       this.log.warn(`Snapshot directory not writable (${this.dir}): ${(0, import_types.errMessage)(e)}`);
     }
   }
-  /** False wenn Snapshot-Dir nicht zugreifbar ist — save/load skipt dann. */
+  /** False wenn Snapshot-Dir nicht zugreifbar ist — save/load skippen dann. */
   dataAvailable = false;
   /**
    * Get all snapshots for a device.
@@ -63,6 +63,9 @@ class LocalSnapshotStore {
    * @param deviceId Device identifier
    */
   getSnapshots(sku, deviceId) {
+    if (!this.dataAvailable) {
+      return [];
+    }
     const file = this.snapshotFile(sku, deviceId);
     try {
       if (fs.existsSync(file)) {
@@ -82,6 +85,10 @@ class LocalSnapshotStore {
    * @param snapshot Snapshot data to save
    */
   saveSnapshot(sku, deviceId, snapshot) {
+    if (!this.dataAvailable) {
+      this.log.warn(`Cannot save snapshot "${snapshot.name}" \u2014 snapshot directory not writable`);
+      return;
+    }
     const snapshots = this.getSnapshots(sku, deviceId);
     const existing = snapshots.findIndex((s) => s.name === snapshot.name);
     if (existing >= 0) {
@@ -100,6 +107,9 @@ class LocalSnapshotStore {
    * @param name Snapshot name to delete
    */
   deleteSnapshot(sku, deviceId, name) {
+    if (!this.dataAvailable) {
+      return false;
+    }
     const snapshots = this.getSnapshots(sku, deviceId);
     const idx = snapshots.findIndex((s) => s.name === name);
     if (idx < 0) {
