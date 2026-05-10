@@ -1,4 +1,14 @@
 # Older Changes
+## 2.6.3 (2026-05-10)
+
+- Connection-status indicators recover on their own after a brief Govee outage instead of staying stuck until you restart the adapter.
+- Restoring a snapshot on a multi-segment LED strip is fast again — a 30-segment snapshot replays in well under a second instead of about nine.
+- A wrong manual pairing IP, a network blip, or a Cloud command that Govee rejects are now reported in the log instead of failing silently.
+- LED segment 0 turning blue when a colour was set with a short hex value (e.g. `#FF`) is fixed — invalid colour input falls back to black.
+- The segment-detection wizard restores the strip's previous look on adapter-stop, so the test pattern doesn't stay on the wall when you save the adapter settings.
+- A rejected Govee API key now surfaces an actionable hint in the log so you know where to look.
+- Various behind-the-scenes hardening of all four communication channels (LAN, MQTT, Cloud-events, Cloud REST) — invisible if everything was already running fine, robustness if something is unstable.
+
 ## 2.6.2 (2026-05-09)
 
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names, descriptions and dropdown labels (11 languages) are unchanged. The user-visible segment-detection wizard text in the admin UI also remains localized.

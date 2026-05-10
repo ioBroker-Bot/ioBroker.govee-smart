@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.7.0 (2026-05-10)
 
 - Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after an adapter restart and via the refresh button. Previously the cache held the old list forever (Issue #13).
 - Refresh button is now per device under `devices.<id>.snapshots.refresh_cloud` instead of an adapter-wide button: a press hits Govee only for that one light, not for every device on your account.
@@ -151,16 +151,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.6.4 (2026-05-10)
 
 - Internal tooling refresh. No changes for users.
-
-### 2.6.3 (2026-05-10)
-
-- Connection-status indicators recover on their own after a brief Govee outage instead of staying stuck until you restart the adapter.
-- Restoring a snapshot on a multi-segment LED strip is fast again — a 30-segment snapshot replays in well under a second instead of about nine.
-- A wrong manual pairing IP, a network blip, or a Cloud command that Govee rejects are now reported in the log instead of failing silently.
-- LED segment 0 turning blue when a colour was set with a short hex value (e.g. `#FF`) is fixed — invalid colour input falls back to black.
-- The segment-detection wizard restores the strip's previous look on adapter-stop, so the test pattern doesn't stay on the wall when you save the adapter settings.
-- A rejected Govee API key now surfaces an actionable hint in the log so you know where to look.
-- Various behind-the-scenes hardening of all four communication channels (LAN, MQTT, Cloud-events, Cloud REST) — invisible if everything was already running fine, robustness if something is unstable.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
