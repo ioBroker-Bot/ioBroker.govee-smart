@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.6.6",
     "news": {
+      "NEXT": {
+        "en": "Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.",
+        "de": "Aufgeräumter Ready-Log: Die Geräte-/Sensor-/Gruppen-Online-Zusammenfassung ist raus — sie lief bevor der LAN-Scan fertig war und konnte fälschlich alle Lichter als offline anzeigen.",
+        "ru": "Чище лог готовности: убрана сводка устройств/сенсоров/групп онлайн — она запускалась до завершения LAN-сканирования и могла ошибочно показывать все лампы как offline.",
+        "pt": "Log de pronto mais limpo: removido o resumo de dispositivos/sensores/grupos online — corria antes do scan LAN terminar e podia mostrar incorretamente todas as lâmpadas como offline.",
+        "nl": "Schonere ready-log: de samenvatting van apparaten/sensoren/groepen-online is weg — ze liep voordat de LAN-scan klaar was en kon ten onrechte alle lampen als offline tonen.",
+        "fr": "Log de prêt plus propre : le récapitulatif appareils/capteurs/groupes en ligne est retiré — il s'exécutait avant la fin du scan LAN et pouvait afficher à tort toutes les lampes comme hors ligne.",
+        "it": "Ready-log più pulito: rimosso il riepilogo dispositivi/sensori/gruppi online — partiva prima della fine dello scan LAN e poteva indicare erroneamente tutte le luci offline.",
+        "es": "Log de listo más limpio: eliminado el resumen de dispositivos/sensores/grupos en línea — se ejecutaba antes de que terminara el escaneo LAN y podía mostrar erróneamente todas las luces como offline.",
+        "pl": "Czystszy log gotowości: usunięto podsumowanie urządzeń/czujników/grup online — działało przed zakończeniem skanu LAN i mogło błędnie pokazywać wszystkie lampy jako offline.",
+        "uk": "Чистіший ready-лог: прибрано зведення пристрої/сенсори/групи онлайн — воно виконувалося до завершення LAN-сканування і могло помилково показувати всі лампи як offline.",
+        "zh-cn": "更干净的就绪日志：移除了设备/传感器/分组在线摘要——它在 LAN 扫描完成前就运行，可能错误地把所有灯显示为离线。"
+      },
       "2.6.6": {
         "en": "Internal refactoring (main.ts on plan target ~800 LOC, 11 handler modules in lib/handlers/). No changes for users.",
         "de": "Internes Refactoring (main.ts auf Plan-Ziel ~800 LOC, 11 Handler-Module in lib/handlers/). Keine Änderungen für Benutzer.",

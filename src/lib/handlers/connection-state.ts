@@ -169,13 +169,11 @@ export function checkAllReady(adapter: ConnectionStateAdapter): void {
  *
  */
 export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
-  if (!adapter.deviceManager) {
-    return;
-  }
-  const all = adapter.deviceManager.getDevices();
-  const devices = all.filter(d => d.sku !== "BaseGroup");
-  const groups = all.filter(d => d.sku === "BaseGroup");
-
+  // Device/sensor/group counts are intentionally not logged here: at
+  // ready-time the LAN scan and MQTT push are still settling, so an
+  // "X online, Y offline" summary often shows lights as offline that
+  // come up moments later. The user-visible online state lives in the
+  // state tree where it stays accurate.
   const channels: string[] = ["LAN"];
   if (adapter.cloudWasConnected) {
     channels.push("Cloud");
@@ -186,31 +184,7 @@ export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
   if (adapter.openapiMqttClient?.connected) {
     channels.push("Cloud-events");
   }
-
-  const lightDevices = devices.filter(d => d.type === "devices.types.light");
-  const onlineDevices = devices.filter(d => d.state.online === true);
-  const parts: string[] = [];
-  if (devices.length > 0) {
-    const onlineLights = lightDevices.filter(d => d.state.online === true).length;
-    const totalLights = lightDevices.length;
-    if (totalLights > 0) {
-      parts.push(
-        totalLights === onlineLights
-          ? `${totalLights} light${totalLights > 1 ? "s" : ""} online`
-          : `${totalLights} light${totalLights > 1 ? "s" : ""} (${onlineLights} online, ${totalLights - onlineLights} offline)`,
-      );
-    }
-    const sensors = devices.length - lightDevices.length;
-    if (sensors > 0) {
-      const onlineSensors = onlineDevices.filter(d => d.type !== "devices.types.light").length;
-      parts.push(`${sensors} sensor${sensors > 1 ? "s" : ""} (${onlineSensors} with data)`);
-    }
-  }
-  if (groups.length > 0) {
-    parts.push(`${groups.length} group${groups.length > 1 ? "s" : ""}`);
-  }
-  const summary = parts.length > 0 ? parts.join(", ") : "no devices found";
-  adapter.log.info(`Govee adapter ready — ${summary} — channels: ${channels.join("+")}`);
+  adapter.log.info(`Govee adapter ready — channels: ${channels.join("+")}`);
 
   if (adapter.cloudClient && !adapter.cloudWasConnected) {
     const reason = adapter.cloudClient.getFailureReason();
