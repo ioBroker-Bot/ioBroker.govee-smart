@@ -27,7 +27,6 @@ export interface WizardHandlerAdapter {
 /**
  * Stable device key for wizard session tracking.
  *
- * @param device
  */
 export function deviceKeyFor(device: GoveeDevice): string {
   return `${device.sku}:${device.deviceId}`;
@@ -36,8 +35,6 @@ export function deviceKeyFor(device: GoveeDevice): string {
 /**
  * Resolve a wizard session-key back to the live device.
  *
- * @param adapter
- * @param key
  */
 export function findDeviceByKey(adapter: WizardHandlerAdapter, key: string): GoveeDevice | undefined {
   const devices = adapter.deviceManager?.getDevices() ?? [];
@@ -49,7 +46,6 @@ export function findDeviceByKey(adapter: WizardHandlerAdapter, key: string): Gov
  * dependencies are captured here as closures so the wizard itself stays
  * decoupled from the adapter shape.
  *
- * @param adapter
  */
 export function buildWizardHost(adapter: WizardHandlerAdapter): WizardHost {
   return {
@@ -91,9 +87,6 @@ export function buildWizardHost(adapter: WizardHandlerAdapter): WizardHost {
  * state-tree rebuild and cache-persist path runs for both wizard results
  * and user edits.
  *
- * @param adapter
- * @param device
- * @param result
  */
 export async function applyWizardResult(
   adapter: WizardHandlerAdapter,
@@ -119,9 +112,6 @@ export async function applyWizardResult(
  * status into `info.wizardStatus` so admin's `type: "state"` component
  * can show it live via state subscription.
  *
- * @param adapter
- * @param action
- * @param deviceKey
  */
 export async function runWizardStep(
   adapter: WizardHandlerAdapter,

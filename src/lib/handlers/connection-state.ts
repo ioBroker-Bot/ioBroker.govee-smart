@@ -42,7 +42,6 @@ export interface ConnectionStateAdapter {
  * Write-only-on-change cache (lastConnectionState) so we don't spam
  * setStateAsync on every device-state-update.
  *
- * @param adapter
  */
 export function updateConnectionState(adapter: ConnectionStateAdapter): void {
   const devices = adapter.deviceManager?.getDevices() ?? [];
@@ -64,7 +63,6 @@ export function updateConnectionState(adapter: ConnectionStateAdapter): void {
  * > 2 minor: warn-Log + state `info.appVersionDrift`. Failures (5xx,
  * network) are silent debug-logged — no user impact.
  *
- * @param adapter
  */
 export async function checkAppVersionDrift(adapter: ConnectionStateAdapter): Promise<void> {
   try {
@@ -112,7 +110,6 @@ export async function checkAppVersionDrift(adapter: ConnectionStateAdapter): Pro
  * are reaped so removed-device data doesn't leak into the next adapter
  * lifetime.
  *
- * @param adapter
  */
 export async function reapStaleDevices(adapter: ConnectionStateAdapter): Promise<void> {
   if (!adapter.stateManager || !adapter.deviceManager) {
@@ -136,7 +133,6 @@ export async function reapStaleDevices(adapter: ConnectionStateAdapter): Promise
  * Check if all configured channels are initialized and log ready message.
  * Called from MQTT onConnection callback and end of onReady.
  *
- * @param adapter
  */
 export function checkAllReady(adapter: ConnectionStateAdapter): void {
   if (adapter.readyLogged) {
@@ -171,7 +167,6 @@ export function checkAllReady(adapter: ConnectionStateAdapter): void {
 /**
  * Log final ready message with device/group/channel summary.
  *
- * @param adapter
  */
 export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
   if (!adapter.deviceManager) {

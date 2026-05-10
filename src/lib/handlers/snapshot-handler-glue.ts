@@ -22,7 +22,6 @@ export interface SnapshotHandlerGlueAdapter {
  * Construct host object for {@link SnapshotHandler} — adapter dependencies
  * captured as closures so the handler stays decoupled from the adapter shape.
  *
- * @param adapter
  */
 export function buildSnapshotHost(adapter: SnapshotHandlerGlueAdapter): SnapshotHandlerHost {
   return {

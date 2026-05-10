@@ -37,9 +37,6 @@ export interface DeviceEventsAdapter {
  * when the device just powered off (the user shouldn't see "playing
  * Aurora-A" on a device that's off).
  *
- * @param adapter
- * @param device
- * @param state
  */
 export function onDeviceStateUpdate<
   T extends DeviceEventsAdapter &
@@ -74,9 +71,6 @@ export function onDeviceStateUpdate<
  * after a local snapshot was added or removed — no reason to rebuild the
  * entire tree for every device then).
  *
- * @param adapter
- * @param device
- * @param allDevices
  */
 export function refreshDeviceStates(
   adapter: DeviceEventsAdapter,
@@ -117,8 +111,6 @@ export function refreshDeviceStates(
  * and reaps adapter-level maps for removed devices once the initial
  * boot phase has passed.
  *
- * @param adapter
- * @param devices
  */
 export function onDeviceListChanged<T extends DeviceEventsAdapter & connectionState.ConnectionStateAdapter>(
   adapter: T,

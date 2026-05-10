@@ -31,7 +31,6 @@ export function populateScenesFromLibrary(adapter: DeviceCacheAdapter, device: G
 /**
  * Convert cached data to a GoveeDevice (runtime fields set to defaults).
  *
- * @param cached
  */
 export function cachedToGoveeDevice(cached: CachedDeviceData): GoveeDevice {
   return {
@@ -63,7 +62,6 @@ export function cachedToGoveeDevice(cached: CachedDeviceData): GoveeDevice {
 /**
  * Extract cacheable data from a GoveeDevice.
  *
- * @param device
  */
 export function goveeDeviceToCached(device: GoveeDevice): CachedDeviceData {
   return {
@@ -97,8 +95,6 @@ export function goveeDeviceToCached(device: GoveeDevice): CachedDeviceData {
  * Persist a device's current runtime state to the SKU cache. Safe no-op
  * when no cache is configured.
  *
- * @param adapter
- * @param device
  */
 export function persistDeviceToCache(adapter: DeviceCacheAdapter, device: GoveeDevice): void {
   if (!adapter.skuCache) {
@@ -111,7 +107,6 @@ export function persistDeviceToCache(adapter: DeviceCacheAdapter, device: GoveeD
  * Save all devices to SKU cache, skipping only those never confirmed via
  * Cloud yet. Routine persistence — logs at debug.
  *
- * @param adapter
  */
 export function saveDevicesToCache(adapter: DeviceCacheAdapter): void {
   if (!adapter.skuCache) {

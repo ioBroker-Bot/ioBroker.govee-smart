@@ -24,7 +24,6 @@ export interface CloudStateLoaderAdapter {
  * LAN-capable devices, the LAN state IDs are filtered out — Cloud only
  * fills the gaps the LAN client doesn't cover.
  *
- * @param adapter
  */
 export async function loadCloudStates(adapter: CloudStateLoaderAdapter): Promise<void> {
   if (!adapter.cloudClient || !adapter.deviceManager || !adapter.stateManager) {
@@ -83,9 +82,6 @@ export async function loadCloudStates(adapter: CloudStateLoaderAdapter): Promise
  * exist yet on first write. ensureSyntheticStateObject creates them
  * lazily with the right channel + role + unit.
  *
- * @param adapter
- * @param device
- * @param caps
  */
 export async function applyCloudCapabilities(
   adapter: CloudStateLoaderAdapter,

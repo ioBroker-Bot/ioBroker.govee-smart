@@ -4,7 +4,6 @@ import type { CloudDevice, CloudStateCapability, GoveeDevice } from "../types";
 /**
  * Convert Cloud device to internal device model.
  *
- * @param cd
  */
 export function cloudDeviceToGoveeDevice(cd: CloudDevice): GoveeDevice {
   return {

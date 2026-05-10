@@ -16,6 +16,19 @@ export default [
     },
   },
   {
+    // Handler-modules + device-manager sub-files use a free-fn pattern with
+    // adapter-context interfaces. Most parameters are obvious from name/type
+    // (`adapter`, `device`, `caps`); enforcing a JSDoc @param/@return on
+    // every helper produces noise without informational value.
+    files: ["src/lib/handlers/**/*.ts", "src/lib/device-manager/**/*.ts"],
+    rules: {
+      "jsdoc/require-jsdoc": "off",
+      "jsdoc/require-param": "off",
+      "jsdoc/require-param-description": "off",
+      "jsdoc/require-returns": "off",
+    },
+  },
+  {
     ignores: [
       ".dev-server/",
       ".vscode/",

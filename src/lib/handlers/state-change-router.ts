@@ -36,8 +36,6 @@ export interface StateChangeRouterAdapter {
  * device count is small (typical Govee account has 5-30 devices) and the
  * call is cheap relative to the surrounding `setStateAsync`.
  *
- * @param adapter
- * @param localId
  */
 export function findDeviceForState(adapter: StateChangeRouterAdapter, localId: string): GoveeDevice | undefined {
   if (!adapter.deviceManager || !adapter.stateManager) {
@@ -64,9 +62,6 @@ export function findDeviceForState(adapter: StateChangeRouterAdapter, localId: s
  * that doesn't match any key or label returns ok=false so the caller can
  * warn and skip the command.
  *
- * @param adapter
- * @param id
- * @param raw
  */
 export async function resolveDropdownInput(
   adapter: StateChangeRouterAdapter,
@@ -98,11 +93,6 @@ export async function resolveDropdownInput(
  * Build and send a music_setting STRUCT command. Reads sibling music state
  * values and combines them into one API call.
  *
- * @param adapter
- * @param device
- * @param prefix
- * @param changedSuffix
- * @param newValue
  */
 export async function sendMusicCommand(
   adapter: StateChangeRouterAdapter,
@@ -162,10 +152,6 @@ export async function sendMusicCommand(
  * disables manual mode so the rejected value doesn't survive in the state
  * tree.
  *
- * @param adapter
- * @param device
- * @param suffix
- * @param newValue
  */
 export async function handleManualSegmentsChange(
   adapter: StateChangeRouterAdapter,
@@ -207,11 +193,6 @@ export async function handleManualSegmentsChange(
  * Reads `native.capabilityType`/`capabilityInstance` from the state object
  * and routes via the Cloud API.
  *
- * @param adapter
- * @param device
- * @param id
- * @param stateSuffix
- * @param val
  */
 export async function handleGenericCapabilityCommand(
   adapter: StateChangeRouterAdapter,
@@ -248,9 +229,6 @@ export async function handleGenericCapabilityCommand(
  * route via STATE_TO_COMMAND or generic capability path. Optimistic ack on
  * success; warn on errors.
  *
- * @param adapter
- * @param id
- * @param state
  */
 export async function onStateChange(
   adapter: StateChangeRouterAdapter,

@@ -53,7 +53,6 @@ export function resolveGroupMembers(group: GoveeDevice, devices: GoveeDevice[]):
  * is kept existent and just gets an empty string when no member is
  * unreachable (see device-manager-pattern #46).
  *
- * @param adapter
  */
 export function updateGroupReachability(adapter: GroupFanoutHandlerAdapter): void {
   if (!adapter.deviceManager || !adapter.stateManager) {
@@ -73,7 +72,6 @@ export function updateGroupReachability(adapter: GroupFanoutHandlerAdapter): voi
  * Construct host object for {@link GroupFanoutHandler}. Closures capture
  * adapter state.
  *
- * @param adapter
  */
 export function buildGroupFanoutHost(adapter: GroupFanoutHandlerAdapter): GroupFanoutHost {
   return {

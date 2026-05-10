@@ -624,10 +624,10 @@ class GoveeAdapter extends utils.Adapter {
   /**
    * Public delegate to stateChangeRouter — required by GroupFanoutHandlerAdapter interface.
    *
-   * @param device
-   * @param prefix
-   * @param changedSuffix
-   * @param newValue
+   * @param device Target device
+   * @param prefix Device state prefix
+   * @param changedSuffix State suffix that changed
+   * @param newValue New value written
    */
   public async sendMusicCommand(
     device: GoveeDevice,
@@ -657,8 +657,8 @@ class GoveeAdapter extends utils.Adapter {
   /**
    * Public delegate for snapshot-glue + state-change-router modules.
    *
-   * @param device
-   * @param allDevices
+   * @param device Target device
+   * @param allDevices Full device list
    */
   public refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void {
     deviceEvents.refreshDeviceStates(this, device, allDevices);
@@ -692,7 +692,7 @@ class GoveeAdapter extends utils.Adapter {
   /**
    * Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers.
    *
-   * @param suffix
+   * @param suffix State suffix
    */
   public stateToCommand(suffix: string): string | null {
     return groupStateHelpers.stateToCommand(suffix);
@@ -706,8 +706,8 @@ class GoveeAdapter extends utils.Adapter {
   /**
    * Public for OpenAPI-MQTT + App-API pipelines feeding sensor/appliance state.
    *
-   * @param device
-   * @param caps
+   * @param device Target device
+   * @param caps Cloud-state capabilities
    */
   public applyCloudCapabilities(device: GoveeDevice, caps: CloudStateCapability[]): Promise<void> {
     return cloudStateLoader.applyCloudCapabilities(this, device, caps);
@@ -726,9 +726,9 @@ class GoveeAdapter extends utils.Adapter {
   /**
    * Public for handler modules (wizard, state-change-router).
    *
-   * @param device
-   * @param mode
-   * @param indices
+   * @param device Target device
+   * @param mode Manual mode flag
+   * @param indices Physical segment indices
    */
   public async applyManualSegments(device: GoveeDevice, mode: boolean, indices?: number[]): Promise<void> {
     if (!this.stateManager) {
@@ -787,8 +787,8 @@ class GoveeAdapter extends utils.Adapter {
    * wird (Memory v2.1.3-Bug). Vorher gab es nach jedem 2FA-Login einen
    * unnötigen Restart.
    *
-   * @param obj
-   * @param data
+   * @param obj ioBroker message object
+   * @param data Response data payload
    */
   private sendMessageResponse(obj: ioBroker.Message, data: unknown): void {
     if (obj.callback && obj.from) {

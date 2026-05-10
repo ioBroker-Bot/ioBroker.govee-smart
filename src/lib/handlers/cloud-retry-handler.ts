@@ -29,7 +29,6 @@ export interface CloudRetryHandlerAdapter {
  * wenn Cloud hängt, geht Adapter mit LAN+MQTT weiter, und der Retry-Loop
  * probiert's passend zum Fehlergrund erneut.
  *
- * @param adapter
  */
 export async function cloudInitWithTimeout(adapter: CloudRetryHandlerAdapter): Promise<CloudLoadResult> {
   if (!adapter.deviceManager) {
@@ -58,7 +57,6 @@ export async function cloudInitWithTimeout(adapter: CloudRetryHandlerAdapter): P
 /**
  * Build the host object for {@link CloudRetryLoop}.
  *
- * @param adapter
  */
 export function buildCloudRetryHost(adapter: CloudRetryHandlerAdapter): CloudRetryHost {
   return {
@@ -78,7 +76,6 @@ export function buildCloudRetryHost(adapter: CloudRetryHandlerAdapter): CloudRet
 /**
  * Lazy-initialise the retry loop on first use.
  *
- * @param adapter
  */
 export function ensureCloudRetry(adapter: CloudRetryHandlerAdapter): CloudRetryLoop {
   if (!adapter.cloudRetry) {
@@ -91,8 +88,6 @@ export function ensureCloudRetry(adapter: CloudRetryHandlerAdapter): CloudRetryL
 /**
  * React to a Cloud-load outcome — delegates to {@link CloudRetryLoop}.
  *
- * @param adapter
- * @param result
  */
 export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: CloudLoadResult): void {
   ensureCloudRetry(adapter).handleResult(result);
@@ -103,7 +98,6 @@ export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: Cl
  * full Cloud reload cycle so newly created scenes/snapshots from the Govee
  * Home app show up without an adapter restart.
  *
- * @param adapter
  */
 export async function handleManualCloudRefresh(adapter: CloudRetryHandlerAdapter): Promise<void> {
   if (!adapter.deviceManager || !adapter.cloudClient) {

@@ -161,8 +161,6 @@ export const SEGMENT_HARD_MAX = 55;
 /**
  * Generate stable map key for a device.
  *
- * @param sku
- * @param deviceId
  */
 export function deviceKey(sku: string, deviceId: string): string {
   return `${sku}_${normalizeDeviceId(deviceId)}`;
@@ -174,9 +172,6 @@ export function deviceKey(sku: string, deviceId: string): string {
  * match (device IDs come from multiple sources with different
  * colon/case conventions).
  *
- * @param devices
- * @param sku
- * @param deviceId
  */
 export function findDeviceBySkuAndId(
   devices: Map<string, GoveeDevice>,

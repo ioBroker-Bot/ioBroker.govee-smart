@@ -128,6 +128,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Internal refactoring. No changes for users.
+
 ### 2.6.5 (2026-05-10)
 
 - Internal refactoring. No changes for users.
