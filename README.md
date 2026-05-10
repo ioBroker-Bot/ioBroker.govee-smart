@@ -130,14 +130,13 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 -->
 ### 2.7.1 (2026-05-10)
 
-- Cleaner start-up log: the `Starting` line now hints to wait for the `ready` message, and the redundant `MQTT connected` info line is gone (the ready summary already lists all active channels).
+- Cleaner startup log: the first line now tells you to wait for the "ready" message, and one redundant connection-info line is gone.
 
 ### 2.7.0 (2026-05-10)
 
-- Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after an adapter restart and via the refresh button. Previously the cache held the old list forever (Issue #13).
+- Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after the update and via the refresh button. Previously the cache held the old list forever.
 - Refresh button is now per device under `devices.<id>.snapshots.refresh_cloud` instead of an adapter-wide button: a press hits Govee only for that one light, not for every device on your account.
-- The refresh also re-fetches the Govee device list, so a brand-new snapshot is picked up even when Govee's `/device/scenes` endpoint hasn't caught up to it yet.
-- Three "Invalid JSON in HTTP 200 response" warnings for music/DIY/SKU library are gone — empty 200 bodies for SKUs without that data are now treated as "no data" instead of a parse error.
+- The refresh also re-fetches the Govee device list, so a brand-new snapshot from the Govee Home app is picked up even when Govee's cloud hasn't caught up to it yet.
 - `info.refresh_cloud_data` is removed in favour of the per-device button above. ioBroker scripts that wrote to it need to point at `devices.<id>.snapshots.refresh_cloud` instead.
 
 ### 2.6.7 (2026-05-10)
