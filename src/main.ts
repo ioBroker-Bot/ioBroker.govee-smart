@@ -21,6 +21,7 @@ import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
 import * as cloudRetryHandler from "./lib/handlers/cloud-retry-handler";
 import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
+import * as groupStateHelpers from "./lib/handlers/group-state-helpers";
 import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
@@ -52,28 +53,6 @@ import { httpsRequest } from "./lib/http-client";
 
 // Rate-limit defaults moved to lib/timing-constants.ts as CLOUD_FULL_LIMITS so
 // every module that touches Govee budgeting reads the same canonical values.
-
-/**
- * State-suffix → command-name lookup for writable states. Segment indices
- * are dynamic and handled by regex in stateToCommand — everything else is
- * a straight string mapping.
- */
-const STATE_TO_COMMAND: Readonly<Record<string, string>> = {
-  "control.power": "power",
-  "control.brightness": "brightness",
-  "control.colorRgb": "colorRgb",
-  "control.colorTemperature": "colorTemperature",
-  "control.scene": "scene",
-  "control.gradient_toggle": "gradientToggle",
-  "scenes.light_scene": "lightScene",
-  "scenes.diy_scene": "diyScene",
-  "scenes.scene_speed": "sceneSpeed",
-  "music.music_mode": "music",
-  "music.music_sensitivity": "music",
-  "music.music_auto_color": "music",
-  "snapshots.snapshot_cloud": "snapshot",
-  "segments.command": "segmentBatch",
-};
 
 class GoveeAdapter extends utils.Adapter {
   /** Public for handler modules (state-change-router, group-fanout, wizard, snapshot, diagnostics). */
@@ -696,7 +675,7 @@ class GoveeAdapter extends utils.Adapter {
       await this.groupFanout!.fanOut(device, stateSuffix, val);
       await this.setStateAsync(id, { val, ack: true });
       if (stateSuffix === "scenes.light_scene" || stateSuffix === "music.music_mode") {
-        await this.resetRelatedDropdowns(prefix, stateSuffix === "scenes.light_scene" ? "lightScene" : "music");
+        await groupStateHelpers.resetRelatedDropdowns(this, prefix, stateSuffix === "scenes.light_scene" ? "lightScene" : "music");
       }
       return;
     }
@@ -710,7 +689,7 @@ class GoveeAdapter extends utils.Adapter {
     if (stateSuffix === "snapshots.snapshot_local") {
       if (val !== "0" && val !== 0) {
         await this.snapshotHandler!.restore(device, val);
-        await this.resetRelatedDropdowns(prefix, "snapshotLocal");
+        await groupStateHelpers.resetRelatedDropdowns(this, prefix, "snapshotLocal");
       }
       await this.setStateAsync(id, { val, ack: true });
       return;
@@ -780,7 +759,7 @@ class GoveeAdapter extends utils.Adapter {
         await this.setStateAsync(id, { val, ack: true });
         // Reset scene/snapshot dropdowns when activating music mode
         if (stateSuffix === "music.music_mode") {
-          await this.resetRelatedDropdowns(prefix, "music");
+          await groupStateHelpers.resetRelatedDropdowns(this, prefix, "music");
         }
         return;
       }
@@ -793,9 +772,9 @@ class GoveeAdapter extends utils.Adapter {
       // active anymore; reset every mode dropdown so the UI reflects the
       // reality (scene/music/snapshot selections are now just history).
       if (command === "power" && val === false) {
-        await this.resetModeDropdowns(prefix, "");
+        await groupStateHelpers.resetModeDropdowns(this, prefix, "");
       } else {
-        await this.resetRelatedDropdowns(prefix, command);
+        await groupStateHelpers.resetRelatedDropdowns(this, prefix, command);
       }
     } catch (err) {
       this.log.warn(`Command failed for ${device.name}: ${errMessage(err)}`);
@@ -936,7 +915,7 @@ class GoveeAdapter extends utils.Adapter {
     const powerOff = state.power === false || (state.power as unknown) === 0;
     if (powerOff && this.stateManager) {
       const prefix = this.stateManager.devicePrefix(device);
-      this.resetModeDropdowns(prefix, "").catch(() => undefined);
+      groupStateHelpers.resetModeDropdowns(this, prefix, "").catch(() => undefined);
     }
   }
 
@@ -1354,21 +1333,9 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param suffix State ID suffix (e.g. "power", "brightness")
    */
-  /** Public for handler modules (group-fanout, state-change-router). */
+  /** Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers. */
   public stateToCommand(suffix: string): string | null {
-    const direct = STATE_TO_COMMAND[suffix];
-    if (direct) {
-      return direct;
-    }
-    const segColorMatch = /^segments\.(\d+)\.color$/.exec(suffix);
-    if (segColorMatch) {
-      return `segmentColor:${segColorMatch[1]}`;
-    }
-    const segBrightMatch = /^segments\.(\d+)\.brightness$/.exec(suffix);
-    if (segBrightMatch) {
-      return `segmentBrightness:${segBrightMatch[1]}`;
-    }
-    return null;
+    return groupStateHelpers.stateToCommand(suffix);
   }
 
   /**
@@ -1491,25 +1458,6 @@ class GoveeAdapter extends utils.Adapter {
 
   /** Construct host object for SnapshotHandler — adapter dependencies injected. */
   /** Dropdowns whose value is a mode-selection — reset to "---" (0) when the mode stops. */
-  private static readonly MODE_DROPDOWNS = [
-    "scenes.light_scene",
-    "scenes.diy_scene",
-    "snapshots.snapshot_cloud",
-    "snapshots.snapshot_local",
-    "music.music_mode",
-  ];
-
-  /** Map command → its own dropdown path (excluded from reset when that mode is the one that was just activated). */
-  private static readonly COMMAND_DROPDOWN: Record<string, string> = {
-    lightScene: "scenes.light_scene",
-    diyScene: "scenes.diy_scene",
-    snapshot: "snapshots.snapshot_cloud",
-    snapshotLocal: "snapshots.snapshot_local",
-    music: "music.music_mode",
-    colorRgb: "",
-    colorTemperature: "",
-  };
-
   /**
    * Generischer Capability-Routing-Pfad für States die nicht im STATE_TO_COMMAND
    * Mapping sind. Liest `native.capabilityType`/`capabilityInstance` aus dem
@@ -1544,40 +1492,6 @@ class GoveeAdapter extends utils.Adapter {
     }
   }
 
-  /**
-   * Reset related dropdown states when switching between scenes/snapshots/colors.
-   * Each mode-switch resets all OTHER mode dropdowns to "---" (0).
-   *
-   * @param prefix Device state prefix
-   * @param activeCommand The command that was just executed
-   */
-  private async resetRelatedDropdowns(prefix: string, activeCommand: string): Promise<void> {
-    if (!(activeCommand in GoveeAdapter.COMMAND_DROPDOWN)) {
-      return;
-    }
-    const ownDropdown = GoveeAdapter.COMMAND_DROPDOWN[activeCommand];
-    await this.resetModeDropdowns(prefix, ownDropdown);
-  }
-
-  /**
-   * Reset every mode dropdown except `keep` (empty = reset all). Used both for
-   * mode-switches (keep the new mode's own dropdown) and for power-off
-   * (reset everything — a device that's off has no active mode).
-   *
-   * @param prefix Device state prefix
-   * @param keep   Dropdown path to leave untouched (e.g. "music.music_mode"), or "" to reset all
-   */
-  private async resetModeDropdowns(prefix: string, keep: string): Promise<void> {
-    await Promise.all(
-      GoveeAdapter.MODE_DROPDOWNS.filter(d => d !== keep).map(async dropdown => {
-        const stateId = `${this.namespace}.${prefix}.${dropdown}`;
-        const current = await this.getStateAsync(stateId);
-        if (current?.val && current.val !== "0" && current.val !== 0) {
-          await this.setStateAsync(stateId, { val: "0", ack: true });
-        }
-      }),
-    );
-  }
 }
 
 if (require.main !== module) {
