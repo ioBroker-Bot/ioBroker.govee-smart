@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.6.3",
+    "version": "2.6.4",
     "news": {
-      "NEXT": {
+      "2.6.4": {
         "en": "Internal test-runner switched from mocha+ts-node to vitest. No user-facing changes — source code is byte-identical, the test suite just runs in about a second instead of several.",
         "de": "Interner Test-Runner von mocha+ts-node auf vitest umgestellt. Keine User-sichtbaren Änderungen — Source-Code unverändert, Test-Suite läuft jetzt in rund einer Sekunde statt mehreren.",
         "ru": "Внутренний тест-раннер переведён с mocha+ts-node на vitest. Для пользователя ничего не меняется — исходный код тот же, набор тестов просто выполняется примерно за секунду вместо нескольких.",

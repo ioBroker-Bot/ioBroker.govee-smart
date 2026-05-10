@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.6.4 (2026-05-10)
 
 - Internal test-runner switched from mocha+ts-node to vitest. No user-facing changes, but the test suite runs in about a second instead of several seconds, and the maintainer-side test-loader bug that blocked some refactors is gone. Source code is byte-identical.
 
@@ -153,10 +153,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.6.0 (2026-05-06)
 
 - Multi-language: state names, descriptions and dropdown labels are now in your ioBroker system language (11 languages).
-
-### 2.5.4 (2026-05-04)
-
-- Test-coverage expansion: `mqtt.connect` is now an injectable constructor parameter (like `httpsRequest` in v2.5.1), and 7 new mock tests cover the getIotKey path and persisted-credentials reuse.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
