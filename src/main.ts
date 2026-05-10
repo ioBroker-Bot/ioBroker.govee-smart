@@ -19,6 +19,7 @@ import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
+import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
 import { SegmentWizard, wizardIdleText, type WizardHost, type WizardResult } from "./lib/segment-wizard";
@@ -117,7 +118,8 @@ class GoveeAdapter extends utils.Adapter {
   private appVersionCheckTimer: ioBroker.Interval | undefined;
   // === Sub-Komponenten ===
   private skuCache: SkuCache | null = null;
-  private localSnapshots: LocalSnapshotStore | null = null;
+  /** Public for handler modules. */
+  public localSnapshots: LocalSnapshotStore | null = null;
   private snapshotHandler: SnapshotHandler | null = null;
   private groupFanout: GroupFanoutHandler | null = null;
   private messageRouter: MessageRouter | null = null;
@@ -228,7 +230,7 @@ class GoveeAdapter extends utils.Adapter {
     });
     this.skuCache = new SkuCache(dataDir, this.log);
     this.localSnapshots = new LocalSnapshotStore(dataDir, this.log);
-    this.snapshotHandler = new SnapshotHandler(this.buildSnapshotHost());
+    this.snapshotHandler = new SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
     this.groupFanout = new GroupFanoutHandler(this.buildGroupFanoutHost());
     this.messageRouter = new MessageRouter(this.buildMessageRouterHost());
     this.deviceManager.setSkuCache(this.skuCache);
@@ -1108,7 +1110,8 @@ class GoveeAdapter extends utils.Adapter {
    * @param device Target device
    * @param allDevices Full device list (needed to resolve group members)
    */
-  private refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void {
+  /** Public for handler modules (snapshot-glue, group-fanout, state-change-router). */
+  public refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void {
     if (!this.stateManager) {
       return;
     }
@@ -1646,22 +1649,6 @@ class GoveeAdapter extends utils.Adapter {
   }
 
   /** Construct host object for SnapshotHandler — adapter dependencies injected. */
-  private buildSnapshotHost(): SnapshotHandlerHost {
-    return {
-      log: this.log,
-      store: this.localSnapshots!,
-      namespace: this.namespace,
-      devicePrefix: device => this.stateManager?.devicePrefix(device) ?? "",
-      getState: id => this.getStateAsync(id),
-      sendCommand: async (device, command, value) => {
-        await this.deviceManager?.sendCommand(device, command, value);
-      },
-      refreshDeviceStates: device => {
-        this.refreshDeviceStates(device, this.deviceManager?.getDevices() ?? []);
-      },
-    };
-  }
-
   /** Dropdowns whose value is a mode-selection — reset to "---" (0) when the mode stops. */
   private static readonly MODE_DROPDOWNS = [
     "scenes.light_scene",
