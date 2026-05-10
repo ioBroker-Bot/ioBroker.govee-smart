@@ -18,6 +18,7 @@ import { GroupFanoutHandler, type GroupFanoutHost } from "./lib/group-fanout";
 import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
+import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
 import { RateLimiter } from "./lib/rate-limiter";
 import { SegmentWizard, wizardIdleText, type WizardHost, type WizardResult } from "./lib/segment-wizard";
 import { SkuCache } from "./lib/sku-cache";
@@ -809,7 +810,16 @@ class GoveeAdapter extends utils.Adapter {
     }
 
     if (stateSuffix === "diag.export" && val) {
-      await this.handleDiagnosticsExport(device, prefix, id);
+      if (this.deviceManager) {
+        await diagnosticsHandler.handleDiagnosticsExport(
+          this,
+          this.deviceManager,
+          this.diagnosticsLastRun,
+          device,
+          prefix,
+          id,
+        );
+      }
       return;
     }
 
@@ -1757,38 +1767,6 @@ class GoveeAdapter extends utils.Adapter {
     colorRgb: "",
     colorTemperature: "",
   };
-
-  /**
-   * Diagnostics-Export-Button-Handler. Throttled auf 2s pro Device damit
-   * wiederholte/Skript-Trigger keinen Burst von JSON-Serialisierungen
-   * erzeugen.
-   *
-   * @param device Govee device
-   * @param prefix Device state prefix
-   * @param triggerStateId The state-id that triggered the export (so we can ack)
-   */
-  private async handleDiagnosticsExport(device: GoveeDevice, prefix: string, triggerStateId: string): Promise<void> {
-    if (!this.deviceManager) {
-      return;
-    }
-    const deviceKey = `${device.sku}:${device.deviceId}`;
-    const now = Date.now();
-    const last = this.diagnosticsLastRun.get(deviceKey) ?? 0;
-    if (now - last < 2000) {
-      this.log.debug(`Diagnostics export throttled for ${device.name} — last run ${now - last}ms ago`);
-      await this.setStateAsync(triggerStateId, { val: false, ack: true });
-      return;
-    }
-    this.diagnosticsLastRun.set(deviceKey, now);
-    const diag = this.deviceManager.generateDiagnostics(device, this.version ?? "unknown");
-    const resultId = `${this.namespace}.${prefix}.diag.result`;
-    await this.setStateAsync(resultId, {
-      val: JSON.stringify(diag, null, 2),
-      ack: true,
-    });
-    await this.setStateAsync(triggerStateId, { val: false, ack: true });
-    this.log.info(`Diagnostics exported for ${device.name} (${device.sku})`);
-  }
 
   /**
    * Generischer Capability-Routing-Pfad für States die nicht im STATE_TO_COMMAND
