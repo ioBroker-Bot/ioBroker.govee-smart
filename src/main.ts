@@ -19,6 +19,7 @@ import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
 import { CloudRetryLoop, type CloudRetryHost } from "./lib/cloud-retry";
 import * as cloudCreds from "./lib/handlers/cloud-creds-handler";
 import * as diagnosticsHandler from "./lib/handlers/diagnostics-handler";
+import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
 import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
@@ -231,7 +232,7 @@ class GoveeAdapter extends utils.Adapter {
     this.skuCache = new SkuCache(dataDir, this.log);
     this.localSnapshots = new LocalSnapshotStore(dataDir, this.log);
     this.snapshotHandler = new SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
-    this.groupFanout = new GroupFanoutHandler(this.buildGroupFanoutHost());
+    this.groupFanout = new GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
     this.messageRouter = new MessageRouter(this.buildMessageRouterHost());
     this.deviceManager.setSkuCache(this.skuCache);
 
@@ -942,7 +943,8 @@ class GoveeAdapter extends utils.Adapter {
    * @param changedSuffix Which music state was changed
    * @param newValue New value for the changed state
    */
-  private async sendMusicCommand(
+  /** Public for handler modules (group-fanout, state-change-router). */
+  public async sendMusicCommand(
     device: GoveeDevice,
     prefix: string,
     changedSuffix: string,
@@ -1012,7 +1014,7 @@ class GoveeAdapter extends utils.Adapter {
 
     // Update group reachability when member online status changes
     if (state.online !== undefined) {
-      this.updateGroupReachability();
+      groupFanoutHandler.updateGroupReachability(this);
     }
 
     // Mirror power-off to mode-dropdown reset. Covers MQTT/LAN-initiated
@@ -1024,80 +1026,6 @@ class GoveeAdapter extends utils.Adapter {
     if (powerOff && this.stateManager) {
       const prefix = this.stateManager.devicePrefix(device);
       this.resetModeDropdowns(prefix, "").catch(() => undefined);
-    }
-  }
-
-  /**
-   * Fan out a group command to all member devices.
-   * Basic controls (power, brightness, color) are sent directly.
-   * Scenes/music are matched by name across members.
-   *
-   * @param group BaseGroup device
-   * @param stateSuffix State path suffix (e.g. "control.power")
-   * @param value Command value
-   */
-  /** Construct host object for GroupFanoutHandler. */
-  private buildGroupFanoutHost(): GroupFanoutHost {
-    return {
-      log: this.log,
-      namespace: this.namespace,
-      getDevices: () => this.deviceManager?.getDevices() ?? [],
-      sendCommand: async (device, command, value) => {
-        await this.deviceManager?.sendCommand(device, command, value);
-      },
-      devicePrefix: device => this.stateManager?.devicePrefix(device) ?? "",
-      stateToCommand: suffix => this.stateToCommand(suffix) ?? undefined,
-      getObject: id => this.getObjectAsync(id),
-      sendMusicCommand: (device, devicePrefix, stateSuffix, value) =>
-        this.sendMusicCommand(device, devicePrefix, stateSuffix, value),
-    };
-  }
-
-  /**
-   * Resolve group member references to actual device objects.
-   * Bleibt in main.ts weil `updateGroupReachability` (auch in main.ts) das
-   * direkt nutzt — Helper-Pfad ist von der Fan-Out-Klasse unabhängig.
-   *
-   * @param group BaseGroup device with groupMembers
-   * @param devices Full device list to search
-   */
-  private resolveGroupMembers(group: GoveeDevice, devices: GoveeDevice[]): GoveeDevice[] {
-    if (!group.groupMembers) {
-      return [];
-    }
-    // Build a lookup index once per call instead of N×Array.find — the call
-    // fan-out (every state-update touches updateGroupReachability → all
-    // groups → resolveGroupMembers) made the linear scan dominate the hot
-    // path on accounts with many devices and many groups.
-    const byKey = new Map<string, GoveeDevice>();
-    for (const d of devices) {
-      byKey.set(`${d.sku}:${d.deviceId}`, d);
-    }
-    const out: GoveeDevice[] = [];
-    for (const m of group.groupMembers) {
-      const d = byKey.get(`${m.sku}:${m.deviceId}`);
-      if (d) {
-        out.push(d);
-      }
-    }
-    return out;
-  }
-
-  /**
-   * Recalculate info.membersUnreachable for all groups.
-   * Called when any device's online status changes.
-   */
-  private updateGroupReachability(): void {
-    if (!this.deviceManager || !this.stateManager) {
-      return;
-    }
-    const devices = this.deviceManager.getDevices();
-    for (const group of devices) {
-      if (group.sku !== "BaseGroup" || !group.groupMembers) {
-        continue;
-      }
-      const memberDevices = this.resolveGroupMembers(group, devices);
-      this.stateManager.updateGroupMembersUnreachable(group, memberDevices).catch(() => {});
     }
   }
 
@@ -1118,7 +1046,7 @@ class GoveeAdapter extends utils.Adapter {
     const localSnaps = this.localSnapshots?.getSnapshots(device.sku, device.deviceId);
     let memberDevices: GoveeDevice[] | undefined;
     if (device.sku === "BaseGroup" && device.groupMembers) {
-      memberDevices = this.resolveGroupMembers(device, allDevices);
+      memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
     }
     const stateDefs = buildDeviceStateDefs(device, localSnaps, memberDevices);
     const p = this.stateManager
@@ -1514,7 +1442,8 @@ class GoveeAdapter extends utils.Adapter {
    *
    * @param suffix State ID suffix (e.g. "power", "brightness")
    */
-  private stateToCommand(suffix: string): string | null {
+  /** Public for handler modules (group-fanout, state-change-router). */
+  public stateToCommand(suffix: string): string | null {
     const direct = STATE_TO_COMMAND[suffix];
     if (direct) {
       return direct;
