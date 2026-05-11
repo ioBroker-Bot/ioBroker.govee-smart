@@ -101,7 +101,21 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
         // Resolve as `null` so the caller can treat it as "no data" via the
         // existing optional-chaining guards instead of seeing an
         // `Invalid JSON` stack trace in the log (Issue #13).
-        if (raw.trim().length === 0) {
+        const trimmed = raw.trim();
+        if (trimmed.length === 0) {
+          resolve(null as T);
+          return;
+        }
+
+        // Govee also returns HTTP 200 with a plain-text *HTTP-status-line*
+        // body for SKU/Bearer combos without permission — e.g. the literal
+        // string `"403 Forbbiden"` (their typo). The conservative regex
+        // `^<3-digit-status> <non-whitespace>` plus a 100-char length cap
+        // catches these without swallowing JSON literals that happen to
+        // start with a number (`123.45` lacks the trailing whitespace+text).
+        // Caller sees the same `null` shape as the empty-body case above.
+        // Issue #13 follow-up (tukey42, H61A8 — 2026-05-12).
+        if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
           resolve(null as T);
           return;
         }

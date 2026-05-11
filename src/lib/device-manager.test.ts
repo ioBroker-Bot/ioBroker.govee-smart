@@ -2679,4 +2679,62 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
     expect(device.snapshots.map(s => s.name)).to.deep.equal(["OldSnap", "NewSnap"]);
     expect(changed).to.equal(true);
   });
+
+  it("loadDeviceLibraries(force=true) refetches snapshotBleCmds even when already cached (Issue #13 v2.8.2)", async () => {
+    // The snapshot-BLE-cmds block was gated on `!device.snapshotBleCmds`
+    // alone — `refresh_cloud` couldn't clear stale BLE packets once the
+    // cache file was populated. tukey42 hit this on H61A8: ptReal Snapshot
+    // log line appeared but the device didn't react because the cached
+    // packets were stale. Force-branch fixes it.
+    const device = createTestDevice({
+      snapshots: [
+        { name: "Snap1", value: 1 },
+        { name: "Snap2", value: 2 },
+      ],
+      snapshotBleCmds: [[["STALE_CACHE_PACKET_A"]], [["STALE_CACHE_PACKET_B"]]],
+    });
+    (dm as any).devices.set("H6160_aabbccddeeff0011", device);
+
+    let fetchSnapshotsCallCount = 0;
+    const mockApi = {
+      hasBearerToken: () => true,
+      fetchSceneLibrary: () => Promise.resolve([]),
+      fetchMusicLibrary: () => Promise.resolve([]),
+      fetchDiyLibrary: () => Promise.resolve([]),
+      fetchSkuFeatures: () => Promise.resolve(null),
+      fetchSnapshots: () => {
+        fetchSnapshotsCallCount++;
+        return Promise.resolve([
+          { name: "Snap1", bleCmds: [["FRESH_PACKET_1"]] },
+          { name: "Snap2", bleCmds: [["FRESH_PACKET_2"]] },
+        ]);
+      },
+    };
+    dm.setApiClient(mockApi as never);
+
+    const cd = {
+      sku: device.sku,
+      device: device.deviceId,
+      deviceName: device.name,
+      type: device.type,
+      capabilities: device.capabilities,
+    };
+
+    // Without force the block is skipped (cache wins)
+    await (dm as any).loadDeviceLibraries(device, cd.sku, /* force */ false);
+    expect(
+      fetchSnapshotsCallCount,
+      "fetchSnapshots MUST NOT be called when force=false and snapshotBleCmds already cached",
+    ).to.equal(0);
+    expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).to.equal("STALE_CACHE_PACKET_A");
+
+    // With force the BLE packets are refreshed
+    await (dm as any).loadDeviceLibraries(device, cd.sku, /* force */ true);
+    expect(
+      fetchSnapshotsCallCount,
+      "fetchSnapshots MUST be called when force=true even with existing snapshotBleCmds",
+    ).to.equal(1);
+    expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).to.equal("FRESH_PACKET_1");
+    expect(device.snapshotBleCmds?.[1]?.[0]?.[0]).to.equal("FRESH_PACKET_2");
+  });
 });

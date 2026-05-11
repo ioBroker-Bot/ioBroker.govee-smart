@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.8.1",
     "news": {
+      "NEXT": {
+        "en": "Per-device snapshot refresh also reloads activation data — re-recorded snapshots work right away. Cleaner debug log. Failed local commands appear as a warning.",
+        "de": "Snapshot-Refresh am Gerät lädt jetzt auch die Aktivierungs-Daten — neu aufgenommene Snapshots greifen sofort. Sauberes Debug-Log. Fehlgeschlagene lokale Befehle als Warnung.",
+        "ru": "Обновление снепшота на устройстве теперь перезагружает и данные активации — пересозданные снепшоты работают сразу. Чище debug-лог. Неудачные локальные команды — как warning.",
+        "pt": "Atualização do snapshot por dispositivo recarrega também os dados de ativação — snapshots regravados funcionam de imediato. Debug log mais limpo. Comandos locais falhados como aviso.",
+        "nl": "Snapshot-vernieuwen per apparaat herlaadt ook activatiegegevens — heropgenomen snapshots werken direct. Schoner debug-log. Mislukte lokale opdrachten als waarschuwing.",
+        "fr": "L'actualisation snapshot par appareil recharge aussi les données d'activation — les snapshots ré-enregistrés s'activent direct. Journal debug propre. Commandes locales en échec en warning.",
+        "it": "L'aggiornamento snapshot per dispositivo ricarica anche i dati di attivazione — gli snapshot ri-registrati funzionano subito. Log debug pulito. Comandi locali falliti come avviso.",
+        "es": "La actualización por dispositivo recarga también los datos de activación del snapshot — snapshots regrabados funcionan al instante. Log debug limpio. Comandos locales fallidos como aviso.",
+        "pl": "Odświeżanie migawki na urządzeniu odświeża też dane aktywacji — ponownie nagrane migawki działają od razu. Czysty debug-log. Nieudane lokalne polecenia jako ostrzeżenie.",
+        "uk": "Оновлення снепшоту на пристрої перезавантажує і дані активації — перезаписані снепшоти діють одразу. Чистий debug-лог. Невдалі локальні команди як warning.",
+        "zh-cn": "每个设备的快照刷新现在也会重载激活数据——重新录制的快照立刻生效。debug 日志更干净。本地命令失败时以警告级别记录。"
+      },
       "2.8.1": {
         "en": "Info, warn and error logs are back to their normal short form. The channel-status prefix from 2.8.0 stays only in debug logs.",
         "de": "Info-, Warn- und Error-Logs sind wieder kurz und übersichtlich. Der Channel-Status-Prefix aus 2.8.0 bleibt nur in Debug-Logs.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzny refaktoring (main.ts na celu ~800 LOC, 11 handlerów w lib/handlers/). Bez zmian dla użytkowników.",
         "uk": "Внутрішній рефакторинг (main.ts на цільові ~800 LOC, 11 хендлерів у lib/handlers/). Без змін для користувачів.",
         "zh-cn": "内部重构（main.ts 达到 ~800 行的计划目标，lib/handlers/ 有 11 个处理器模块）。用户无任何变化。"
-      },
-      "2.6.5": {
-        "en": "Internal refactoring (main.ts and device-manager.ts split into smaller modules). No changes for users.",
-        "de": "Internes Refactoring (main.ts und device-manager.ts in kleinere Module aufgeteilt). Keine Änderungen für Benutzer.",
-        "ru": "Внутренний рефакторинг (main.ts и device-manager.ts разбиты на меньшие модули). Для пользователей ничего не меняется.",
-        "pt": "Refatoração interna (main.ts e device-manager.ts divididos em módulos menores). Sem alterações para utilizadores.",
-        "nl": "Interne refactoring (main.ts en device-manager.ts opgesplitst in kleinere modules). Geen wijzigingen voor gebruikers.",
-        "fr": "Refactorisation interne (main.ts et device-manager.ts divisés en modules plus petits). Aucun changement pour les utilisateurs.",
-        "it": "Refactoring interno (main.ts e device-manager.ts suddivisi in moduli più piccoli). Nessuna modifica per gli utenti.",
-        "es": "Refactorización interna (main.ts y device-manager.ts divididos en módulos más pequeños). Sin cambios para los usuarios.",
-        "pl": "Wewnętrzny refaktoring (main.ts i device-manager.ts podzielone na mniejsze moduły). Bez zmian dla użytkowników.",
-        "uk": "Внутрішній рефакторинг (main.ts і device-manager.ts розбиті на менші модулі). Без змін для користувачів.",
-        "zh-cn": "内部重构（main.ts 与 device-manager.ts 拆分为更小的模块）。用户无任何变化。"
       }
     },
     "titleLang": {

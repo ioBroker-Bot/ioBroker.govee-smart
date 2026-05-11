@@ -737,8 +737,12 @@ export class DeviceManager {
       });
     }
 
-    // Load snapshot BLE commands for local activation
-    if (!device.snapshotBleCmds && device.snapshots.length > 0) {
+    // Load snapshot BLE commands for local activation.
+    // `force` honoured so refresh_cloud also clears stale BLE-Cmds when the
+    // user re-creates a snapshot in the Govee app and re-imports it. Without
+    // the force-branch the gate was sticky — cached snapshot packets stayed
+    // until the cache file was manually deleted (Issue #13 v2.8.2, tukey42).
+    if ((force || !device.snapshotBleCmds) && device.snapshots.length > 0) {
       await runLimited(async () => {
         try {
           const snaps = await this.apiClient!.fetchSnapshots(sku, device.deviceId);

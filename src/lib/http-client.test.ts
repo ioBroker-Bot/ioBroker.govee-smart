@@ -133,6 +133,17 @@ function httpRequestPlain<T>(options: {
           reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
           return;
         }
+        // Mirror http-client.ts: empty/whitespace + plain-text status-line bodies
+        // resolve as null (Pattern #56 + #56-extension for "403 Forbbiden" plain text).
+        const trimmed = raw.trim();
+        if (trimmed.length === 0) {
+          resolve(null as T);
+          return;
+        }
+        if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
+          resolve(null as T);
+          return;
+        }
         try {
           resolve(JSON.parse(raw) as T);
         } catch (parseErr) {
@@ -261,6 +272,101 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       expect(e).to.be.instanceOf(Error);
       // Snippet prefix gives the user a starting point without enabling debug
       expect((e as Error).message).to.include("body starts with: <html>oops</html>");
+    }
+  });
+
+  it("resolves null on empty body (Pattern #56, Issue #13 v2.7.0)", async () => {
+    // Some Govee undocumented endpoints return HTTP 200 with no body
+    // for SKUs they don't recognise. Should resolve null instead of throwing.
+    stub.queue.push({ statusCode: 200, body: "" });
+    const result = await httpRequestPlain({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/empty`,
+      headers: {},
+    });
+    expect(result).to.be.null;
+  });
+
+  it("resolves null on whitespace-only body (Pattern #56)", async () => {
+    stub.queue.push({ statusCode: 200, body: "   \n\t  " });
+    const result = await httpRequestPlain({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/whitespace`,
+      headers: {},
+    });
+    expect(result).to.be.null;
+  });
+
+  it("resolves null on plain-text HTTP-status-line body like '403 Forbbiden' (Issue #13 v2.8.2, tukey42 H61A8)", async () => {
+    // Govee returns HTTP 200 with a plain-text status-line body
+    // ("403 Forbbiden" — their typo) for SKU/Bearer combos without
+    // permission. Treat the same as empty body so the caller's
+    // optional-chaining produces an empty result instead of an
+    // `Invalid JSON in HTTP 200 response: ... body starts with: 403 Forbbiden`
+    // stack trace.
+    stub.queue.push({ statusCode: 200, body: "403 Forbbiden" });
+    const result = await httpRequestPlain({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/forbidden`,
+      headers: {},
+    });
+    expect(result).to.be.null;
+  });
+
+  it("resolves null on '401 Unauthorized' plain-text body", async () => {
+    stub.queue.push({ statusCode: 200, body: "401 Unauthorized" });
+    const result = await httpRequestPlain({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/unauth`,
+      headers: {},
+    });
+    expect(result).to.be.null;
+  });
+
+  it("does NOT swallow JSON literals that start with a number (e.g. `123.45`)", async () => {
+    // The regex requires `<digits><whitespace><non-whitespace>` — `123.45`
+    // has no trailing whitespace+text, so it goes through JSON.parse and
+    // resolves as the number 123.45.
+    stub.queue.push({ statusCode: 200, body: "123.45" });
+    const result = await httpRequestPlain<number>({
+      method: "GET",
+      url: `http://127.0.0.1:${stub.port}/jsonnumber`,
+      headers: {},
+    });
+    expect(result).to.equal(123.45);
+  });
+
+  it("does NOT swallow HTML-like error pages even if short", async () => {
+    // <html>error</html> is short but doesn't match the status-line shape
+    // (no leading 3-digit-status). Falls through to JSON.parse → rejects.
+    stub.queue.push({ statusCode: 200, body: "<html>err</html>" });
+    try {
+      await httpRequestPlain({
+        method: "GET",
+        url: `http://127.0.0.1:${stub.port}/htmlerror`,
+        headers: {},
+      });
+      expect.fail("expected throw");
+    } catch (e) {
+      expect((e as Error).message).to.include("body starts with:");
+    }
+  });
+
+  it("does NOT swallow long plain-text bodies that happen to start with digits", async () => {
+    // Length cap: only short status-line bodies (<100 chars) are treated
+    // as null. A long plain-text payload like a server-error page should
+    // still raise the diagnostic JSON-parse error.
+    const longBody = `500 Server Error — ${"x".repeat(120)}`;
+    stub.queue.push({ statusCode: 200, body: longBody });
+    try {
+      await httpRequestPlain({
+        method: "GET",
+        url: `http://127.0.0.1:${stub.port}/longerror`,
+        headers: {},
+      });
+      expect.fail("expected throw");
+    } catch (e) {
+      expect((e as Error).message).to.include("Invalid JSON");
     }
   });
 

@@ -322,7 +322,16 @@ export class GoveeLanClient {
     }
     this.sendSocket.send(buf, 0, buf.length, COMMAND_PORT, ip, err => {
       if (err) {
-        this.log.debug(`LAN ptReal error to ${ip}: ${err.message}`);
+        // warn (was: debug) — a silent UDP-send failure leaves the user
+        // wondering why a scene/snapshot "did nothing". One log per failed
+        // send is acceptable noise; recurring sends to the same offline IP
+        // will repeat, which is the right signal.
+        this.log.warn(`LAN ptReal error to ${ip}: ${err.message}`);
+      } else {
+        // Success on debug: confirms the UDP datagram left the socket so
+        // a "snapshot/scene did not activate" report can be triaged
+        // without enabling silly-level wire logging.
+        this.log.debug(`LAN ptReal sent to ${ip}: ${base64Packets.length} packet(s), ${buf.length} bytes`);
       }
     });
   }
