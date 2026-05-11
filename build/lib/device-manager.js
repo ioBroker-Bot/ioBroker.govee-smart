@@ -64,7 +64,10 @@ class DeviceManager {
   skuCache = null;
   /** Public for sub-module helpers (cloud-merge). */
   onDeviceUpdate = null;
-  onDeviceListChanged = null;
+  /** Phase-specific callbacks — one per data source. See setCallbacks. */
+  onLanDeviceReady = null;
+  onCloudDataReady = null;
+  onGroupMembersReady = null;
   onCloudCapabilities = null;
   /** Per-source dedup so a Cloud NETWORK error doesn't shadow an App-API one. */
   lastErrorCategory = null;
@@ -112,6 +115,31 @@ class DeviceManager {
     return void 0;
   }
   /**
+   * Structured debug-log for failed undocumented App-API calls. Pulls apart
+   * the cryptic "Invalid JSON in HTTP 200 response — body starts with: <snippet>"
+   * message into addressable fields so the user can read the actual facts:
+   * endpoint URL, HTTP status, bearer-token presence, body snippet.
+   * No interpretation — just the data.
+   *
+   * @param sku Govee SKU (for log context)
+   * @param what Human-readable name of the data being loaded
+   * @param endpoint Endpoint identifier for diagnostics history
+   * @param hasBearer Whether a bearer token was attached to the request
+   * @param e Caught error
+   */
+  logUndocApiFailure(sku, what, endpoint, hasBearer, e) {
+    var _a;
+    const httpStatus = this.extractStatus(e);
+    const msg = (0, import_types.errMessage)(e);
+    const bodyMatch = msg.match(/body starts with: (.+)$/);
+    const bodySnippet = (_a = bodyMatch == null ? void 0 : bodyMatch[1]) != null ? _a : "";
+    const statusPart = httpStatus !== void 0 ? ` httpStatus=${httpStatus}` : "";
+    const bodyPart = bodySnippet ? ` body="${bodySnippet}"` : ` error="${msg}"`;
+    this.log.debug(
+      `Could not load ${what} for ${sku}: endpoint=${endpoint}${statusPart} bearer=${hasBearer ? "yes" : "no"}${bodyPart}`
+    );
+  }
+  /**
    * Register the LAN client
    *
    * @param client LAN UDP client instance
@@ -153,14 +181,20 @@ class DeviceManager {
     this.skuCache = cache;
   }
   /**
-   * Set callbacks for device state changes and list changes.
+   * Set the phase-specific callbacks. Each fires when its data source has
+   * delivered its part of the picture — never with stale / half-filled data.
    *
-   * @param onUpdate Called when a device state changes (from any channel)
-   * @param onListChanged Called when the device list changes (new/removed devices)
+   * @param callbacks Phase callbacks. See per-field JSDoc on DeviceManager.
+   * @param callbacks.onUpdate Fired when a single device's state-fields change (LAN/MQTT/Cloud value update)
+   * @param callbacks.onLanDeviceReady Fired when LAN-Discovery finds a device — only LAN data is available yet
+   * @param callbacks.onCloudDataReady Fired when Cloud capabilities are available (cache merge OR live cloud)
+   * @param callbacks.onGroupMembersReady Fired when group membership has been resolved via App-API
    */
-  setCallbacks(onUpdate, onListChanged) {
-    this.onDeviceUpdate = onUpdate;
-    this.onDeviceListChanged = onListChanged;
+  setCallbacks(callbacks) {
+    this.onDeviceUpdate = callbacks.onUpdate;
+    this.onLanDeviceReady = callbacks.onLanDeviceReady;
+    this.onCloudDataReady = callbacks.onCloudDataReady;
+    this.onGroupMembersReady = callbacks.onGroupMembersReady;
   }
   /** Get all known devices */
   getDevices() {
@@ -191,7 +225,7 @@ class DeviceManager {
    * Returns true if any devices were loaded (= Cloud not needed).
    */
   loadFromCache() {
-    var _a;
+    var _a, _b;
     if (!this.skuCache) {
       return false;
     }
@@ -230,16 +264,21 @@ class DeviceManager {
     if (changed) {
       this.log.info(`Loaded ${cached.length} device(s) from cache`);
     }
-    const hasLight = Array.from(this.devices.values()).some((d) => d.type === "devices.types.light");
+    const allDevices = this.getDevices();
+    for (const device of allDevices) {
+      if (device.capabilities.length > 0) {
+        (_a = this.onCloudDataReady) == null ? void 0 : _a.call(this, device, allDevices);
+      } else if (device.lanIp) {
+        (_b = this.onLanDeviceReady) == null ? void 0 : _b.call(this, device, allDevices);
+      }
+    }
+    const hasLight = allDevices.some((d) => d.type === "devices.types.light");
     if (hasLight) {
       this.log.debug("Cache loaded \u2014 will refresh scenes/snapshots via Cloud");
       return false;
     }
     for (const device of this.devices.values()) {
       cacheHelpers.populateScenesFromLibrary(this, device);
-    }
-    if (changed) {
-      (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
     }
     return cached.length > 0;
   }
@@ -288,7 +327,13 @@ class DeviceManager {
         cacheHelpers.populateScenesFromLibrary(this, device);
       }
       if (changed) {
-        (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
+        const allDevices = this.getDevices();
+        for (const device of allDevices) {
+          if (device.sku === "BaseGroup") {
+            continue;
+          }
+          (_a = this.onCloudDataReady) == null ? void 0 : _a.call(this, device, allDevices);
+        }
       }
       this.lastErrorCategory = null;
       return { ok: true };
@@ -379,7 +424,7 @@ class DeviceManager {
     if (changed) {
       this.saveDevicesToCache();
       cacheHelpers.populateScenesFromLibrary(this, target);
-      (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
+      (_a = this.onCloudDataReady) == null ? void 0 : _a.call(this, target, this.getDevices());
     }
     return changed;
   }
@@ -480,6 +525,7 @@ class DeviceManager {
     const runLimited = async (fn) => {
       await this.commandRouter.executeRateLimited(fn, 2);
     };
+    const hasBearer = this.apiClient.hasBearerToken();
     if (force || device.sceneLibrary.length === 0) {
       await runLimited(async () => {
         const ep = `/light-effect-libraries?sku=${sku}`;
@@ -493,7 +539,7 @@ class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load scene library for ${sku}: ${(0, import_types.errMessage)(e)}`);
+          this.logUndocApiFailure(sku, "scene library", ep, hasBearer, e);
         }
       });
     }
@@ -510,7 +556,7 @@ class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load music library for ${sku}: ${(0, import_types.errMessage)(e)}`);
+          this.logUndocApiFailure(sku, "music library", ep, hasBearer, e);
         }
       });
     }
@@ -527,7 +573,7 @@ class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load DIY library for ${sku}: ${(0, import_types.errMessage)(e)}`);
+          this.logUndocApiFailure(sku, "DIY library", ep, hasBearer, e);
         }
       });
     }
@@ -544,7 +590,7 @@ class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load SKU features for ${sku}: ${(0, import_types.errMessage)(e)}`);
+          this.logUndocApiFailure(sku, "SKU features", ep, hasBearer, e);
         }
       });
     }
@@ -614,7 +660,10 @@ class DeviceManager {
         this.log.debug(`Group "${group.name}": ${members.length}/${apiGroup.devices.length} members resolved`);
       }
       if (changed) {
-        (_a = this.onDeviceListChanged) == null ? void 0 : _a.call(this, this.getDevices());
+        const allDevices = this.getDevices();
+        for (const group of allDevices.filter((d) => d.sku === "BaseGroup")) {
+          (_a = this.onGroupMembersReady) == null ? void 0 : _a.call(this, group, allDevices);
+        }
       }
       this.lastGroupMembersErrorCategory = null;
       return changed;
@@ -688,9 +737,11 @@ class DeviceManager {
       };
       this.devices.set(this.deviceKey(lanDevice.sku, lanDevice.device), device);
       this.diagnostics.addLog(lanDevice.device, "info", `LAN-discovered at ${lanDevice.ip}`);
-      this.log.debug(`LAN: New device ${lanDevice.sku} at ${lanDevice.ip}`);
+      this.log.debug(
+        `LAN: new device sku=${lanDevice.sku} deviceId=${lanDevice.device} ip=${lanDevice.ip} reachable=yes`
+      );
       this.maybeNudgeSeedSku(lanDevice.sku, device.name);
-      (_c = this.onDeviceListChanged) == null ? void 0 : _c.call(this, this.getDevices());
+      (_c = this.onLanDeviceReady) == null ? void 0 : _c.call(this, device, this.getDevices());
     }
   }
   /**

@@ -28,7 +28,6 @@ async function loadCloudStates(adapter) {
     return;
   }
   const devices = adapter.deviceManager.getDevices();
-  const lanStateIds = new Set((0, import_capability_mapper.getDefaultLanStates)().map((s) => s.id));
   let loaded = 0;
   for (const device of devices) {
     if (!device.channels.cloud || device.capabilities.length === 0) {
@@ -43,7 +42,7 @@ async function loadCloudStates(adapter) {
         if (!mapped) {
           continue;
         }
-        if (device.lanIp && lanStateIds.has(mapped.stateId)) {
+        if (device.lanIp && import_capability_mapper.LAN_STATE_IDS.has(mapped.stateId)) {
           continue;
         }
         const statePath = adapter.stateManager.resolveStatePath(prefix, mapped.stateId);
@@ -63,9 +62,8 @@ async function applyCloudCapabilities(adapter, device, caps) {
   if (!adapter.stateManager) {
     return;
   }
-  const lanStateIds = new Set((0, import_capability_mapper.getDefaultLanStates)().map((s) => s.id));
   const prefix = adapter.stateManager.devicePrefix(device);
-  const planned = (0, import_capability_mapper.planCloudCapabilityWrites)(caps, Boolean(device.lanIp), lanStateIds);
+  const planned = (0, import_capability_mapper.planCloudCapabilityWrites)(caps, Boolean(device.lanIp), import_capability_mapper.LAN_STATE_IDS);
   for (const mapped of planned) {
     await adapter.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
   }

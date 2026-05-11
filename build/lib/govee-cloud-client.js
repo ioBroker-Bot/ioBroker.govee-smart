@@ -233,7 +233,7 @@ class GoveeCloudClient {
    */
   async request(method, path, body) {
     var _a;
-    this.log.debug(`Cloud API: ${method} ${path}`);
+    this.log.debug(`Cloud API: ${method} ${path} auth=apiKey`);
     try {
       const result = await this.httpsRequestImpl({
         method,

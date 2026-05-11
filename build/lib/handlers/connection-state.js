@@ -29,7 +29,7 @@ var import_http_client = require("../http-client");
 var import_types = require("../types");
 var import_govee_constants = require("../govee-constants");
 function updateConnectionState(adapter) {
-  var _a, _b;
+  var _a, _b, _c, _d;
   const devices = (_b = (_a = adapter.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : [];
   const hasDevices = devices.length > 0;
   const anyOnline = devices.some((d) => d.state.online);
@@ -39,6 +39,21 @@ function updateConnectionState(adapter) {
     adapter.lastConnectionState = connected;
     adapter.setStateAsync("info.connection", { val: connected, ack: true }).catch(() => {
     });
+  }
+  const cs = adapter.channelStatus;
+  if (cs) {
+    if (cs.lan !== "n/a") {
+      cs.lan = hasDevices ? "on" : "off";
+    }
+    if (cs.cloud !== "n/a") {
+      cs.cloud = adapter.cloudWasConnected ? "on" : "off";
+    }
+    if (cs.mqtt !== "n/a") {
+      cs.mqtt = ((_c = adapter.mqttClient) == null ? void 0 : _c.connected) ? "on" : "off";
+    }
+    if (cs.openapi !== "n/a") {
+      cs.openapi = ((_d = adapter.openapiMqttClient) == null ? void 0 : _d.connected) ? "on" : "off";
+    }
   }
 }
 async function checkAppVersionDrift(adapter) {

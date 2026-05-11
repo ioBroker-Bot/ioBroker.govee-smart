@@ -36,53 +36,40 @@ function populateScenesFromLibrary(adapter, device) {
   }
 }
 function cachedToGoveeDevice(cached) {
+  const {
+    cachedAt: _cachedAt,
+    // Cast-through 'unknown' because TypeScript doesn't know the malformed
+    // cache could carry these fields; we want the destructure-discard either way.
+    state: _state,
+    channels: _channels,
+    lanIp: _lanIp,
+    groupMembers: _groupMembers,
+    ...rest
+  } = cached;
   return {
-    sku: cached.sku,
-    deviceId: cached.deviceId,
-    name: cached.name,
-    type: cached.type,
-    capabilities: cached.capabilities,
-    scenes: cached.scenes,
-    diyScenes: cached.diyScenes,
-    snapshots: cached.snapshots,
-    sceneLibrary: cached.sceneLibrary,
-    musicLibrary: cached.musicLibrary,
-    diyLibrary: cached.diyLibrary,
-    skuFeatures: cached.skuFeatures,
-    snapshotBleCmds: cached.snapshotBleCmds,
-    scenesChecked: cached.scenesChecked,
-    lastSeenOnNetwork: cached.lastSeenOnNetwork,
-    // Restore learned count so it wins over Cloud capability on next start.
-    segmentCount: cached.segmentCount,
-    manualMode: cached.manualMode,
-    manualSegments: cached.manualSegments,
-    sceneSpeed: cached.sceneSpeed,
+    ...rest,
     state: { online: false },
     channels: { lan: false, mqtt: false, cloud: false }
   };
 }
 function goveeDeviceToCached(device) {
+  const { state: _state, channels: _channels, lanIp: _lanIp, groupMembers: _groupMembers, ...cacheable } = device;
   return {
-    sku: device.sku,
-    deviceId: device.deviceId,
-    name: device.name,
-    type: device.type,
-    capabilities: device.capabilities,
-    scenes: device.scenes,
-    diyScenes: device.diyScenes,
-    snapshots: device.snapshots,
-    sceneLibrary: device.sceneLibrary,
-    musicLibrary: device.musicLibrary,
-    diyLibrary: device.diyLibrary,
-    skuFeatures: device.skuFeatures,
-    snapshotBleCmds: device.snapshotBleCmds,
-    scenesChecked: device.scenesChecked,
-    lastSeenOnNetwork: device.lastSeenOnNetwork,
-    segmentCount: typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : void 0,
-    manualMode: device.manualMode ? true : void 0,
-    manualSegments: device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0 ? device.manualSegments.slice() : void 0,
-    sceneSpeed: typeof device.sceneSpeed === "number" && device.sceneSpeed > 0 ? device.sceneSpeed : void 0,
+    ...normalize(cacheable),
     cachedAt: Date.now()
+  };
+}
+function normalize(d) {
+  const segmentCount = typeof d.segmentCount === "number" && d.segmentCount > 0 ? d.segmentCount : void 0;
+  const manualMode = d.manualMode ? true : void 0;
+  const manualSegments = manualMode && Array.isArray(d.manualSegments) && d.manualSegments.length > 0 ? d.manualSegments.slice() : void 0;
+  const sceneSpeed = typeof d.sceneSpeed === "number" && d.sceneSpeed > 0 ? d.sceneSpeed : void 0;
+  return {
+    ...d,
+    segmentCount,
+    manualMode,
+    manualSegments,
+    sceneSpeed
   };
 }
 function persistDeviceToCache(adapter, device) {

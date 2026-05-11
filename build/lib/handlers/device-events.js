@@ -28,9 +28,10 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var device_events_exports = {};
 __export(device_events_exports, {
-  onDeviceListChanged: () => onDeviceListChanged,
+  onCloudDataReady: () => onCloudDataReady,
   onDeviceStateUpdate: () => onDeviceStateUpdate,
-  refreshDeviceStates: () => refreshDeviceStates
+  onGroupMembersReady: () => onGroupMembersReady,
+  onLanDeviceReady: () => onLanDeviceReady
 });
 module.exports = __toCommonJS(device_events_exports);
 var import_capability_mapper = require("../capability-mapper");
@@ -54,47 +55,62 @@ function onDeviceStateUpdate(adapter, device, state) {
     groupStateHelpers.resetModeDropdowns(adapter, prefix, "").catch(() => void 0);
   }
 }
-function refreshDeviceStates(adapter, device, allDevices) {
-  var _a;
-  if (!adapter.stateManager) {
-    return;
-  }
-  const localSnaps = (_a = adapter.localSnapshots) == null ? void 0 : _a.getSnapshots(device.sku, device.deviceId);
-  let memberDevices;
-  if (device.sku === "BaseGroup" && device.groupMembers) {
-    memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
-  }
-  const stateDefs = (0, import_capability_mapper.buildDeviceStateDefs)(device, localSnaps, memberDevices);
-  const p = adapter.stateManager.createDeviceStates(device, stateDefs).then(async () => {
-    var _a2, _b;
-    await ((_a2 = adapter.stateManager) == null ? void 0 : _a2.migrateLegacyDiagnostics(device));
-    await ((_b = adapter.stateManager) == null ? void 0 : _b.updateDeviceTier(device, (0, import_device_registry.getDeviceTier)(device.sku)));
-  }).catch((e) => {
-    adapter.log.error(`createDeviceStates failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
-  });
+function trackStateCreation(adapter, p) {
   if (!adapter.statesReady) {
     adapter.stateCreationQueue.push(p);
   } else {
     void p;
   }
 }
-function onDeviceListChanged(adapter, devices) {
-  var _a;
+function onLanDeviceReady(adapter, device, _allDevices) {
   if (!adapter.stateManager) {
     return;
   }
-  for (const device of devices) {
-    refreshDeviceStates(adapter, device, devices);
+  const sm = adapter.stateManager;
+  const p = (async () => {
+    await sm.createInfoStates(device);
+    await sm.createLanStates(device);
+  })().catch((e) => {
+    adapter.log.error(`onLanDeviceReady failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
+  });
+  trackStateCreation(adapter, p);
+  connectionState.updateConnectionState(adapter);
+}
+function onCloudDataReady(adapter, device, allDevices) {
+  var _a, _b;
+  if (!adapter.stateManager) {
+    return;
   }
+  const sm = adapter.stateManager;
+  const localSnaps = (_a = adapter.localSnapshots) == null ? void 0 : _a.getSnapshots(device.sku, device.deviceId);
+  let memberDevices;
+  if (device.sku === "BaseGroup" && device.groupMembers) {
+    memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
+  }
+  const cloudDefs = (0, import_capability_mapper.buildCloudStateDefs)(device, localSnaps, memberDevices);
+  const p = (async () => {
+    await sm.createInfoStates(device);
+    await sm.createLanStates(device);
+    await sm.createCloudStates(device, cloudDefs);
+    await sm.migrateLegacyDiagnostics(device);
+    await sm.updateDeviceTier(device, (0, import_device_registry.getDeviceTier)(device.sku));
+  })().catch((e) => {
+    adapter.log.error(`onCloudDataReady failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
+  });
+  trackStateCreation(adapter, p);
   connectionState.updateConnectionState(adapter);
   if (adapter.statesReady) {
-    (_a = adapter.reapStaleDevices) == null ? void 0 : _a.call(adapter).catch(() => void 0);
+    (_b = adapter.reapStaleDevices) == null ? void 0 : _b.call(adapter).catch(() => void 0);
   }
+}
+function onGroupMembersReady(adapter, group, allDevices) {
+  onCloudDataReady(adapter, group, allDevices);
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  onDeviceListChanged,
+  onCloudDataReady,
   onDeviceStateUpdate,
-  refreshDeviceStates
+  onGroupMembersReady,
+  onLanDeviceReady
 });
 //# sourceMappingURL=device-events.js.map

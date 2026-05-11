@@ -30,6 +30,7 @@ var import_govee_lan_client = require("./lib/govee-lan-client");
 var import_govee_mqtt_client = require("./lib/govee-mqtt-client");
 var import_govee_openapi_mqtt_client = require("./lib/govee-openapi-mqtt-client");
 var import_local_snapshots = require("./lib/local-snapshots");
+var import_log_prefix = require("./lib/log-prefix");
 var import_snapshot_handler = require("./lib/snapshot-handler");
 var import_group_fanout = require("./lib/group-fanout");
 var import_message_router = require("./lib/message-router");
@@ -107,6 +108,8 @@ class GoveeAdapter extends utils.Adapter {
   /** Public for handler modules (state-change-router). */
   groupFanout = null;
   messageRouter = null;
+  /** Current channel status — pulled by the log-prefix wrapper on every log call. */
+  channelStatus = { lan: "n/a", cloud: "n/a", mqtt: "n/a", openapi: "n/a" };
   /** Public for handler modules (device-events). */
   stateCreationQueue = [];
   lanScanTimer;
@@ -173,6 +176,14 @@ class GoveeAdapter extends utils.Adapter {
   async onReady() {
     var _a, _b, _c, _d;
     const config = this.config;
+    this.channelStatus = {
+      lan: "off",
+      // LAN listener always exists; flips to "on" after first discovery
+      cloud: config.apiKey ? "off" : "n/a",
+      mqtt: config.goveeEmail && config.goveePassword ? "off" : "n/a",
+      openapi: config.apiKey ? "off" : "n/a"
+    };
+    (0, import_log_prefix.installLogPrefix)(this.log, () => this.channelStatus);
     await this.setStateAsync("info.connection", { val: false, ack: true });
     await this.setStateAsync("info.mqttConnected", { val: false, ack: true });
     await this.setStateAsync("info.cloudConnected", { val: false, ack: true });
@@ -209,10 +220,12 @@ class GoveeAdapter extends utils.Adapter {
     const apiClient = new import_govee_api_client.GoveeApiClient();
     apiClient.setEmail(config.goveeEmail);
     this.deviceManager.setApiClient(apiClient);
-    this.deviceManager.setCallbacks(
-      (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
-      (devices) => deviceEvents.onDeviceListChanged(this, devices)
-    );
+    this.deviceManager.setCallbacks({
+      onUpdate: (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
+      onLanDeviceReady: (device, allDevices) => deviceEvents.onLanDeviceReady(this, device, allDevices),
+      onCloudDataReady: (device, allDevices) => deviceEvents.onCloudDataReady(this, device, allDevices),
+      onGroupMembersReady: (group, allDevices) => deviceEvents.onGroupMembersReady(this, group, allDevices)
+    });
     this.deviceManager.onLanIpChanged = (device, ip) => {
       const prefix = this.stateManager.devicePrefix(device);
       this.setStateAsync(`${prefix}.info.ip`, { val: ip, ack: true }).catch(() => {
@@ -420,6 +433,17 @@ class GoveeAdapter extends utils.Adapter {
       this.stateCreationQueue = [];
       await Promise.all(pending);
     }
+    if (this.stateManager && this.deviceManager) {
+      for (const device of this.deviceManager.getDevices()) {
+        if (device.lanIp && device.capabilities.length === 0) {
+          const prefix = this.stateManager.devicePrefix(device);
+          await this.stateManager.cleanupCloudOwnedStates(prefix, []).catch((e) => {
+            this.log.debug(`v2.8.0 migration cleanup failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
+          });
+          this.log.info(`Migrated v2.8.0: removed legacy cloud-owned states for ${device.name} (pure-LAN, no API key)`);
+        }
+      }
+    }
     this.statesReady = true;
     await this.subscribeStatesAsync("devices.*");
     await this.subscribeStatesAsync("groups.*");
@@ -545,13 +569,15 @@ class GoveeAdapter extends utils.Adapter {
    * @param allDevices Full device list (needed to resolve group members)
    */
   /**
-   * Public delegate for snapshot-glue + state-change-router modules.
+   * Public delegate for snapshot-glue + state-change-router modules — a
+   * Cloud-data event (new snapshot in app, refresh-button, etc.) needs a
+   * full Cloud-phase rebuild for the affected device.
    *
    * @param device Target device
    * @param allDevices Full device list
    */
-  refreshDeviceStates(device, allDevices) {
-    deviceEvents.refreshDeviceStates(this, device, allDevices);
+  fireCloudDataReady(device, allDevices) {
+    deviceEvents.onCloudDataReady(this, device, allDevices);
   }
   /**
    * Called by device-manager when the device list changes

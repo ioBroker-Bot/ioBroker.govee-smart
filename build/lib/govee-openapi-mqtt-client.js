@@ -95,24 +95,32 @@ class GoveeOpenapiMqttClient {
         reconnectPeriod: 0,
         rejectUnauthorized: true
       });
+      const clientId = `iob_govee_smart_${this.sessionUuid}`;
+      this.log.debug(`Cloud-events connecting: broker=${BROKER_URL} clientId=${clientId} authMode=apiKey`);
       this.client.on("connect", () => {
         var _a;
         this.reconnectAttempts = 0;
         this.connectFailCount = 0;
         if (this.lastErrorCategory) {
-          this.log.info(`Cloud-events connection restored`);
+          this.log.info(
+            `Cloud-events connection restored: broker=${BROKER_URL} clientId=${clientId} topic=${this.topic}`
+          );
           this.lastErrorCategory = null;
+        } else {
+          this.log.debug(`Cloud-events connected: broker=${BROKER_URL} clientId=${clientId} topic=${this.topic}`);
         }
         (_a = this.client) == null ? void 0 : _a.subscribe(this.topic, { qos: 0 }, (err) => {
           var _a2, _b;
           if (err) {
-            this.log.warn(`Cloud-events subscribe failed: ${err.message} \u2014 forcing reconnect`);
+            this.log.warn(
+              `Cloud-events subscribe failed: topic=${this.topic} err="${err.message}" \u2014 forcing reconnect`
+            );
             try {
               (_a2 = this.client) == null ? void 0 : _a2.end(true);
             } catch {
             }
           } else {
-            this.log.debug("Cloud-events subscribed to event topic");
+            this.log.debug(`Cloud-events subscribed to event topic: topic=${this.topic} qos=0`);
             (_b = this.onConnection) == null ? void 0 : _b.call(this, true);
           }
         });

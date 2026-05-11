@@ -497,18 +497,22 @@ class GoveeMqttClient {
       return;
     }
     this.client.on("connect", () => {
-      var _a;
+      var _a, _b, _c;
+      const wasCached = this.persistedAttemptInFlight;
       this.persistedAttemptInFlight = false;
       this.reconnectAttempts = 0;
       this.authFailCount = 0;
+      const broker = (_b = (_a = this.persisted) == null ? void 0 : _a.iotEndpoint) != null ? _b : "?";
+      const clientId = `AP/${this.accountId}/${this.sessionUuid}`;
+      const authMode = wasCached ? "cached" : "fresh";
       if (this.lastErrorCategory) {
-        this.log.info(`MQTT connection restored`);
+        this.log.info(`MQTT connection restored: broker=${broker} clientId=${clientId} authMode=${authMode}`);
         this.lastErrorCategory = null;
       } else {
-        this.log.debug(`MQTT connected`);
+        this.log.debug(`MQTT connected: broker=${broker} clientId=${clientId} authMode=${authMode}`);
       }
-      (_a = this.client) == null ? void 0 : _a.subscribe(this.accountTopic, { qos: 0 }, (err) => {
-        var _a2, _b;
+      (_c = this.client) == null ? void 0 : _c.subscribe(this.accountTopic, { qos: 0 }, (err) => {
+        var _a2, _b2;
         if (err) {
           this.log.warn(`MQTT subscribe failed: ${err.message} \u2014 forcing reconnect`);
           try {
@@ -516,8 +520,8 @@ class GoveeMqttClient {
           } catch {
           }
         } else {
-          this.log.debug("MQTT subscribed to account topic");
-          (_b = this.onConnection) == null ? void 0 : _b.call(this, true);
+          this.log.debug(`MQTT subscribed to account topic: topic=${this.accountTopic} qos=0`);
+          (_b2 = this.onConnection) == null ? void 0 : _b2.call(this, true);
         }
       });
     });

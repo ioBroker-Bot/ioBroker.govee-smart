@@ -18,8 +18,10 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var capability_mapper_exports = {};
 __export(capability_mapper_exports, {
+  LAN_STATE_IDS: () => LAN_STATE_IDS,
   applyQuirksToStates: () => applyQuirksToStates,
-  buildDeviceStateDefs: () => buildDeviceStateDefs,
+  buildCloudStateDefs: () => buildCloudStateDefs,
+  buildLanStateDefs: () => buildLanStateDefs,
   getDefaultLanStates: () => getDefaultLanStates,
   hasDynamicSceneCapability: () => hasDynamicSceneCapability,
   mapCapabilities: () => mapCapabilities,
@@ -81,6 +83,7 @@ function hasDynamicSceneCapability(capabilities, instance) {
     (cap) => typeof (cap == null ? void 0 : cap.type) === "string" && typeof (cap == null ? void 0 : cap.instance) === "string" && (cap.type === "devices.capabilities.dynamic_scene" || cap.type === "dynamic_scene") && cap.instance === instance
   );
 }
+const LAN_STATE_IDS = /* @__PURE__ */ new Set(["power", "brightness", "colorRgb", "colorTemperature"]);
 function getDefaultLanStates() {
   return [
     {
@@ -697,42 +700,52 @@ function planCloudCapabilityWrites(caps, hasLanIp, lanStateIds) {
   }
   return writes;
 }
-function buildDeviceStateDefs(device, localSnapshots, memberDevices) {
+const SCENE_DROPDOWN_RULES = [
+  { id: "light_scene", cap: "lightScene", nameKey: "lightScene", channel: "scenes", source: (d) => d.scenes },
+  { id: "diy_scene", cap: "diyScene", nameKey: "diyScene", channel: "scenes", source: (d) => d.diyScenes },
+  {
+    id: "snapshot_cloud",
+    cap: "snapshot",
+    nameKey: "cloudSnapshot",
+    descKey: "cloudSnapshotDesc",
+    channel: "snapshots",
+    source: (d) => d.snapshots
+  }
+];
+function buildLanStateDefs(device) {
+  if (!device.lanIp) {
+    return [];
+  }
+  const stateDefs = getDefaultLanStates();
+  applyQuirksToStates(device.sku, stateDefs);
+  return stateDefs;
+}
+function buildCloudStateDefs(device, localSnapshots, memberDevices) {
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || []);
   }
-  let stateDefs;
-  if (device.lanIp) {
-    stateDefs = getDefaultLanStates();
-    if (device.capabilities.length > 0) {
-      const lanIds = new Set(stateDefs.map((d) => d.id));
-      const cloudDefs = mapCapabilities(device.capabilities);
-      for (const cd of cloudDefs) {
-        if (!lanIds.has(cd.id)) {
-          stateDefs.push(cd);
-        }
-      }
-    }
-  } else {
-    stateDefs = mapCapabilities(device.capabilities);
-  }
+  const stateDefs = mapCapabilities(device.capabilities).filter((d) => !LAN_STATE_IDS.has(d.id));
   applyQuirksToStates(device.sku, stateDefs);
   const isLight = device.type === "devices.types.light";
-  if (isLight && hasDynamicSceneCapability(device.capabilities, "lightScene")) {
+  for (const r of SCENE_DROPDOWN_RULES) {
+    if (!isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
+      continue;
+    }
     stateDefs.push({
-      id: "light_scene",
-      name: (0, import_i18n_states.tName)("lightScene"),
+      id: r.id,
+      name: (0, import_i18n_states.tName)(r.nameKey),
+      desc: r.descKey ? (0, import_i18n_states.tDesc)(r.descKey) : void 0,
       // mixed lets users write the index ("1"), the index as number (1),
-      // or the scene name ("Aurora") — the onStateChange handler resolves
+      // or the entry name ("Aurora") — the onStateChange handler resolves
       // all three forms via the common.states map.
       type: "mixed",
       role: "text",
       write: true,
-      states: (0, import_types.buildUniqueLabelMap)(device.scenes),
+      states: (0, import_types.buildUniqueLabelMap)(r.source(device)),
       def: "0",
       capabilityType: "devices.capabilities.dynamic_scene",
-      capabilityInstance: "lightScene",
-      channel: "scenes"
+      capabilityInstance: r.cap,
+      channel: r.channel
     });
   }
   const maxSpeedLevel = device.sceneLibrary.reduce((max, entry) => {
@@ -766,35 +779,6 @@ function buildDeviceStateDefs(device, localSnapshots, memberDevices) {
       capabilityType: "local",
       capabilityInstance: "sceneSpeed",
       channel: "scenes"
-    });
-  }
-  if (isLight && hasDynamicSceneCapability(device.capabilities, "diyScene")) {
-    stateDefs.push({
-      id: "diy_scene",
-      name: (0, import_i18n_states.tName)("diyScene"),
-      type: "mixed",
-      role: "text",
-      write: true,
-      states: (0, import_types.buildUniqueLabelMap)(device.diyScenes),
-      def: "0",
-      capabilityType: "devices.capabilities.dynamic_scene",
-      capabilityInstance: "diyScene",
-      channel: "scenes"
-    });
-  }
-  if (isLight && hasDynamicSceneCapability(device.capabilities, "snapshot")) {
-    stateDefs.push({
-      id: "snapshot_cloud",
-      name: (0, import_i18n_states.tName)("cloudSnapshot"),
-      desc: (0, import_i18n_states.tDesc)("cloudSnapshotDesc"),
-      type: "mixed",
-      role: "text",
-      write: true,
-      states: (0, import_types.buildUniqueLabelMap)(device.snapshots),
-      def: "0",
-      capabilityType: "devices.capabilities.dynamic_scene",
-      capabilityInstance: "snapshot",
-      channel: "snapshots"
     });
   }
   if (isLight && (hasDynamicSceneCapability(device.capabilities, "lightScene") || hasDynamicSceneCapability(device.capabilities, "diyScene") || hasDynamicSceneCapability(device.capabilities, "snapshot"))) {
@@ -966,8 +950,10 @@ function buildGroupStateDefs(members) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  LAN_STATE_IDS,
   applyQuirksToStates,
-  buildDeviceStateDefs,
+  buildCloudStateDefs,
+  buildLanStateDefs,
   getDefaultLanStates,
   hasDynamicSceneCapability,
   mapCapabilities,

@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.7.1",
+    "version": "2.8.0",
     "news": {
-      "NEXT": {
+      "2.8.0": {
         "en": "Restart no longer wipes and re-creates scene/music/snapshot datapoints. Pure-LAN devices get a one-time cleanup. Debug logs carry channel status and structured key=value details.",
         "de": "Beim Neustart werden Szenen-/Musik-/Snapshot-Datenpunkte nicht mehr kurz gelöscht und neu angelegt. Pure-LAN-Geräte werden einmalig aufgeräumt. Debug-Logs zeigen Channel-Status und key=value-Details.",
         "ru": "При перезапуске точки сцен, музыки и снимков больше не удаляются и не создаются заново. Чистые LAN-устройства один раз очищаются. Отладочные логи показывают статус каналов и key=value-детали.",

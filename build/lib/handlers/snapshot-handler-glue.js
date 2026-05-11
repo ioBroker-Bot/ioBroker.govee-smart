@@ -37,7 +37,7 @@ function buildSnapshotHost(adapter) {
     },
     refreshDeviceStates: (device) => {
       var _a, _b;
-      adapter.refreshDeviceStates(device, (_b = (_a = adapter.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : []);
+      adapter.fireCloudDataReady(device, (_b = (_a = adapter.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : []);
     }
   };
 }

@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.8.0 (2026-05-11)
 
 - Restarting the adapter no longer briefly deletes and re-creates the scene, music and snapshot datapoints. The internal state-creation now runs in clear phases — LAN data is written from LAN discovery, Cloud data from the cloud refresh — and one phase no longer touches the other's territory.
 - Pure-LAN devices (no API key configured) no longer have empty scene/snapshot dropdowns lingering from earlier versions. A one-time cleanup on first start of 2.8.0 removes them.
@@ -150,10 +150,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 - Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.
 
 ### 2.6.6 (2026-05-10)
-
-- Internal refactoring. No changes for users.
-
-### 2.6.5 (2026-05-10)
 
 - Internal refactoring. No changes for users.
 

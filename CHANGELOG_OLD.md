@@ -1,4 +1,8 @@
 # Older Changes
+## 2.6.5 (2026-05-10)
+
+- Internal refactoring. No changes for users.
+
 ## 2.6.4 (2026-05-10)
 
 - Internal tooling refresh. No changes for users.
