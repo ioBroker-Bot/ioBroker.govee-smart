@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.8.0",
     "news": {
+      "NEXT": {
+        "en": "The channel-status prefix added in 2.8.0 now shows only on debug-level lines. Info, warn and error logs are back to their normal short form.",
+        "de": "Der Channel-Status-Prefix aus 2.8.0 erscheint jetzt nur noch auf debug-Zeilen. Info-, Warn- und Error-Logs sind wieder kurz und übersichtlich.",
+        "ru": "Префикс статуса каналов из 2.8.0 теперь появляется только в строках уровня debug. Логи info, warn и error снова в коротком виде.",
+        "pt": "O prefixo de estado dos canais introduzido na 2.8.0 aparece agora apenas nas linhas de debug. Os logs info, warn e error voltam ao formato curto.",
+        "nl": "De kanaalstatus-prefix uit 2.8.0 verschijnt nu alleen nog op debug-regels. Info-, warn- en error-logs zijn weer kort en overzichtelijk.",
+        "fr": "Le préfixe d'état des canaux ajouté en 2.8.0 n'apparaît plus que sur les lignes debug. Les logs info, warn et error redeviennent courts.",
+        "it": "Il prefisso di stato dei canali introdotto nella 2.8.0 ora compare solo nelle righe debug. I log info, warn ed error tornano alla forma breve.",
+        "es": "El prefijo de estado de canales añadido en 2.8.0 ahora solo aparece en las líneas de debug. Los logs info, warn y error vuelven al formato corto.",
+        "pl": "Prefiks statusu kanałów dodany w 2.8.0 pojawia się teraz tylko w wierszach debug. Logi info, warn i error wracają do krótkiej formy.",
+        "uk": "Префікс статусу каналів з 2.8.0 тепер з'являється лише в рядках рівня debug. Логи info, warn та error знову в короткій формі.",
+        "zh-cn": "2.8.0 添加的通道状态前缀现在只出现在 debug 级别的日志行。info、warn 和 error 日志回到简短格式。"
+      },
       "2.8.0": {
         "en": "Restart no longer wipes and re-creates scene/music/snapshot datapoints. Pure-LAN devices get a one-time cleanup. Debug logs carry channel status and structured key=value details.",
         "de": "Beim Neustart werden Szenen-/Musik-/Snapshot-Datenpunkte nicht mehr kurz gelöscht und neu angelegt. Pure-LAN-Geräte werden einmalig aufgeräumt. Debug-Logs zeigen Channel-Status und key=value-Details.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzny refaktoring (main.ts i device-manager.ts podzielone na mniejsze moduły). Bez zmian dla użytkowników.",
         "uk": "Внутрішній рефакторинг (main.ts і device-manager.ts розбиті на менші модулі). Без змін для користувачів.",
         "zh-cn": "内部重构（main.ts 与 device-manager.ts 拆分为更小的模块）。用户无任何变化。"
-      },
-      "2.6.4": {
-        "en": "Internal tooling refresh. No changes for users.",
-        "de": "Internes Tooling aufgefrischt. Keine Änderungen für Benutzer.",
-        "ru": "Обновление внутренних инструментов. Для пользователей ничего не меняется.",
-        "pt": "Atualização interna de ferramentas. Sem alterações para utilizadores.",
-        "nl": "Interne tooling opgefrist. Geen wijzigingen voor gebruikers.",
-        "fr": "Rafraîchissement interne. Aucun changement pour les utilisateurs.",
-        "it": "Aggiornamento interno. Nessuna modifica per gli utenti.",
-        "es": "Refresco interno. Sin cambios para los usuarios.",
-        "pl": "Odświeżenie wewnętrznych narzędzi. Bez zmian dla użytkowników.",
-        "uk": "Оновлення внутрішніх інструментів. Без змін для користувачів.",
-        "zh-cn": "内部工具刷新。用户无任何变化。"
       }
     },
     "titleLang": {

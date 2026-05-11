@@ -55,7 +55,10 @@ export function installLogPrefix(log: ioBroker.Logger, getSnap: () => ChannelSta
   }
   tagged[wrappedTag] = true;
 
-  for (const level of ["silly", "debug", "info", "warn", "error"] as const) {
+  // Channel-prefix is a diagnostic aid — only on debug + silly. info/warn/error
+  // are user-facing and stay clean. Users with loglevel=debug see the prefix
+  // when they look at debug lines; loglevel=info readers don't get the clutter.
+  for (const level of ["silly", "debug"] as const) {
     const orig = log[level].bind(log);
     (log as unknown as Record<string, unknown>)[level] = (msg: string): void => {
       orig(`${formatChannelPrefix(getSnap())} ${msg}`);
