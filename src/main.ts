@@ -7,6 +7,7 @@ import { GoveeLanClient } from "./lib/govee-lan-client";
 import { GoveeMqttClient } from "./lib/govee-mqtt-client";
 import { GoveeOpenapiMqttClient } from "./lib/govee-openapi-mqtt-client";
 import { LocalSnapshotStore } from "./lib/local-snapshots";
+import { installLogPrefix, type ChannelStatusSnapshot } from "./lib/log-prefix";
 import { SnapshotHandler } from "./lib/snapshot-handler";
 import { GroupFanoutHandler } from "./lib/group-fanout";
 import { MessageRouter, type MessageRouterHost } from "./lib/message-router";
@@ -97,6 +98,8 @@ class GoveeAdapter extends utils.Adapter {
   /** Public for handler modules (state-change-router). */
   public groupFanout: GroupFanoutHandler | null = null;
   private messageRouter: MessageRouter | null = null;
+  /** Current channel status — pulled by the log-prefix wrapper on every log call. */
+  public channelStatus: ChannelStatusSnapshot = { lan: "n/a", cloud: "n/a", mqtt: "n/a", openapi: "n/a" };
   /** Public for handler modules (device-events). */
   public stateCreationQueue: Promise<void>[] = [];
   private lanScanTimer: ioBroker.Timeout | undefined;
@@ -163,6 +166,18 @@ class GoveeAdapter extends utils.Adapter {
   private async onReady(): Promise<void> {
     const config = this.config as unknown as AdapterConfig;
 
+    // Channel-status prefix for every log line — must run BEFORE sub-libraries
+    // are constructed so they pick up the wrapped adapter.log automatically.
+    // Initial snapshot reflects which credentials the user provided; status
+    // flips to "on" / "off" as connections come up or fail.
+    this.channelStatus = {
+      lan: "off", // LAN listener always exists; flips to "on" after first discovery
+      cloud: config.apiKey ? "off" : "n/a",
+      mqtt: config.goveeEmail && config.goveePassword ? "off" : "n/a",
+      openapi: config.apiKey ? "off" : "n/a",
+    };
+    installLogPrefix(this.log, () => this.channelStatus);
+
     // info channel + states are declared as instanceObjects in
     // io-package.json, so js-controller materialises them on install /
     // upgrade. We only initialise the runtime values here.
@@ -216,10 +231,12 @@ class GoveeAdapter extends utils.Adapter {
     apiClient.setEmail(config.goveeEmail);
     this.deviceManager.setApiClient(apiClient);
 
-    this.deviceManager.setCallbacks(
-      (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
-      devices => deviceEvents.onDeviceListChanged(this, devices),
-    );
+    this.deviceManager.setCallbacks({
+      onUpdate: (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
+      onLanDeviceReady: (device, allDevices) => deviceEvents.onLanDeviceReady(this, device, allDevices),
+      onCloudDataReady: (device, allDevices) => deviceEvents.onCloudDataReady(this, device, allDevices),
+      onGroupMembersReady: (group, allDevices) => deviceEvents.onGroupMembersReady(this, group, allDevices),
+    });
 
     // Update info.ip when LAN IP changes
     this.deviceManager.onLanIpChanged = (device, ip) => {
@@ -497,6 +514,24 @@ class GoveeAdapter extends utils.Adapter {
       this.stateCreationQueue = [];
       await Promise.all(pending);
     }
+
+    // v2.8.0 one-shot migration: pure-LAN devices (no API key, never went
+    // through a Cloud-phase) on prior versions had scenes/music/snapshots
+    // states briefly created then orphaned. Wipe those leftovers now.
+    // Idempotent — second run does nothing, the LAN_STATE_IDS skip in
+    // cleanupCloudOwnedStates protects power/brightness/colorRgb/colorTemperature.
+    if (this.stateManager && this.deviceManager) {
+      for (const device of this.deviceManager.getDevices()) {
+        if (device.lanIp && device.capabilities.length === 0) {
+          const prefix = this.stateManager.devicePrefix(device);
+          await this.stateManager.cleanupCloudOwnedStates(prefix, []).catch(e => {
+            this.log.debug(`v2.8.0 migration cleanup failed for ${device.name}: ${errMessage(e)}`);
+          });
+          this.log.info(`Migrated v2.8.0: removed legacy cloud-owned states for ${device.name} (pure-LAN, no API key)`);
+        }
+      }
+    }
+
     this.statesReady = true;
 
     // Subscribe to all writable device and group states
@@ -652,13 +687,15 @@ class GoveeAdapter extends utils.Adapter {
    * @param allDevices Full device list (needed to resolve group members)
    */
   /**
-   * Public delegate for snapshot-glue + state-change-router modules.
+   * Public delegate for snapshot-glue + state-change-router modules — a
+   * Cloud-data event (new snapshot in app, refresh-button, etc.) needs a
+   * full Cloud-phase rebuild for the affected device.
    *
    * @param device Target device
    * @param allDevices Full device list
    */
-  public refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void {
-    deviceEvents.refreshDeviceStates(this, device, allDevices);
+  public fireCloudDataReady(device: GoveeDevice, allDevices: GoveeDevice[]): void {
+    deviceEvents.onCloudDataReady(this, device, allDevices);
   }
 
   /**

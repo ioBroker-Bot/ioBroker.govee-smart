@@ -156,8 +156,22 @@ export function hasDynamicSceneCapability(
 }
 
 /**
+ * Single source of truth for "this state-id belongs to LAN territory". Used by:
+ * - cleanupCloudOwnedStates → skip these ids when wiping cloud-owned states in the control channel
+ * - buildCloudStateDefs → dedup capability-derived defs against LAN ownership (prevents double-create)
+ * - cloud-state-loader → filter out LAN-state-ids when applying cloud values
+ *
+ * Adding a new LAN-default state means: extend this set AND add the entry in getDefaultLanStates.
+ * The capability-tag-invariant test enforces both stay in lock-step.
+ */
+export const LAN_STATE_IDS: ReadonlySet<string> = new Set(["power", "brightness", "colorRgb", "colorTemperature"]);
+
+/**
  * Default state definitions for LAN-only devices (no Cloud capabilities).
  * All LAN-capable Govee lights support: power, brightness, color, color temperature.
+ *
+ * State IDs MUST match LAN_STATE_IDS above. Invariant test in capability-mapper.test.ts
+ * fails if these drift apart.
  */
 export function getDefaultLanStates(): StateDefinition[] {
   return [
@@ -282,7 +296,7 @@ function mapSingleCapability(cap: CloudCapability): StateDefinition[] | null {
 
     case "dynamic_scene":
       // lightScene / diyScene / snapshot get real dropdowns built later in
-      // buildDeviceStateDefs from the scenes/snapshots arrays — skip the
+      // buildCloudStateDefs from the scenes/snapshots arrays — skip the
       // generic stub here so we don't create and immediately delete it.
       if (cap.instance === "lightScene" || cap.instance === "diyScene" || cap.instance === "snapshot") {
         return null;
@@ -956,7 +970,7 @@ export function mapCloudStateValue(cap: CloudStateCapability): CloudStateValue |
 export function planCloudCapabilityWrites(
   caps: CloudStateCapability[],
   hasLanIp: boolean,
-  lanStateIds: Set<string>,
+  lanStateIds: ReadonlySet<string>,
 ): CloudStateValue[] {
   const writes: CloudStateValue[] = [];
   if (!Array.isArray(caps)) {
@@ -976,15 +990,66 @@ export function planCloudCapabilityWrites(
 }
 
 /**
- * Build complete state definitions for a device.
- * Combines LAN defaults, Cloud capabilities, quirks, scenes, snapshots, and diagnostics.
- * For groups: computes capability intersection of member devices (no snapshots/diagnostics).
+ * Scene-dropdown rules — three states with identical shape (dropdown over a
+ * device-content array, capabilityType `dynamic_scene`). Adding a new
+ * scene-style dropdown means: append one entry here. The 8 other Cloud-derived
+ * states (scene_speed, refresh_cloud, snapshot_local/save/delete, diag.*)
+ * have genuinely different shapes and stay inline — not the same anti-pattern.
+ */
+const SCENE_DROPDOWN_RULES: ReadonlyArray<{
+  id: string;
+  cap: "lightScene" | "diyScene" | "snapshot";
+  nameKey: Parameters<typeof tName>[0];
+  descKey?: Parameters<typeof tDesc>[0];
+  channel: "scenes" | "snapshots";
+  source: (d: GoveeDevice) => { name: string }[];
+}> = [
+  { id: "light_scene", cap: "lightScene", nameKey: "lightScene", channel: "scenes", source: d => d.scenes },
+  { id: "diy_scene", cap: "diyScene", nameKey: "diyScene", channel: "scenes", source: d => d.diyScenes },
+  {
+    id: "snapshot_cloud",
+    cap: "snapshot",
+    nameKey: "cloudSnapshot",
+    descKey: "cloudSnapshotDesc",
+    channel: "snapshots",
+    source: d => d.snapshots,
+  },
+];
+
+/**
+ * Build LAN-owned state definitions for a device. Returns the four
+ * lan-default states (power/brightness/colorRgb/colorTemperature) with quirks
+ * applied, or [] for devices without a LAN address (sensors, appliances,
+ * groups).
  *
- * @param device Govee device with capabilities, scenes, etc.
+ * Phase-Architektur: gehört zur LAN-Phase. Wird gerufen wenn ein Gerät per
+ * LAN-Discovery sichtbar wird oder mit lanIp aus dem Cache geladen wird.
+ *
+ * @param device Govee device
+ */
+export function buildLanStateDefs(device: GoveeDevice): StateDefinition[] {
+  if (!device.lanIp) {
+    return [];
+  }
+  const stateDefs = getDefaultLanStates();
+  applyQuirksToStates(device.sku, stateDefs);
+  return stateDefs;
+}
+
+/**
+ * Build Cloud-owned state definitions for a device — everything that needs
+ * Cloud capabilities or local synthetic decoration. Excludes LAN-default IDs
+ * (the LAN phase owns those). Returns intersection state for BaseGroup
+ * devices.
+ *
+ * Phase-Architektur: gehört zur Cloud-Phase. Wird gerufen wenn capabilities
+ * für ein Gerät aus dem Cache oder einem frischen Cloud-Load verfügbar sind.
+ *
+ * @param device Govee device
  * @param localSnapshots Optional local snapshot names
  * @param memberDevices Resolved member devices (only for BaseGroup)
  */
-export function buildDeviceStateDefs(
+export function buildCloudStateDefs(
   device: GoveeDevice,
   localSnapshots?: { name: string }[],
   memberDevices?: GoveeDevice[],
@@ -992,54 +1057,45 @@ export function buildDeviceStateDefs(
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || []);
   }
-  let stateDefs: StateDefinition[];
 
-  if (device.lanIp) {
-    stateDefs = getDefaultLanStates();
-    if (device.capabilities.length > 0) {
-      const lanIds = new Set(stateDefs.map(d => d.id));
-      const cloudDefs = mapCapabilities(device.capabilities);
-      for (const cd of cloudDefs) {
-        if (!lanIds.has(cd.id)) {
-          stateDefs.push(cd);
-        }
-      }
-    }
-  } else {
-    stateDefs = mapCapabilities(device.capabilities);
-  }
+  // Capability-derived states with LAN-default IDs filtered out — the LAN
+  // phase owns those, capability mapper duplicates would land in the same
+  // channel and confuse cleanup. Single source of truth: LAN_STATE_IDS.
+  const stateDefs: StateDefinition[] = mapCapabilities(device.capabilities).filter(d => !LAN_STATE_IDS.has(d.id));
 
   applyQuirksToStates(device.sku, stateDefs);
 
-  // Light-only state defs — scenes / snapshots / music / scene_speed only
-  // make sense for lights. Sensors and appliances would otherwise see
+  // Light-only synthetic state defs — scenes / snapshots / music / scene_speed
+  // only make sense for lights. Sensors and appliances would otherwise see
   // empty snapshot dropdowns and a useless save/delete button pair.
   const isLight = device.type === "devices.types.light";
 
-  // Capability-driven: if the device's Cloud capabilities expose the
-  // dynamic_scene instance, always create the dropdown — even before
-  // /device/scenes has been queried (an empty list still beats a
-  // missing state). Guards against the H61D5-style case where the
-  // user's first restart shows no scenes / snapshots datapoints.
-  if (isLight && hasDynamicSceneCapability(device.capabilities, "lightScene")) {
+  // Three structurally-identical Cloud dropdowns — collapsed into one loop.
+  for (const r of SCENE_DROPDOWN_RULES) {
+    if (!isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
+      continue;
+    }
     stateDefs.push({
-      id: "light_scene",
-      name: tName("lightScene"),
+      id: r.id,
+      name: tName(r.nameKey),
+      desc: r.descKey ? tDesc(r.descKey) : undefined,
       // mixed lets users write the index ("1"), the index as number (1),
-      // or the scene name ("Aurora") — the onStateChange handler resolves
+      // or the entry name ("Aurora") — the onStateChange handler resolves
       // all three forms via the common.states map.
       type: "mixed",
       role: "text",
       write: true,
-      states: buildUniqueLabelMap(device.scenes),
+      states: buildUniqueLabelMap(r.source(device)),
       def: "0",
       capabilityType: "devices.capabilities.dynamic_scene",
-      capabilityInstance: "lightScene",
-      channel: "scenes",
+      capabilityInstance: r.cap,
+      channel: r.channel,
     });
   }
 
-  // Scene speed slider — only if any scene supports speed adjustment
+  // Scene speed slider — only if any scene supports speed adjustment.
+  // Stays inline: depends on a computed maxSpeedLevel that doesn't fit the
+  // dropdown-rule shape.
   const maxSpeedLevel = device.sceneLibrary.reduce((max, entry) => {
     if (entry.speedInfo?.supSpeed && entry.speedInfo.config) {
       try {
@@ -1075,42 +1131,8 @@ export function buildDeviceStateDefs(
     });
   }
 
-  if (isLight && hasDynamicSceneCapability(device.capabilities, "diyScene")) {
-    stateDefs.push({
-      id: "diy_scene",
-      name: tName("diyScene"),
-      type: "mixed",
-      role: "text",
-      write: true,
-      states: buildUniqueLabelMap(device.diyScenes),
-      def: "0",
-      capabilityType: "devices.capabilities.dynamic_scene",
-      capabilityInstance: "diyScene",
-      channel: "scenes",
-    });
-  }
-
-  if (isLight && hasDynamicSceneCapability(device.capabilities, "snapshot")) {
-    stateDefs.push({
-      id: "snapshot_cloud",
-      name: tName("cloudSnapshot"),
-      desc: tDesc("cloudSnapshotDesc"),
-      type: "mixed",
-      role: "text",
-      write: true,
-      states: buildUniqueLabelMap(device.snapshots),
-      def: "0",
-      capabilityType: "devices.capabilities.dynamic_scene",
-      capabilityInstance: "snapshot",
-      channel: "snapshots",
-    });
-  }
-
-  // Per-device refresh button — only when the device exposes any dynamic-scene
-  // capability. Thermometer/sensor/heater devices don't have scenes or
-  // snapshots so the button would be inert noise on them. Replaces the global
-  // info.refresh_cloud_data button (removed in v2.7.0) — 5 API calls per
-  // device-targeted refresh instead of N*5 for the whole account.
+  // Per-device refresh button — gated on ANY dynamic-scene capability.
+  // OR-gate over three caps doesn't fit a rules-table.
   if (
     isLight &&
     (hasDynamicSceneCapability(device.capabilities, "lightScene") ||
@@ -1131,8 +1153,9 @@ export function buildDeviceStateDefs(
     });
   }
 
-  // Local snapshots — light-only feature (capture+restore RGB/segments;
-  // makes no sense for thermometer/heater/kettle).
+  // Local snapshots — three states with different shapes (mixed dropdown vs
+  // plain string-write fields). Inline because a rules-table would need a
+  // discriminator field with no payoff.
   if (isLight) {
     stateDefs.push({
       id: "snapshot_local",
@@ -1173,9 +1196,9 @@ export function buildDeviceStateDefs(
     });
   }
 
-  // Diagnostics — own top-level `diag` channel on the device. Self-service
-  // dump for users to attach to GitHub issues; clustered together so it's
-  // immediately recognisable in the object tree.
+  // Diagnostics — three states with different shapes (boolean button vs
+  // read-only string vs string with fixed states map). Inline for same
+  // reason as local snapshots.
   stateDefs.push({
     id: "export",
     name: tName("exportDiagnostics"),

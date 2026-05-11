@@ -1,4 +1,4 @@
-import { buildDeviceStateDefs } from "../capability-mapper";
+import { buildCloudStateDefs } from "../capability-mapper";
 import type { DeviceManager } from "../device-manager";
 import { getDeviceTier } from "../device-registry";
 import type { LocalSnapshotStore } from "../local-snapshots";
@@ -66,38 +66,11 @@ export function onDeviceStateUpdate<
 }
 
 /**
- * Rebuild state definitions for one device and feed them into StateManager.
- * Used both from the full-list callback and from targeted refreshes (e.g.
- * after a local snapshot was added or removed — no reason to rebuild the
- * entire tree for every device then).
- *
+ * Internal — schedule a state-creation promise. Until adapter.statesReady,
+ * promises accumulate in stateCreationQueue so onReady can await the full
+ * initial batch. After ready, fire-and-forget.
  */
-export function refreshDeviceStates(
-  adapter: DeviceEventsAdapter,
-  device: GoveeDevice,
-  allDevices: GoveeDevice[],
-): void {
-  if (!adapter.stateManager) {
-    return;
-  }
-  const localSnaps = adapter.localSnapshots?.getSnapshots(device.sku, device.deviceId);
-  let memberDevices: GoveeDevice[] | undefined;
-  if (device.sku === "BaseGroup" && device.groupMembers) {
-    memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
-  }
-  const stateDefs = buildDeviceStateDefs(device, localSnaps, memberDevices);
-  const p = adapter.stateManager
-    .createDeviceStates(device, stateDefs)
-    .then(async () => {
-      await adapter.stateManager?.migrateLegacyDiagnostics(device);
-      await adapter.stateManager?.updateDeviceTier(device, getDeviceTier(device.sku));
-    })
-    .catch(e => {
-      adapter.log.error(`createDeviceStates failed for ${device.name}: ${errMessage(e)}`);
-    });
-  // Until ready, collect so onReady can await the whole initial batch.
-  // After ready, fire-and-forget — the queue would otherwise keep growing
-  // with resolved promises for the lifetime of the adapter.
+function trackStateCreation(adapter: DeviceEventsAdapter, p: Promise<void>): void {
   if (!adapter.statesReady) {
     adapter.stateCreationQueue.push(p);
   } else {
@@ -106,26 +79,89 @@ export function refreshDeviceStates(
 }
 
 /**
- * Called by device-manager when the device list changes. Triggers a
- * full state-tree rebuild for every device, refreshes connection state,
- * and reaps adapter-level maps for removed devices once the initial
- * boot phase has passed.
+ * Phase 1 callback — LAN-Discovery has found a device. Creates info-channel
+ * states (always-existing metadata) plus LAN-default control states (power,
+ * brightness, colorRgb, colorTemperature).
+ *
+ * Does NOT create scenes/music/snapshots — those need Cloud data. If the
+ * device later gets cloud capabilities, onCloudDataReady will fill them in
+ * additively.
  *
  */
-export function onDeviceListChanged<T extends DeviceEventsAdapter & connectionState.ConnectionStateAdapter>(
+export function onLanDeviceReady<T extends DeviceEventsAdapter & connectionState.ConnectionStateAdapter>(
   adapter: T,
-  devices: GoveeDevice[],
+  device: GoveeDevice,
+  _allDevices: GoveeDevice[],
 ): void {
   if (!adapter.stateManager) {
     return;
   }
-  for (const device of devices) {
-    refreshDeviceStates(adapter, device, devices);
-  }
+  const sm = adapter.stateManager;
+  const p = (async () => {
+    await sm.createInfoStates(device);
+    await sm.createLanStates(device);
+  })().catch(e => {
+    adapter.log.error(`onLanDeviceReady failed for ${device.name}: ${errMessage(e)}`);
+  });
+  trackStateCreation(adapter, p);
   connectionState.updateConnectionState(adapter);
-  // Cache sync happens once after the initial setup completes (see
-  // checkAllReady) — triggering here would fire on every device update.
+}
+
+/**
+ * Phase 2 callback — Cloud-Data is available for a device (from cache-merge,
+ * loadFromCloud success, refreshSceneDataForDevice, snapshot save/delete, or
+ * wizard-apply). Creates the full state-tree: info + LAN + Cloud states.
+ *
+ * createInfoStates and createLanStates are idempotent — calling them again
+ * after a LAN-phase has run only updates `info.online`/`info.ip` values.
+ *
+ */
+export function onCloudDataReady<T extends DeviceEventsAdapter & connectionState.ConnectionStateAdapter>(
+  adapter: T,
+  device: GoveeDevice,
+  allDevices: GoveeDevice[],
+): void {
+  if (!adapter.stateManager) {
+    return;
+  }
+  const sm = adapter.stateManager;
+  const localSnaps = adapter.localSnapshots?.getSnapshots(device.sku, device.deviceId);
+  let memberDevices: GoveeDevice[] | undefined;
+  if (device.sku === "BaseGroup" && device.groupMembers) {
+    memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
+  }
+  const cloudDefs = buildCloudStateDefs(device, localSnaps, memberDevices);
+  const p = (async () => {
+    await sm.createInfoStates(device);
+    await sm.createLanStates(device);
+    await sm.createCloudStates(device, cloudDefs);
+    await sm.migrateLegacyDiagnostics(device);
+    await sm.updateDeviceTier(device, getDeviceTier(device.sku));
+  })().catch(e => {
+    adapter.log.error(`onCloudDataReady failed for ${device.name}: ${errMessage(e)}`);
+  });
+  trackStateCreation(adapter, p);
+  connectionState.updateConnectionState(adapter);
   if (adapter.statesReady) {
     adapter.reapStaleDevices?.().catch(() => undefined);
   }
+}
+
+/**
+ * Phase 3 callback — Group members have been resolved (loadGroupMembers
+ * success). Rebuilds the BaseGroup state-tree with the intersection of
+ * member device capabilities.
+ *
+ * Member devices fire their own onLanDeviceReady / onCloudDataReady
+ * independently — this callback only handles the group itself.
+ *
+ */
+export function onGroupMembersReady<T extends DeviceEventsAdapter & connectionState.ConnectionStateAdapter>(
+  adapter: T,
+  group: GoveeDevice,
+  allDevices: GoveeDevice[],
+): void {
+  // BaseGroups go through the same Cloud-data path — group state-defs are
+  // intersection of member capabilities, which is Cloud-derived.
+  onCloudDataReady(adapter, group, allDevices);
 }

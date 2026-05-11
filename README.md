@@ -128,6 +128,12 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Restarting the adapter no longer briefly deletes and re-creates the scene, music and snapshot datapoints. The internal state-creation now runs in clear phases — LAN data is written from LAN discovery, Cloud data from the cloud refresh — and one phase no longer touches the other's territory.
+- Pure-LAN devices (no API key configured) no longer have empty scene/snapshot dropdowns lingering from earlier versions. A one-time cleanup on first start of 2.8.0 removes them.
+- Debug logs now carry the current channel status as a prefix and use structured key=value details, so a single log line tells you which channels were up at that moment and what the adapter actually saw.
+
 ### 2.7.1 (2026-05-10)
 
 - Cleaner startup log: the first line now tells you to wait for the "ready" message, and one redundant connection-info line is gone.

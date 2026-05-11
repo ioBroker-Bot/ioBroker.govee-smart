@@ -232,13 +232,15 @@ describe("DeviceManager", () => {
 
       let updateCount = 0;
       let lastUpdate: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updateCount++;
           lastUpdate = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       // First Discovery — must flip online to true and emit one update
       dm.handleLanDiscovery({ ip: "192.168.1.100", device: "AABBCCDDEEFF0011", sku: "H6160" });
@@ -262,12 +264,14 @@ describe("DeviceManager", () => {
       dm.handleLanDiscovery(lanDevice);
 
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       const update: MqttStatusUpdate = {
         sku: "H6160",
@@ -289,12 +293,14 @@ describe("DeviceManager", () => {
 
     it("should ignore unknown devices", () => {
       let updateCalled = false;
-      dm.setCallbacks(
-        () => {
+      dm.setCallbacks({
+      onUpdate: () => {
           updateCalled = true;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleMqttStatus({
         sku: "UNKNOWN",
@@ -316,12 +322,14 @@ describe("DeviceManager", () => {
       dm.handleLanDiscovery(lanDevice);
 
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleLanStatus("192.168.1.100", {
         onOff: 0,
@@ -339,12 +347,14 @@ describe("DeviceManager", () => {
 
     it("should ignore unknown IP addresses", () => {
       let updateCalled = false;
-      dm.setCallbacks(
-        () => {
+      dm.setCallbacks({
+      onUpdate: () => {
           updateCalled = true;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleLanStatus("10.0.0.1", {
         onOff: 1,
@@ -1153,12 +1163,14 @@ describe("DeviceManager", () => {
     it("should handle partial state update (power only)", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1174,12 +1186,14 @@ describe("DeviceManager", () => {
     it("should handle color temperature from MQTT", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1191,10 +1205,12 @@ describe("DeviceManager", () => {
 
     it("should set mqtt channel to true on status update", () => {
       setupDevice();
-      dm.setCallbacks(
-        () => {},
-        () => {},
-      );
+      dm.setCallbacks({
+      onUpdate: () => {},
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1209,12 +1225,14 @@ describe("DeviceManager", () => {
     it("should handle empty state object", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1228,12 +1246,14 @@ describe("DeviceManager", () => {
     it("should coerce string brightness from spoofed Govee push", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       // Govee schickt gelegentlich `brightness: "50"` (String) — der Adapter
       // muss das via coerceFiniteNumber zu 50 (Number) coerce'n und nicht
       // den String unverändert in den number-typed State propagieren.
@@ -1250,12 +1270,14 @@ describe("DeviceManager", () => {
     it("should drop completely garbage brightness (NaN, object, null)", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       dm.handleMqttStatus({
         sku: "H6160",
         device: "AABBCCDDEEFF0011",
@@ -1271,12 +1293,14 @@ describe("DeviceManager", () => {
     it("should drop colorTemInKelvin=0 (Govee 'no colortemp mode' marker)", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       dm.handleMqttStatus({
         sku: "H6160",
         device: "AABBCCDDEEFF0011",
@@ -1300,12 +1324,14 @@ describe("DeviceManager", () => {
     it("should handle zero brightness", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleLanStatus("192.168.1.100", {
         onOff: 1,
@@ -1319,12 +1345,14 @@ describe("DeviceManager", () => {
     it("should handle colorTemInKelvin 0 as no color temp", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
-      dm.setCallbacks(
-        (_dev, state) => {
+      dm.setCallbacks({
+      onUpdate: (_dev, state) => {
           updatedState = state;
         },
-        () => {},
-      );
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm.handleLanStatus("192.168.1.100", {
         onOff: 1,
@@ -1706,10 +1734,12 @@ describe("DeviceManager", () => {
       device.segmentCount = 15;
 
       let segmentUpdates: import("./device-manager").MqttSegmentData[] | null = null;
-      dm.setCallbacks(
-        () => {},
-        () => {},
-      );
+      dm.setCallbacks({
+      onUpdate: () => {},
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       dm.onMqttSegmentUpdate = (_dev, segs) => {
         segmentUpdates = segs;
       };
@@ -1752,10 +1782,12 @@ describe("DeviceManager", () => {
       // Device starts with segmentCount undefined — LAN-only, no Cloud data yet
 
       let grownDevice: GoveeDevice | null = null;
-      dm.setCallbacks(
-        () => {},
-        () => {},
-      );
+      dm.setCallbacks({
+      onUpdate: () => {},
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       dm.onSegmentCountGrown = d => {
         grownDevice = d;
       };
@@ -1799,10 +1831,12 @@ describe("DeviceManager", () => {
       device.segmentCount = 15;
 
       let grownDevice: GoveeDevice | null = null;
-      dm.setCallbacks(
-        () => {},
-        () => {},
-      );
+      dm.setCallbacks({
+      onUpdate: () => {},
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       dm.onSegmentCountGrown = d => {
         grownDevice = d;
       };
@@ -1841,10 +1875,12 @@ describe("DeviceManager", () => {
       device.segmentCount = 15;
 
       let called = false;
-      dm.setCallbacks(
-        () => {},
-        () => {},
-      );
+      dm.setCallbacks({
+      onUpdate: () => {},
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
       dm.onMqttSegmentUpdate = () => {
         called = true;
       };
@@ -2343,7 +2379,12 @@ describe("DeviceManager — loadFromCache merge", () => {
       dev.state.online = false;
 
       const updates: Array<Partial<DeviceState>> = [];
-      dm2.setCallbacks((_, s) => updates.push(s), () => {});
+      dm2.setCallbacks({
+      onUpdate: (_, s) => updates.push(s),
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       const apiClient = {
         hasBearerToken: () => true,
@@ -2370,7 +2411,12 @@ describe("DeviceManager — loadFromCache merge", () => {
       dev.state.online = true;
 
       const updates: Array<Partial<DeviceState>> = [];
-      dm2.setCallbacks((_, s) => updates.push(s), () => {});
+      dm2.setCallbacks({
+      onUpdate: (_, s) => updates.push(s),
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       const apiClient = {
         hasBearerToken: () => true,
@@ -2396,7 +2442,12 @@ describe("DeviceManager — loadFromCache merge", () => {
       dev.state.online = false;
 
       const updates: Array<Partial<DeviceState>> = [];
-      dm2.setCallbacks((_, s) => updates.push(s), () => {});
+      dm2.setCallbacks({
+      onUpdate: (_, s) => updates.push(s),
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm2.handleOpenApiEvent({
         sku: "H5179",
@@ -2418,7 +2469,12 @@ describe("DeviceManager — loadFromCache merge", () => {
       dev.state.online = false;
 
       const updates: Array<Partial<DeviceState>> = [];
-      dm2.setCallbacks((_, s) => updates.push(s), () => {});
+      dm2.setCallbacks({
+      onUpdate: (_, s) => updates.push(s),
+      onLanDeviceReady: () => {},
+      onCloudDataReady: () => {},
+      onGroupMembersReady: () => {},
+    });
 
       dm2.handleOpenApiEvent({
         sku: "H5179",

@@ -29,65 +29,86 @@ export function populateScenesFromLibrary(adapter: DeviceCacheAdapter, device: G
 }
 
 /**
- * Convert cached data to a GoveeDevice (runtime fields set to defaults).
+ * Convert cached data back into a GoveeDevice. Spreads all persisted fields
+ * and re-initializes the runtime-only fields (state, channels, lanIp,
+ * groupMembers) to their boot defaults — they get refilled by LAN-Discovery,
+ * Cloud-API responses, etc. during onReady.
  *
+ * Adding a new field to GoveeDevice / CachedDeviceData: no change here.
+ * Removing a field: no change here either (extra keys in the cache are
+ * silently ignored). The shape is the contract.
+ *
+ * Runtime-only fields (NOT restored from cache):
+ * - state           — recomputed from LAN/MQTT status as devices come online
+ * - channels        — recomputed from LAN/MQTT/Cloud connection results
+ * - lanIp           — re-discovered by LAN UDP scan each restart
+ * - groupMembers    — re-resolved by loadGroupMembers via App-API each restart
  */
 export function cachedToGoveeDevice(cached: CachedDeviceData): GoveeDevice {
+  // Strip cachedAt (cache-metadata) AND any runtime-only field that might
+  // have leaked into the cache from a tampered file or an old broken save.
+  // Runtime defaults are appended explicitly below — they are NOT influenced
+  // by what the cache contained.
+  const {
+    cachedAt: _cachedAt,
+    // Cast-through 'unknown' because TypeScript doesn't know the malformed
+    // cache could carry these fields; we want the destructure-discard either way.
+    state: _state,
+    channels: _channels,
+    lanIp: _lanIp,
+    groupMembers: _groupMembers,
+    ...rest
+  } = cached as CachedDeviceData & Partial<Pick<GoveeDevice, "state" | "channels" | "lanIp" | "groupMembers">>;
   return {
-    sku: cached.sku,
-    deviceId: cached.deviceId,
-    name: cached.name,
-    type: cached.type,
-    capabilities: cached.capabilities,
-    scenes: cached.scenes,
-    diyScenes: cached.diyScenes,
-    snapshots: cached.snapshots,
-    sceneLibrary: cached.sceneLibrary,
-    musicLibrary: cached.musicLibrary,
-    diyLibrary: cached.diyLibrary,
-    skuFeatures: cached.skuFeatures,
-    snapshotBleCmds: cached.snapshotBleCmds,
-    scenesChecked: cached.scenesChecked,
-    lastSeenOnNetwork: cached.lastSeenOnNetwork,
-    // Restore learned count so it wins over Cloud capability on next start.
-    segmentCount: cached.segmentCount,
-    manualMode: cached.manualMode,
-    manualSegments: cached.manualSegments,
-    sceneSpeed: cached.sceneSpeed,
+    ...rest,
     state: { online: false },
     channels: { lan: false, mqtt: false, cloud: false },
   };
 }
 
 /**
- * Extract cacheable data from a GoveeDevice.
+ * Extract cacheable data from a GoveeDevice — destructures the runtime-only
+ * fields out and spreads the rest. Adding a new cacheable field to
+ * GoveeDevice: no change here.
  *
+ * normalize() handles the few save-time tweaks that exist (e.g. drop
+ * segmentCount when 0, drop manualMode flags when falsy/empty) so the cache
+ * stays compact.
  */
 export function goveeDeviceToCached(device: GoveeDevice): CachedDeviceData {
+  // Strip runtime-only fields. Everything else flows into the cache.
+  const { state: _state, channels: _channels, lanIp: _lanIp, groupMembers: _groupMembers, ...cacheable } = device;
   return {
-    sku: device.sku,
-    deviceId: device.deviceId,
-    name: device.name,
-    type: device.type,
-    capabilities: device.capabilities,
-    scenes: device.scenes,
-    diyScenes: device.diyScenes,
-    snapshots: device.snapshots,
-    sceneLibrary: device.sceneLibrary,
-    musicLibrary: device.musicLibrary,
-    diyLibrary: device.diyLibrary,
-    skuFeatures: device.skuFeatures,
-    snapshotBleCmds: device.snapshotBleCmds,
-    scenesChecked: device.scenesChecked,
-    lastSeenOnNetwork: device.lastSeenOnNetwork,
-    segmentCount: typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : undefined,
-    manualMode: device.manualMode ? true : undefined,
-    manualSegments:
-      device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0
-        ? device.manualSegments.slice()
-        : undefined,
-    sceneSpeed: typeof device.sceneSpeed === "number" && device.sceneSpeed > 0 ? device.sceneSpeed : undefined,
+    ...normalize(cacheable),
     cachedAt: Date.now(),
+  };
+}
+
+/**
+ * Compact a few fields before persisting:
+ * - segmentCount only kept when > 0 (0 means "not yet learned")
+ * - manualMode only kept when true (false is the default)
+ * - manualSegments only kept when manualMode AND non-empty
+ * - sceneSpeed only kept when > 0
+ *
+ * Pure function on the destructured cacheable view (no `state` / `channels` /
+ * `lanIp` / `groupMembers` here). Returns the same shape minus the dropped
+ * keys.
+ */
+function normalize<T extends Omit<GoveeDevice, "state" | "channels" | "lanIp" | "groupMembers">>(
+  d: T,
+): Omit<CachedDeviceData, "cachedAt"> {
+  const segmentCount = typeof d.segmentCount === "number" && d.segmentCount > 0 ? d.segmentCount : undefined;
+  const manualMode = d.manualMode ? true : undefined;
+  const manualSegments =
+    manualMode && Array.isArray(d.manualSegments) && d.manualSegments.length > 0 ? d.manualSegments.slice() : undefined;
+  const sceneSpeed = typeof d.sceneSpeed === "number" && d.sceneSpeed > 0 ? d.sceneSpeed : undefined;
+  return {
+    ...d,
+    segmentCount,
+    manualMode,
+    manualSegments,
+    sceneSpeed,
   };
 }
 

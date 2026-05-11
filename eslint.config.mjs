@@ -41,6 +41,10 @@ export default [
       "build",
       "admin",
       "node_modules",
+      // Catches macOS-Finder duplicate-on-restore artifacts like "node_modules 2/" —
+      // without this, eslint scans every .ts file in the copy and the type-aware
+      // rules run out of memory.
+      "node_modules*/",
       "**/adapter-config.d.ts",
     ],
   },

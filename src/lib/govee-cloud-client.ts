@@ -277,7 +277,7 @@ export class GoveeCloudClient {
    * @param body Optional request body
    */
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    this.log.debug(`Cloud API: ${method} ${path}`);
+    this.log.debug(`Cloud API: ${method} ${path} auth=apiKey`);
     try {
       const result = await this.httpsRequestImpl<T>({
         method: method as "GET" | "POST",

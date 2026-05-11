@@ -600,17 +600,21 @@ export class GoveeMqttClient {
       return;
     }
     this.client.on("connect", () => {
+      const wasCached = this.persistedAttemptInFlight;
       this.persistedAttemptInFlight = false;
       this.reconnectAttempts = 0;
       this.authFailCount = 0;
+      const broker = this.persisted?.iotEndpoint ?? "?";
+      const clientId = `AP/${this.accountId}/${this.sessionUuid}`;
+      const authMode = wasCached ? "cached" : "fresh";
       if (this.lastErrorCategory) {
-        this.log.info(`MQTT connection restored`);
+        this.log.info(`MQTT connection restored: broker=${broker} clientId=${clientId} authMode=${authMode}`);
         this.lastErrorCategory = null;
       } else {
         // Initial connect is implicit in the ready-message ("channels:
         // LAN+Cloud+MQTT+..."), so this stays debug — only the recovery
         // path above earns an info-level event.
-        this.log.debug(`MQTT connected`);
+        this.log.debug(`MQTT connected: broker=${broker} clientId=${clientId} authMode=${authMode}`);
       }
       this.client?.subscribe(this.accountTopic, { qos: 0 }, err => {
         if (err) {
@@ -627,7 +631,7 @@ export class GoveeMqttClient {
             // ignore — close-event handler will pick it up either way
           }
         } else {
-          this.log.debug("MQTT subscribed to account topic");
+          this.log.debug(`MQTT subscribed to account topic: topic=${this.accountTopic} qos=0`);
           this.onConnection?.(true);
         }
       });

@@ -1,14 +1,30 @@
 import { expect } from "chai";
 import {
   applyQuirksToStates,
-  buildDeviceStateDefs,
+  buildCloudStateDefs,
+  buildLanStateDefs,
   getDefaultLanStates,
+  LAN_STATE_IDS,
   mapCapabilities,
   mapCloudStateValue,
   planCloudCapabilityWrites,
+  type StateDefinition,
 } from "./capability-mapper";
 import { _resetDeviceRegistry, initDeviceRegistry } from "./device-registry";
 import type { CloudCapability, CloudStateCapability, GoveeDevice } from "./types";
+
+/**
+ * Concat helper for tests that need the full state-def set (LAN + Cloud).
+ * Mirrors what the old buildDeviceStateDefs used to do — kept inline in
+ * tests so we don't reintroduce a wrapper in the production module.
+ */
+function buildAllStateDefsForTest(
+  device: GoveeDevice,
+  localSnapshots?: { name: string }[],
+  memberDevices?: GoveeDevice[],
+): StateDefinition[] {
+  return [...buildLanStateDefs(device), ...buildCloudStateDefs(device, localSnapshots, memberDevices)];
+}
 
 /**
  * Quirk-dependent tests need a registry where the seed-status entries
@@ -253,7 +269,7 @@ describe("CapabilityMapper", () => {
       expect(result[0].role).to.equal("json");
     });
 
-    it("should skip dynamic_scene for lightScene/diyScene/snapshot (handled by buildDeviceStateDefs)", () => {
+    it("should skip dynamic_scene for lightScene/diyScene/snapshot (handled by buildCloudStateDefs SCENE_DROPDOWN_RULES)", () => {
       const caps: CloudCapability[] = [
         {
           type: "devices.capabilities.dynamic_scene",
@@ -271,7 +287,7 @@ describe("CapabilityMapper", () => {
           parameters: { dataType: "STRUCT" },
         },
       ];
-      // These three instances become real dropdowns in buildDeviceStateDefs
+      // These three instances become real dropdowns in buildCloudStateDefs (SCENE_DROPDOWN_RULES)
       // fed from device.scenes / diyScenes / snapshots — mapCapabilities
       // returns nothing so no generic stub has to be filtered out later.
       expect(mapCapabilities(caps)).to.have.lengthOf(0);
@@ -850,7 +866,7 @@ describe("CapabilityMapper", () => {
     });
   });
 
-  describe("buildDeviceStateDefs dropdown contract (Blockly dual-write)", () => {
+  describe("buildLanStateDefs + buildCloudStateDefs dropdown contract (Blockly dual-write)", () => {
     function makeDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
       return {
         sku: "H61BE",
@@ -888,7 +904,7 @@ describe("CapabilityMapper", () => {
           { name: "Movie", value: { id: 3 } }, // duplicate
         ],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       const sceneDef = defs.find(d => d.id === "light_scene");
       expect(sceneDef).to.exist;
       expect(sceneDef!.type).to.equal("mixed");
@@ -904,7 +920,7 @@ describe("CapabilityMapper", () => {
       const device = makeDevice({
         diyScenes: [{ name: "MyDIY", value: { id: 99 } }],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       const diyDef = defs.find(d => d.id === "diy_scene");
       expect(diyDef).to.exist;
       expect(diyDef!.type).to.equal("mixed");
@@ -914,7 +930,7 @@ describe("CapabilityMapper", () => {
       const device = makeDevice({
         snapshots: [{ name: "My Snap", value: { id: 7 } }],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       const snapDef = defs.find(d => d.id === "snapshot_cloud");
       expect(snapDef).to.exist;
       expect(snapDef!.type).to.equal("mixed");
@@ -922,7 +938,7 @@ describe("CapabilityMapper", () => {
 
     it("snapshot_local must be type:mixed even with empty list", () => {
       const device = makeDevice();
-      const defs = buildDeviceStateDefs(device, undefined);
+      const defs = buildAllStateDefsForTest(device, undefined);
       const localDef = defs.find(d => d.id === "snapshot_local");
       expect(localDef).to.exist;
       expect(localDef!.type).to.equal("mixed");
@@ -940,7 +956,7 @@ describe("CapabilityMapper", () => {
         diyScenes: [],
         snapshots: [],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       const sceneDef = defs.find(d => d.id === "light_scene");
       const diyDef = defs.find(d => d.id === "diy_scene");
       const snapDef = defs.find(d => d.id === "snapshot_cloud");
@@ -960,7 +976,7 @@ describe("CapabilityMapper", () => {
           { type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: { dataType: "ENUM" } },
         ],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       expect(defs.find(d => d.id === "light_scene"), "light_scene must NOT exist").to.be.undefined;
       expect(defs.find(d => d.id === "diy_scene"), "diy_scene must NOT exist").to.be.undefined;
       expect(defs.find(d => d.id === "snapshot_cloud"), "snapshot_cloud must NOT exist").to.be.undefined;
@@ -968,7 +984,7 @@ describe("CapabilityMapper", () => {
 
     it("refresh_cloud button is created for lights with any dynamic_scene capability", () => {
       const device = makeDevice();
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       const refreshDef = defs.find(d => d.id === "refresh_cloud");
       expect(refreshDef, "refresh_cloud must exist on a light with dynamic_scene caps").to.exist;
       expect(refreshDef!.type).to.equal("boolean");
@@ -985,7 +1001,7 @@ describe("CapabilityMapper", () => {
           { type: "devices.capabilities.dynamic_scene", instance: "lightScene", parameters: { dataType: "ENUM" } },
         ],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must exist for lightScene-only").to.exist;
     });
 
@@ -996,13 +1012,13 @@ describe("CapabilityMapper", () => {
           { type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: { dataType: "ENUM" } },
         ],
       });
-      const defs = buildDeviceStateDefs(device);
+      const defs = buildAllStateDefsForTest(device);
       expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must NOT exist on caps-less device").to.be
         .undefined;
     });
   });
 
-  describe("buildDeviceStateDefs for groups", () => {
+  describe("buildCloudStateDefs for groups", () => {
     function createMember(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
       return {
         sku: "H61BE",
@@ -1054,7 +1070,7 @@ describe("CapabilityMapper", () => {
 
     it("should return empty for group with no members", () => {
       const group = createGroup();
-      const result = buildDeviceStateDefs(group, undefined, []);
+      const result = buildAllStateDefsForTest(group, undefined, []);
       expect(result).to.have.lengthOf(0);
     });
 
@@ -1062,7 +1078,7 @@ describe("CapabilityMapper", () => {
       const group = createGroup();
       const m1 = createMember({ sku: "H61BE", lanIp: "192.168.1.1" });
       const m2 = createMember({ sku: "H61BC", lanIp: "192.168.1.2" });
-      const result = buildDeviceStateDefs(group, undefined, [m1, m2]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       const ids = result.map(d => d.id);
       expect(ids).to.include("power");
       expect(ids).to.include("brightness");
@@ -1073,7 +1089,7 @@ describe("CapabilityMapper", () => {
     it("should not include snapshots or diagnostics for groups", () => {
       const group = createGroup();
       const m1 = createMember();
-      const result = buildDeviceStateDefs(group, undefined, [m1]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1]);
       const ids = result.map(d => d.id);
       expect(ids).to.not.include("snapshot_local");
       expect(ids).to.not.include("snapshot_save");
@@ -1099,7 +1115,7 @@ describe("CapabilityMapper", () => {
         ],
       });
       const group = createGroup();
-      const result = buildDeviceStateDefs(group, undefined, [m1, m2]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       const sceneDef = result.find(d => d.id === "light_scene");
       expect(sceneDef).to.exist;
       // "---" + 2 common scenes (Rainbow, Ocean)
@@ -1126,7 +1142,7 @@ describe("CapabilityMapper", () => {
         ],
       });
       const group = createGroup();
-      const result = buildDeviceStateDefs(group, undefined, [m1, m2]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       const musicDef = result.find(d => d.id === "music_mode");
       expect(musicDef).to.exist;
       expect(Object.values(musicDef!.states!)).to.include("Rhythm");
@@ -1138,7 +1154,7 @@ describe("CapabilityMapper", () => {
       const m1 = createMember({ scenes: [{ name: "Sunset", value: { id: 1 } }] });
       const m2 = createMember({ scenes: [] });
       const group = createGroup();
-      const result = buildDeviceStateDefs(group, undefined, [m1, m2]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       expect(result.find(d => d.id === "light_scene")).to.be.undefined;
     });
 
@@ -1152,7 +1168,7 @@ describe("CapabilityMapper", () => {
         channels: { lan: false, mqtt: false, cloud: true },
       });
       const group = createGroup();
-      const result = buildDeviceStateDefs(group, undefined, [m1]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1]);
       const ids = result.map(d => d.id);
       expect(ids).to.include("power");
       expect(ids).to.include("brightness");
@@ -1163,7 +1179,7 @@ describe("CapabilityMapper", () => {
     it("should skip unreachable members (no LAN, no Cloud)", () => {
       const m1 = createMember({ lanIp: undefined, channels: { lan: false, mqtt: false, cloud: false } });
       const group = createGroup();
-      const result = buildDeviceStateDefs(group, undefined, [m1]);
+      const result = buildAllStateDefsForTest(group, undefined, [m1]);
       expect(result).to.have.lengthOf(0);
     });
   });
@@ -1516,6 +1532,73 @@ describe("CapabilityMapper", () => {
 
     it("returns empty array for empty input", () => {
       expect(planCloudCapabilityWrites([], false, lanStateIds)).to.deep.equal([]);
+    });
+  });
+
+  describe("Architektur-Invarianten — LAN_STATE_IDS", () => {
+    // These two tests guard the three-link chain that makes the v2.7.0
+    // wipe-bug structurally impossible. Each test fails when a future
+    // refactor breaks the corresponding link.
+
+    it("Invariante 1: LAN_STATE_IDS deckt alle getDefaultLanStates-Einträge", () => {
+      // Wer zu getDefaultLanStates ein fünftes Feld hinzufügt aber LAN_STATE_IDS
+      // nicht erweitert: das neue Feld läuft in den cloud-owned cleanup → wird
+      // beim nächsten Restart gelöscht.
+      for (const def of getDefaultLanStates()) {
+        expect(LAN_STATE_IDS.has(def.id), `LAN_STATE_IDS missing entry for ${def.id}`).to.be.true;
+      }
+      expect(LAN_STATE_IDS.size).to.equal(
+        getDefaultLanStates().length,
+        "LAN_STATE_IDS has entries not backed by getDefaultLanStates — drift in the other direction",
+      );
+    });
+
+    it("Invariante 2: buildCloudStateDefs hat keinen Overlap mit LAN_STATE_IDS", () => {
+      // Wer den LAN_STATE_IDS-Dedup-Filter in buildCloudStateDefs vergisst:
+      // power/brightness/etc. werden doppelt angelegt — einmal aus LAN-Phase,
+      // einmal aus Cloud-cap. Cleanup wischt eine, andere bleibt; State-Wert
+      // springt zwischen Quellen.
+      const device: GoveeDevice = {
+        sku: "H6172",
+        deviceId: "AA:BB:CC:DD:EE:FF",
+        name: "Test Light",
+        type: "devices.types.light",
+        lanIp: "192.168.1.10",
+        scenes: [],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: true },
+        channels: { lan: true, mqtt: false, cloud: true },
+        capabilities: [
+          { type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: { dataType: "ENUM" } },
+          {
+            type: "devices.capabilities.range",
+            instance: "brightness",
+            parameters: { dataType: "INTEGER", range: { min: 0, max: 100, precision: 1 } },
+          },
+          { type: "devices.capabilities.color_setting", instance: "colorRgb", parameters: { dataType: "INTEGER" } },
+          {
+            type: "devices.capabilities.color_setting",
+            instance: "colorTemperatureK",
+            parameters: { dataType: "INTEGER", range: { min: 2000, max: 9000, precision: 1 } },
+          },
+          {
+            type: "devices.capabilities.toggle",
+            instance: "gradientToggle",
+            parameters: { dataType: "ENUM" },
+          },
+        ],
+      } as never;
+      const cloudDefs = buildCloudStateDefs(device);
+      for (const def of cloudDefs) {
+        expect(LAN_STATE_IDS.has(def.id), `buildCloudStateDefs emitted LAN-owned id ${def.id}`).to.be.false;
+      }
+      // Sanity: cap-derived non-LAN states (gradient_toggle) DO make it through
+      expect(cloudDefs.some(d => d.id === "gradient_toggle")).to.be.true;
     });
   });
 });

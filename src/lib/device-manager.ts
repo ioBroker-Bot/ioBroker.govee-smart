@@ -68,7 +68,10 @@ export class DeviceManager {
   public skuCache: SkuCache | null = null;
   /** Public for sub-module helpers (cloud-merge). */
   public onDeviceUpdate: ((device: GoveeDevice, state: Partial<DeviceState>) => void) | null = null;
-  private onDeviceListChanged: ((devices: GoveeDevice[]) => void) | null = null;
+  /** Phase-specific callbacks — one per data source. See setCallbacks. */
+  public onLanDeviceReady: ((device: GoveeDevice, allDevices: GoveeDevice[]) => void) | null = null;
+  public onCloudDataReady: ((device: GoveeDevice, allDevices: GoveeDevice[]) => void) | null = null;
+  public onGroupMembersReady: ((group: GoveeDevice, allDevices: GoveeDevice[]) => void) | null = null;
   private onCloudCapabilities: ((device: GoveeDevice, caps: CloudStateCapability[]) => void) | null = null;
   /** Per-source dedup so a Cloud NETWORK error doesn't shadow an App-API one. */
   private lastErrorCategory: ErrorCategory | null = null;
@@ -120,6 +123,32 @@ export class DeviceManager {
   }
 
   /**
+   * Structured debug-log for failed undocumented App-API calls. Pulls apart
+   * the cryptic "Invalid JSON in HTTP 200 response — body starts with: <snippet>"
+   * message into addressable fields so the user can read the actual facts:
+   * endpoint URL, HTTP status, bearer-token presence, body snippet.
+   * No interpretation — just the data.
+   *
+   * @param sku Govee SKU (for log context)
+   * @param what Human-readable name of the data being loaded
+   * @param endpoint Endpoint identifier for diagnostics history
+   * @param hasBearer Whether a bearer token was attached to the request
+   * @param e Caught error
+   */
+  private logUndocApiFailure(sku: string, what: string, endpoint: string, hasBearer: boolean, e: unknown): void {
+    const httpStatus = this.extractStatus(e);
+    const msg = errMessage(e);
+    // http-client formats invalid-JSON-200 errors as "...body starts with: <snippet>"
+    const bodyMatch = msg.match(/body starts with: (.+)$/);
+    const bodySnippet = bodyMatch?.[1] ?? "";
+    const statusPart = httpStatus !== undefined ? ` httpStatus=${httpStatus}` : "";
+    const bodyPart = bodySnippet ? ` body="${bodySnippet}"` : ` error="${msg}"`;
+    this.log.debug(
+      `Could not load ${what} for ${sku}: endpoint=${endpoint}${statusPart} bearer=${hasBearer ? "yes" : "no"}${bodyPart}`,
+    );
+  }
+
+  /**
    * Register the LAN client
    *
    * @param client LAN UDP client instance
@@ -166,17 +195,25 @@ export class DeviceManager {
   }
 
   /**
-   * Set callbacks for device state changes and list changes.
+   * Set the phase-specific callbacks. Each fires when its data source has
+   * delivered its part of the picture — never with stale / half-filled data.
    *
-   * @param onUpdate Called when a device state changes (from any channel)
-   * @param onListChanged Called when the device list changes (new/removed devices)
+   * @param callbacks Phase callbacks. See per-field JSDoc on DeviceManager.
+   * @param callbacks.onUpdate Fired when a single device's state-fields change (LAN/MQTT/Cloud value update)
+   * @param callbacks.onLanDeviceReady Fired when LAN-Discovery finds a device — only LAN data is available yet
+   * @param callbacks.onCloudDataReady Fired when Cloud capabilities are available (cache merge OR live cloud)
+   * @param callbacks.onGroupMembersReady Fired when group membership has been resolved via App-API
    */
-  setCallbacks(
-    onUpdate: (device: GoveeDevice, state: Partial<DeviceState>) => void,
-    onListChanged: (devices: GoveeDevice[]) => void,
-  ): void {
-    this.onDeviceUpdate = onUpdate;
-    this.onDeviceListChanged = onListChanged;
+  setCallbacks(callbacks: {
+    onUpdate: (device: GoveeDevice, state: Partial<DeviceState>) => void;
+    onLanDeviceReady: (device: GoveeDevice, allDevices: GoveeDevice[]) => void;
+    onCloudDataReady: (device: GoveeDevice, allDevices: GoveeDevice[]) => void;
+    onGroupMembersReady: (group: GoveeDevice, allDevices: GoveeDevice[]) => void;
+  }): void {
+    this.onDeviceUpdate = callbacks.onUpdate;
+    this.onLanDeviceReady = callbacks.onLanDeviceReady;
+    this.onCloudDataReady = callbacks.onCloudDataReady;
+    this.onGroupMembersReady = callbacks.onGroupMembersReady;
   }
 
   /** Get all known devices */
@@ -260,13 +297,26 @@ export class DeviceManager {
       this.log.info(`Loaded ${cached.length} device(s) from cache`);
     }
 
-    // Always refetch cloud data on startup — scenesChecked is purely diagnostic
-    // now, not a gate. Snapshots are user-content (created dynamically in the
-    // Govee Home app) and would miss new entries if we relied solely on the
-    // cache. The refetch costs one call per light device per startup, well
-    // within rate limits. Users can also trigger a fresh fetch without
-    // restart via `info.refresh_cloud_data`.
-    const hasLight = Array.from(this.devices.values()).some(d => d.type === "devices.types.light");
+    // Fire per-device phase callback right after merge. Devices with
+    // non-empty caps go into Cloud-phase immediately (cache counts as Cloud-
+    // data-ready); devices without caps stay in LAN-phase. The boot continues
+    // — Cloud-Load will refresh dropdowns/scenes/snapshots later via
+    // onCloudDataReady again (idempotent).
+    const allDevices = this.getDevices();
+    for (const device of allDevices) {
+      if (device.capabilities.length > 0) {
+        this.onCloudDataReady?.(device, allDevices);
+      } else if (device.lanIp) {
+        this.onLanDeviceReady?.(device, allDevices);
+      }
+    }
+
+    // Always refetch cloud data on startup — scenesChecked is purely
+    // diagnostic now, not a gate. Snapshots are user-content (created
+    // dynamically in the Govee Home app) and would miss new entries if we
+    // relied solely on the cache. The refetch costs one call per light per
+    // startup, well within rate limits.
+    const hasLight = allDevices.some(d => d.type === "devices.types.light");
     if (hasLight) {
       this.log.debug("Cache loaded — will refresh scenes/snapshots via Cloud");
       return false;
@@ -277,9 +327,6 @@ export class DeviceManager {
       cacheHelpers.populateScenesFromLibrary(this, device);
     }
 
-    if (changed) {
-      this.onDeviceListChanged?.(this.getDevices());
-    }
     return cached.length > 0;
   }
 
@@ -361,7 +408,14 @@ export class DeviceManager {
       }
 
       if (changed) {
-        this.onDeviceListChanged?.(this.getDevices());
+        const allDevices = this.getDevices();
+        for (const device of allDevices) {
+          if (device.sku === "BaseGroup") {
+            // Groups go through onGroupMembersReady — see loadGroupMembers
+            continue;
+          }
+          this.onCloudDataReady?.(device, allDevices);
+        }
       }
       this.lastErrorCategory = null;
       return { ok: true };
@@ -469,7 +523,8 @@ export class DeviceManager {
     if (changed) {
       this.saveDevicesToCache();
       cacheHelpers.populateScenesFromLibrary(this, target);
-      this.onDeviceListChanged?.(this.getDevices());
+      // Per-device Cloud-phase fire — only the targeted device needs a rebuild.
+      this.onCloudDataReady?.(target, this.getDevices());
     }
     return changed;
   }
@@ -608,6 +663,8 @@ export class DeviceManager {
       await this.commandRouter.executeRateLimited(fn, 2);
     };
 
+    const hasBearer = this.apiClient.hasBearerToken();
+
     if (force || device.sceneLibrary.length === 0) {
       await runLimited(async () => {
         const ep = `/light-effect-libraries?sku=${sku}`;
@@ -621,7 +678,7 @@ export class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load scene library for ${sku}: ${errMessage(e)}`);
+          this.logUndocApiFailure(sku, "scene library", ep, hasBearer, e);
         }
       });
     }
@@ -639,7 +696,7 @@ export class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load music library for ${sku}: ${errMessage(e)}`);
+          this.logUndocApiFailure(sku, "music library", ep, hasBearer, e);
         }
       });
     }
@@ -657,7 +714,7 @@ export class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load DIY library for ${sku}: ${errMessage(e)}`);
+          this.logUndocApiFailure(sku, "DIY library", ep, hasBearer, e);
         }
       });
     }
@@ -675,7 +732,7 @@ export class DeviceManager {
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
-          this.log.debug(`Could not load SKU features for ${sku}: ${errMessage(e)}`);
+          this.logUndocApiFailure(sku, "SKU features", ep, hasBearer, e);
         }
       });
     }
@@ -754,7 +811,13 @@ export class DeviceManager {
       }
 
       if (changed) {
-        this.onDeviceListChanged?.(this.getDevices());
+        const allDevices = this.getDevices();
+        // Per-group Group-phase fire — only the BaseGroup state-trees need
+        // rebuilding (intersection of member caps). Members themselves
+        // haven't changed, so their phase callbacks don't fire.
+        for (const group of allDevices.filter(d => d.sku === "BaseGroup")) {
+          this.onGroupMembersReady?.(group, allDevices);
+        }
       }
       // Reset dedup on success so a future failure warns again.
       this.lastGroupMembersErrorCategory = null;
@@ -844,9 +907,15 @@ export class DeviceManager {
       };
       this.devices.set(this.deviceKey(lanDevice.sku, lanDevice.device), device);
       this.diagnostics.addLog(lanDevice.device, "info", `LAN-discovered at ${lanDevice.ip}`);
-      this.log.debug(`LAN: New device ${lanDevice.sku} at ${lanDevice.ip}`);
+      this.log.debug(
+        `LAN: new device sku=${lanDevice.sku} deviceId=${lanDevice.device} ip=${lanDevice.ip} reachable=yes`,
+      );
       this.maybeNudgeSeedSku(lanDevice.sku, device.name);
-      this.onDeviceListChanged?.(this.getDevices());
+      // LAN-phase only — capabilities are empty at this point. Cloud-phase
+      // will fire later from cache-merge or loadFromCloud once caps arrive.
+      // Before v2.8.0 this fired a bulk onDeviceListChanged that triggered
+      // the wipe-and-recreate bug. (Issue #13)
+      this.onLanDeviceReady?.(device, this.getDevices());
     }
   }
 

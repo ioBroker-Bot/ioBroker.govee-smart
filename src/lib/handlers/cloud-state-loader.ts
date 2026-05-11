@@ -1,4 +1,4 @@
-import { getDefaultLanStates, mapCloudStateValue, planCloudCapabilityWrites } from "../capability-mapper";
+import { LAN_STATE_IDS, mapCloudStateValue, planCloudCapabilityWrites } from "../capability-mapper";
 import type { DeviceManager } from "../device-manager";
 import type { GoveeCloudClient } from "../govee-cloud-client";
 import type { StateManager } from "../state-manager";
@@ -31,7 +31,6 @@ export async function loadCloudStates(adapter: CloudStateLoaderAdapter): Promise
   }
 
   const devices = adapter.deviceManager.getDevices();
-  const lanStateIds = new Set(getDefaultLanStates().map(s => s.id));
   let loaded = 0;
 
   for (const device of devices) {
@@ -49,7 +48,7 @@ export async function loadCloudStates(adapter: CloudStateLoaderAdapter): Promise
         if (!mapped) {
           continue;
         }
-        if (device.lanIp && lanStateIds.has(mapped.stateId)) {
+        if (device.lanIp && LAN_STATE_IDS.has(mapped.stateId)) {
           continue;
         }
         const statePath = adapter.stateManager.resolveStatePath(prefix, mapped.stateId);
@@ -91,9 +90,8 @@ export async function applyCloudCapabilities(
   if (!adapter.stateManager) {
     return;
   }
-  const lanStateIds = new Set(getDefaultLanStates().map(s => s.id));
   const prefix = adapter.stateManager.devicePrefix(device);
-  const planned = planCloudCapabilityWrites(caps, Boolean(device.lanIp), lanStateIds);
+  const planned = planCloudCapabilityWrites(caps, Boolean(device.lanIp), LAN_STATE_IDS);
   for (const mapped of planned) {
     await adapter.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
   }

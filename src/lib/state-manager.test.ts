@@ -1,7 +1,24 @@
 import { expect } from "chai";
 import { StateManager } from "./state-manager";
 import type { GoveeDevice } from "./types";
-import type { StateDefinition } from "./capability-mapper";
+import { LAN_STATE_IDS, type StateDefinition } from "./capability-mapper";
+
+/**
+ * Test helper — runs the full state-creation sequence (info + LAN + Cloud)
+ * for a device with pre-built stateDefs. Mirrors what the old
+ * createDeviceStates used to do internally; kept as a test helper so the
+ * production module stays free of legacy wrappers.
+ */
+async function createAllStatesForTest(
+  sm: StateManager,
+  device: GoveeDevice,
+  stateDefs: StateDefinition[],
+): Promise<void> {
+  await sm.createInfoStates(device);
+  await sm.createLanStates(device);
+  const cloudDefs = stateDefs.filter(d => !LAN_STATE_IDS.has(d.id));
+  await sm.createCloudStates(device, cloudDefs);
+}
 
 /** Track adapter method calls */
 interface CallRecord {
@@ -167,7 +184,7 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       // Device object
       expect(objects.has("devices.h6160_0011")).to.be.true;
@@ -186,7 +203,7 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice({ name: "Living Room", sku: "H612F", lanIp: "10.0.0.5" });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       expect(states.get("devices.h612f_0011.info.name")).to.deep.include({ val: "Living Room" });
       expect(states.get("devices.h612f_0011.info.model")).to.deep.include({ val: "H612F" });
@@ -199,23 +216,26 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
 
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
 
       expect(objects.has("devices.h6160_0011.control")).to.be.true;
       expect(objects.has("devices.h6160_0011.control.power")).to.be.true;
       expect(objects.has("devices.h6160_0011.control.brightness")).to.be.true;
     });
 
-    it("should set native capabilityType/Instance on control states", async () => {
+    it("should set native capabilityType/Instance on LAN-default control states", async () => {
       const { adapter, objects } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
 
-      await sm.createDeviceStates(dev, basicControlDefs());
+      // power/brightness/colorRgb/colorTemperature are LAN-default — createLanStates
+      // writes them with capabilityType:"lan" regardless of what basicControlDefs says.
+      // LAN-state-IDs are the LAN phase's territory.
+      await createAllStatesForTest(sm, dev, basicControlDefs());
 
       const powerObj = objects.get("devices.h6160_0011.control.power") as Record<string, unknown>;
       const native = powerObj?.native as Record<string, unknown>;
-      expect(native?.capabilityType).to.equal("on_off");
+      expect(native?.capabilityType).to.equal("lan");
       expect(native?.capabilityInstance).to.equal("powerSwitch");
     });
 
@@ -225,23 +245,25 @@ describe("StateManager", () => {
       const dev = createTestDevice();
 
       // First call: should set default
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
       expect(states.get("devices.h6160_0011.control.power")).to.deep.include({ val: false });
 
       // Simulate user setting the value
       states.set("devices.h6160_0011.control.power", { val: true, ack: false } as ioBroker.State);
 
       // Second call: should NOT overwrite existing value
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
       expect(states.get("devices.h6160_0011.control.power")).to.deep.include({ val: true });
     });
 
-    it("should not create control channel if no control definitions", async () => {
+    it("should not create control channel for sensor (no lanIp, no caps)", async () => {
       const { adapter, objects } = createMockAdapter();
       const sm = new StateManager(adapter as never);
-      const dev = createTestDevice();
+      // Sensor-style device: no lanIp + no caps → no LAN-phase states + no
+      // Cloud-derived control states either. control channel stays empty.
+      const dev = createTestDevice({ lanIp: undefined, type: "devices.types.thermometer" });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       expect(objects.has("devices.h6160_0011.control")).to.be.false;
     });
@@ -267,7 +289,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       const obj = objects.get("devices.h6160_0011.control.brightness") as Record<string, unknown>;
       const common = obj?.common as Record<string, unknown>;
@@ -296,7 +318,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       // Must be in scenes channel, not control
       expect(objects.has("devices.h6160_0011.scenes")).to.be.true;
@@ -342,7 +364,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       expect(objects.has("devices.h6160_0011.music")).to.be.true;
       expect(objects.has("devices.h6160_0011.music.music_mode")).to.be.true;
@@ -402,7 +424,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       expect(objects.has("devices.h6160_0011.snapshots")).to.be.true;
       expect(objects.has("devices.h6160_0011.snapshots.snapshot")).to.be.true;
@@ -454,7 +476,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       expect(objects.has("devices.h6160_0011.control")).to.be.true;
       expect(objects.has("devices.h6160_0011.scenes")).to.be.true;
@@ -467,7 +489,7 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice({ lanIp: undefined });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       expect(states.get("devices.h6160_0011.info.ip")).to.deep.include({ val: "" });
     });
@@ -477,7 +499,7 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice({ sku: "BaseGroup", deviceId: "1280" });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       expect(objects.has("groups.basegroup_1280.info.name")).to.be.true;
       expect(objects.has("groups.basegroup_1280.info.online")).to.be.false;
@@ -528,7 +550,7 @@ describe("StateManager", () => {
         ],
       });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       expect(objects.has("groups.basegroup_1311.info.members")).to.be.true;
       const val = states.get("groups.basegroup_1311.info.members");
@@ -545,7 +567,7 @@ describe("StateManager", () => {
         name: "test group",
       });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       const val = states.get("groups.basegroup_1280.info.members");
       expect(val).to.exist;
@@ -564,7 +586,7 @@ describe("StateManager", () => {
       objects.set("groups.basegroup_1311.info.diagnostics_tier", { type: "state", common: {} });
       objects.set("groups.basegroup_1311.diag", { type: "channel", common: {} });
 
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       const delCalls = calls.filter(c => c.method === "delObjectAsync").map(c => c.args[0] as string);
       // Legacy v2.1.0 layout (info.diagnostics_*) — dropped via safeDeleteState
@@ -581,7 +603,7 @@ describe("StateManager", () => {
       const dev = createTestDevice({ sku: "BaseGroup", deviceId: "6781311" });
 
       // No pre-seeded objects — fresh install scenario
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       const delCalls = calls.filter(c => c.method === "delObjectAsync").map(c => c.args[0] as string);
       // safeDeleteState skipt das delete weil getObjectAsync(null) returnt
@@ -655,7 +677,7 @@ describe("StateManager", () => {
       const { adapter } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, [
+      await createAllStatesForTest(sm, dev, [
         {
           id: "light_scene",
           name: "Scene",
@@ -703,7 +725,7 @@ describe("StateManager", () => {
       const { adapter } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, [
+      await createAllStatesForTest(sm, dev, [
         {
           id: "music_mode",
           name: "Music",
@@ -723,7 +745,7 @@ describe("StateManager", () => {
       const { adapter } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, [
+      await createAllStatesForTest(sm, dev, [
         {
           id: "snapshot",
           name: "Snapshot",
@@ -757,7 +779,7 @@ describe("StateManager", () => {
       const { adapter } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, [
+      await createAllStatesForTest(sm, dev, [
         {
           id: "export",
           name: "Export",
@@ -797,7 +819,7 @@ describe("StateManager", () => {
       const { adapter } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, [
+      await createAllStatesForTest(sm, dev, [
         {
           id: "temperature",
           name: "Temperature",
@@ -846,7 +868,7 @@ describe("StateManager", () => {
       const { adapter } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, [
+      await createAllStatesForTest(sm, dev, [
         {
           id: "lack_water",
           name: "Lack of Water",
@@ -958,7 +980,7 @@ describe("StateManager", () => {
       const dev = createTestDevice();
 
       // Create the object so setStateIfExists finds it
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
 
       await sm.updateDeviceState(dev, { power: true });
       expect(states.get("devices.h6160_0011.control.power")).to.deep.include({ val: true });
@@ -968,7 +990,7 @@ describe("StateManager", () => {
       const { adapter, states } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
 
       await sm.updateDeviceState(dev, { power: true, brightness: 75 });
 
@@ -980,7 +1002,7 @@ describe("StateManager", () => {
       const { adapter, states } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       await sm.updateDeviceState(dev, { online: false });
       expect(states.get("devices.h6160_0011.info.online")).to.deep.include({ val: false });
@@ -990,7 +1012,7 @@ describe("StateManager", () => {
       const { adapter, calls } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
 
       const before = calls.filter(c => c.method === "setStateAsync").length;
       await sm.updateDeviceState(dev, {});
@@ -1002,7 +1024,7 @@ describe("StateManager", () => {
       const { adapter, calls } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, basicControlDefs());
+      await createAllStatesForTest(sm, dev, basicControlDefs());
 
       const before = calls.filter(c => c.method === "setStateAsync").length;
       await sm.updateDeviceState(dev, {
@@ -1026,8 +1048,8 @@ describe("StateManager", () => {
       // Create two devices
       const dev1 = createTestDevice({ sku: "H6160", deviceId: "AABB1111" });
       const dev2 = createTestDevice({ sku: "H6161", deviceId: "AABB2222" });
-      await sm.createDeviceStates(dev1, []);
-      await sm.createDeviceStates(dev2, []);
+      await createAllStatesForTest(sm, dev1, []);
+      await createAllStatesForTest(sm, dev2, []);
 
       // Cleanup with only dev1 as current
       await sm.cleanupDevices([dev1]);
@@ -1041,7 +1063,7 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
 
       const dev = createTestDevice();
-      await sm.createDeviceStates(dev, []);
+      await createAllStatesForTest(sm, dev, []);
 
       await sm.cleanupDevices([dev]);
 
@@ -1058,8 +1080,8 @@ describe("StateManager", () => {
 
       const survivor = createTestDevice({ sku: "H6160", deviceId: "AABB1111" });
       const stale = createTestDevice({ sku: "H6161", deviceId: "AABB2222" });
-      await sm.createDeviceStates(survivor, basicControlDefs());
-      await sm.createDeviceStates(stale, basicControlDefs());
+      await createAllStatesForTest(sm, survivor, basicControlDefs());
+      await createAllStatesForTest(sm, stale, basicControlDefs());
 
       await sm.cleanupDevices([survivor]);
 
@@ -1085,7 +1107,7 @@ describe("StateManager", () => {
       const sm = new StateManager(adapter as never);
 
       const survivor = createTestDevice({ sku: "H6160", deviceId: "AABB1111" });
-      await sm.createDeviceStates(survivor, basicControlDefs());
+      await createAllStatesForTest(sm, survivor, basicControlDefs());
 
       await sm.cleanupDevices([survivor]);
 
@@ -1100,38 +1122,88 @@ describe("StateManager", () => {
     });
   });
 
-  describe("cleanupAllChannelStates", () => {
-    it("should remove stale control states not in current definitions", async () => {
+  describe("cleanupCloudOwnedStates", () => {
+    it("should remove stale cloud-owned control states not in current Cloud-phase defs", async () => {
       const { adapter, calls, objects } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
 
-      // Create with power + brightness
-      await sm.createDeviceStates(dev, basicControlDefs());
-      expect(objects.has("devices.h6160_0011.control.brightness")).to.be.true;
+      // Create with a cloud-cap state (gradient_toggle is a `toggle` capability,
+      // NOT in LAN_STATE_IDS, so cleanup will touch it).
+      const withGradient: StateDefinition[] = [
+        {
+          id: "gradient_toggle",
+          name: "Gradient",
+          type: "boolean",
+          role: "switch",
+          write: true,
+          def: false,
+          capabilityType: "devices.capabilities.toggle",
+          capabilityInstance: "gradientToggle",
+        },
+      ];
+      await createAllStatesForTest(sm, dev, withGradient);
+      expect(objects.has("devices.h6160_0011.control.gradient_toggle")).to.be.true;
 
-      // Recreate with only power — brightness should be cleaned up
-      const powerOnly: StateDefinition[] = [basicControlDefs()[0]];
-      await sm.createDeviceStates(dev, powerOnly);
+      // Recreate with no cloud-cap states — gradient_toggle should be cleaned up
+      await createAllStatesForTest(sm, dev, []);
 
-      const delCalls = calls.filter(c => c.method === "delObjectAsync" && (c.args[0] as string).includes("brightness"));
+      const delCalls = calls.filter(
+        c => c.method === "delObjectAsync" && (c.args[0] as string).includes("gradient_toggle"),
+      );
       expect(delCalls.length).to.be.greaterThan(0);
     });
 
-    it("should remove empty channel when all states deleted", async () => {
+    it("should NEVER remove LAN-owned states (power, brightness, colorRgb, colorTemperature)", async () => {
+      const { adapter, calls, objects } = createMockAdapter();
+      const sm = new StateManager(adapter as never);
+      const dev = createTestDevice();
+
+      // Create with LAN-defaults populated (power, brightness, etc.)
+      await createAllStatesForTest(sm, dev, basicControlDefs());
+      expect(objects.has("devices.h6160_0011.control.power")).to.be.true;
+      expect(objects.has("devices.h6160_0011.control.brightness")).to.be.true;
+
+      // Run cleanupCloudOwnedStates with empty cloudDefs — LAN states must survive
+      await sm.cleanupCloudOwnedStates("devices.h6160_0011", []);
+
+      const lanDeletes = calls.filter(
+        c =>
+          c.method === "delObjectAsync" &&
+          typeof c.args[0] === "string" &&
+          /control\.(power|brightness|colorRgb|colorTemperature)$/.test(c.args[0] as string),
+      );
+      expect(lanDeletes.length).to.equal(0);
+    });
+
+    it("should remove cloud-owned channels entirely when empty (e.g. scenes leftover after cap removal)", async () => {
       const { adapter, calls } = createMockAdapter();
       const sm = new StateManager(adapter as never);
       const dev = createTestDevice();
 
-      // Create with one state
-      await sm.createDeviceStates(dev, [basicControlDefs()[0]]);
+      // Create a scenes.light_scene state (cloud-owned)
+      const withScene: StateDefinition[] = [
+        {
+          id: "light_scene",
+          name: "Scene",
+          type: "mixed",
+          role: "text",
+          write: true,
+          def: "0",
+          capabilityType: "devices.capabilities.dynamic_scene",
+          capabilityInstance: "lightScene",
+          channel: "scenes",
+        },
+      ];
+      await createAllStatesForTest(sm, dev, withScene);
 
-      // Recreate with no states — control channel should be removed
-      await sm.createDeviceStates(dev, []);
+      // Recreate with no cloud defs — scenes channel should be removed
+      await createAllStatesForTest(sm, dev, []);
 
-      // The cleanup finds the previously created "control.power" and deletes it
-      const delCalls = calls.filter(c => c.method === "delObjectAsync" && (c.args[0] as string).includes("control"));
-      expect(delCalls.length).to.be.greaterThan(0);
+      const channelDeletes = calls.filter(
+        c => c.method === "delObjectAsync" && (c.args[0] as string).endsWith(".scenes"),
+      );
+      expect(channelDeletes.length).to.be.greaterThan(0);
     });
 
     it("should migrate states from old control to new channel", async () => {
@@ -1156,7 +1228,7 @@ describe("StateManager", () => {
           channel: "scenes",
         },
       ];
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       // Old control.light_scene should be deleted (it's stale in control)
       const delCalls = calls.filter(
@@ -1187,7 +1259,7 @@ describe("StateManager", () => {
           channel: "scenes",
         },
       ];
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       // Simulate user selected scene 2
       states.set("devices.h6160_0011.scenes.light_scene", { val: "2", ack: true } as ioBroker.State);
@@ -1207,7 +1279,7 @@ describe("StateManager", () => {
           channel: "scenes",
         },
       ];
-      await sm.createDeviceStates(dev, newDefs);
+      await createAllStatesForTest(sm, dev, newDefs);
 
       // Value should be reset to default "0"
       const final = states.get("devices.h6160_0011.scenes.light_scene");
@@ -1233,13 +1305,13 @@ describe("StateManager", () => {
           channel: "scenes",
         },
       ];
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       // Simulate user selected scene 1
       states.set("devices.h6160_0011.scenes.light_scene", { val: "1", ack: true } as ioBroker.State);
 
       // Re-create with same scenes — value should remain
-      await sm.createDeviceStates(dev, defs);
+      await createAllStatesForTest(sm, dev, defs);
 
       const final = states.get("devices.h6160_0011.scenes.light_scene");
       expect(final?.val).to.equal("1");
@@ -1275,7 +1347,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       expect(objects.has("devices.h6160_0011.segments")).to.be.true;
       expect(objects.has("devices.h6160_0011.segments.0")).to.be.true;
@@ -1314,7 +1386,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       expect(dev.segmentCount).to.equal(0);
     });
@@ -1352,7 +1424,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       expect(dev.segmentCount).to.equal(5);
       // Segments 5-14 should be deleted
@@ -1385,7 +1457,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       expect(dev.segmentCount).to.equal(0);
     });
@@ -1421,7 +1493,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       expect(dev.segmentCount).to.equal(20);
       expect(objects.has("devices.h6160_0011.segments.19")).to.be.true;
@@ -1461,7 +1533,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       const mode = states.get("devices.h6160_0011.segments.manual_mode");
       const list = states.get("devices.h6160_0011.segments.manual_list");
@@ -1501,7 +1573,7 @@ describe("StateManager", () => {
         },
       ];
 
-      await sm.createDeviceStates(dev, segmentDefs);
+      await createAllStatesForTest(sm, dev, segmentDefs);
 
       const mode = states.get("devices.h6160_0011.segments.manual_mode");
       const list = states.get("devices.h6160_0011.segments.manual_list");

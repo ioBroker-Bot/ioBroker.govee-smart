@@ -1,5 +1,5 @@
 import type * as utils from "@iobroker/adapter-core";
-import type { StateDefinition } from "./capability-mapper";
+import { buildLanStateDefs, LAN_STATE_IDS, type StateDefinition } from "./capability-mapper";
 import { GROUP_ICON, iconForGoveeType, shortenGoveeType } from "./device-icons";
 import { resolveSegmentCount } from "./device-manager";
 import { tDesc, tName } from "./i18n-states";
@@ -342,12 +342,20 @@ export class StateManager {
   }
 
   /**
-   * Create device object and all states from capability definitions.
+   * Phase 1 — Info-States. Always-existing device metadata: info.name,
+   * info.online (per-device for lights, global for groups), info.model,
+   * info.serial, info.ip, info.type. For groups: info.members + cleanup
+   * of legacy device-level info states.
+   *
+   * Idempotent. Called from every phase callback (LAN-Phase + Cloud-Phase
+   * + Group-Phase) — extendObjectAsync de-duplicates so the cost is small.
+   *
+   * Never deletes states from MANAGED_CHANNELS. The info channel is not in
+   * MANAGED_CHANNELS, so cleanup never touches its content.
    *
    * @param device Govee device
-   * @param stateDefs State definitions from capability mapper
    */
-  async createDeviceStates(device: GoveeDevice, stateDefs: StateDefinition[]): Promise<void> {
+  async createInfoStates(device: GoveeDevice): Promise<void> {
     const key = this.deviceKey(device);
     const newPrefix = this.devicePrefix(device);
     const oldPrefix = this.prefixMap.get(key);
@@ -470,11 +478,67 @@ export class StateManager {
       // Groups never had a `diag` channel — drop any leftover from migrated installs.
       await this.adapter.delObjectAsync(`${prefix}.diag`, { recursive: true }).catch(() => {});
     }
+  }
 
-    // Group state defs by channel (control, scenes, music, snapshots)
+  /**
+   * Phase 2 — LAN-States. Power, brightness, colorRgb, colorTemperature
+   * (the LAN-default set defined by getDefaultLanStates). Pure additive:
+   * never deletes from MANAGED_CHANNELS, no cleanup at end. Devices without
+   * lanIp get no states (sensors/appliances/groups skip silently).
+   *
+   * @param device Govee device
+   */
+  async createLanStates(device: GoveeDevice): Promise<void> {
+    const stateDefs = buildLanStateDefs(device);
+    if (stateDefs.length === 0) {
+      return;
+    }
+    const prefix = this.devicePrefix(device);
+    await this.writeStateDefsToChannels(prefix, stateDefs, "LAN");
+  }
+
+  /**
+   * Phase 3 — Cloud-States. Capability-derived states (scenes, music,
+   * snapshots, sensor, events, segments, cloud-only control toggles) plus
+   * synthetic local states (diagnostics, refresh_cloud, snapshot_local/...).
+   * Runs cleanupCloudOwnedStates at the end to remove states no longer
+   * present in stateDefs — but LAN-default ids in the control channel are
+   * preserved via the LAN_STATE_IDS skip.
+   *
+   * @param device Govee device
+   * @param stateDefs Cloud-owned state definitions from buildCloudStateDefs
+   */
+  async createCloudStates(device: GoveeDevice, stateDefs: StateDefinition[]): Promise<void> {
+    const prefix = this.devicePrefix(device);
+
+    // Drop _segment_ marker entries — segments have their own dedicated
+    // createSegmentStates pass (per-segment color/brightness states).
     const nonSegmentDefs = stateDefs.filter(d => !d.id.startsWith("_segment_"));
+    await this.writeStateDefsToChannels(prefix, nonSegmentDefs, `Cloud ${device.sku}`);
+
+    // Remove states no longer present in this Cloud-phase build. LAN_STATE_IDS
+    // protects the LAN-default ids in the control channel — the LAN phase
+    // owns those.
+    await this.cleanupCloudOwnedStates(prefix, nonSegmentDefs);
+
+    // Segment channel if device has segment caps
+    if (stateDefs.some(d => d.id.startsWith("_segment_"))) {
+      await this.createSegmentStates(device);
+    }
+  }
+
+  /**
+   * Shared inner loop — group stateDefs by channel, create the channel
+   * object once, then create each state. Called from createLanStates and
+   * createCloudStates. Idempotent (extendObjectAsync).
+   *
+   * @param prefix Device prefix (e.g. "devices.h6172_abcd")
+   * @param stateDefs State definitions to write
+   * @param logTag Short tag for the per-phase debug log line
+   */
+  private async writeStateDefsToChannels(prefix: string, stateDefs: StateDefinition[], logTag: string): Promise<void> {
     const channelGroups = new Map<string, StateDefinition[]>();
-    for (const def of nonSegmentDefs) {
+    for (const def of stateDefs) {
       const channel = def.channel ?? "control";
       this.stateChannelMap.set(`${prefix}.${def.id}`, channel);
       if (!channelGroups.has(channel)) {
@@ -484,10 +548,9 @@ export class StateManager {
     }
 
     this.adapter.log.debug(
-      `createDeviceStates ${device.sku}: ${nonSegmentDefs.length} states in ${channelGroups.size} channel(s)`,
+      `createStates [${logTag}] ${prefix}: ${stateDefs.length} states in ${channelGroups.size} channel(s)`,
     );
 
-    // Create states in each channel
     for (const [channel, defs] of channelGroups) {
       await this.adapter.extendObjectAsync(`${prefix}.${channel}`, {
         type: "channel",
@@ -559,15 +622,6 @@ export class StateManager {
           }
         }
       }
-    }
-
-    // Remove stale states across all managed channels
-    await this.cleanupAllChannelStates(prefix, nonSegmentDefs);
-
-    // Check if device has segment capabilities
-    const segmentDefs = stateDefs.filter(d => d.id.startsWith("_segment_"));
-    if (segmentDefs.length > 0) {
-      await this.createSegmentStates(device);
     }
   }
 
@@ -919,20 +973,26 @@ export class StateManager {
   }
 
   /**
-   * Remove stale states across all managed channels.
-   * Also handles migration from old single-control layout.
+   * Phase 3 cleanup — remove Cloud-owned states that are no longer in the
+   * current Cloud-phase stateDefs. Respects LAN_STATE_IDS so the LAN phase's
+   * states in the control channel never get touched.
    *
-   * One broad view-query across the whole device prefix replaces the old
-   * four-per-device pass — the channel partition is recovered by parsing
-   * the object id, saving three round-trips per device on every refresh.
+   * The Cloud-owned channels (scenes, music, snapshots, sensor, events) are
+   * 100% Cloud territory — anything not in cloudStateDefs there is stale.
+   * The control channel is mixed: LAN-default ids (power, brightness, …)
+   * belong to the LAN phase and are skipped via the LAN_STATE_IDS constant.
+   *
+   * Public for the v2.8.0 migration shot in main.ts.onReady — pure-LAN
+   * devices need a one-time cleanupCloudOwnedStates(prefix, []) to wipe
+   * scene/music/snapshot leftovers from prior versions.
    *
    * @param prefix Device prefix
-   * @param stateDefs Current state definitions (non-segment)
+   * @param cloudStateDefs Current Cloud-phase state definitions (non-segment)
    */
-  private async cleanupAllChannelStates(prefix: string, stateDefs: StateDefinition[]): Promise<void> {
+  async cleanupCloudOwnedStates(prefix: string, cloudStateDefs: StateDefinition[]): Promise<void> {
     // Build expected state set per channel
     const expectedByChannel = new Map<string, Set<string>>();
-    for (const def of stateDefs) {
+    for (const def of cloudStateDefs) {
       const channel = def.channel ?? "control";
       if (!expectedByChannel.has(channel)) {
         expectedByChannel.set(channel, new Set());
@@ -959,6 +1019,12 @@ export class StateManager {
       const channel = rest.slice(0, dotIdx);
       const stateId = rest.slice(dotIdx + 1);
       if (!MANAGED_CHANNELS.includes(channel)) {
+        continue;
+      }
+      // In the control channel, LAN-default ids belong to the LAN phase —
+      // Cloud cleanup must not touch them. Other MANAGED_CHANNELS are
+      // wholly Cloud territory.
+      if (channel === "control" && LAN_STATE_IDS.has(stateId)) {
         continue;
       }
       const totals = totalsPerChannel.get(channel) ?? { seen: 0, deleted: 0 };

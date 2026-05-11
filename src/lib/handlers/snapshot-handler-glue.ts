@@ -15,7 +15,7 @@ export interface SnapshotHandlerGlueAdapter {
   readonly deviceManager: DeviceManager | null;
   readonly stateManager: StateManager | null;
   getStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
-  refreshDeviceStates(device: GoveeDevice, allDevices: GoveeDevice[]): void;
+  fireCloudDataReady(device: GoveeDevice, allDevices: GoveeDevice[]): void;
 }
 
 /**
@@ -34,7 +34,9 @@ export function buildSnapshotHost(adapter: SnapshotHandlerGlueAdapter): Snapshot
       await adapter.deviceManager?.sendCommand(device, command, value);
     },
     refreshDeviceStates: device => {
-      adapter.refreshDeviceStates(device, adapter.deviceManager?.getDevices() ?? []);
+      // Snapshot save/delete = new content in the snapshot_local dropdown —
+      // Cloud-phase event. Fires onCloudDataReady to surface the change.
+      adapter.fireCloudDataReady(device, adapter.deviceManager?.getDevices() ?? []);
     },
   };
 }

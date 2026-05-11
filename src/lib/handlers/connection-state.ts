@@ -3,6 +3,7 @@ import type { GoveeCloudClient } from "../govee-cloud-client";
 import type { GoveeMqttClient } from "../govee-mqtt-client";
 import type { GoveeOpenapiMqttClient } from "../govee-openapi-mqtt-client";
 import { httpsRequest } from "../http-client";
+import type { ChannelStatusSnapshot } from "../log-prefix";
 import { errMessage } from "../types";
 import { GOVEE_APP_VERSION } from "../govee-constants";
 
@@ -52,6 +53,25 @@ export function updateConnectionState(adapter: ConnectionStateAdapter): void {
   if (connected !== adapter.lastConnectionState) {
     adapter.lastConnectionState = connected;
     adapter.setStateAsync("info.connection", { val: connected, ack: true }).catch(() => {});
+  }
+
+  // Sync the in-memory channelStatus snapshot used by the log-prefix wrapper.
+  // Only flips between "on" and "off" — "n/a" (not configured) is set once
+  // in onReady from config and never overridden here.
+  const cs = (adapter as { channelStatus?: ChannelStatusSnapshot }).channelStatus;
+  if (cs) {
+    if (cs.lan !== "n/a") {
+      cs.lan = hasDevices ? "on" : "off";
+    }
+    if (cs.cloud !== "n/a") {
+      cs.cloud = adapter.cloudWasConnected ? "on" : "off";
+    }
+    if (cs.mqtt !== "n/a") {
+      cs.mqtt = adapter.mqttClient?.connected ? "on" : "off";
+    }
+    if (cs.openapi !== "n/a") {
+      cs.openapi = adapter.openapiMqttClient?.connected ? "on" : "off";
+    }
   }
 }
 

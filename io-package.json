@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.7.1",
     "news": {
+      "NEXT": {
+        "en": "Restart no longer wipes and re-creates scene/music/snapshot datapoints. Pure-LAN devices get a one-time cleanup. Debug logs carry channel status and structured key=value details.",
+        "de": "Beim Neustart werden Szenen-/Musik-/Snapshot-Datenpunkte nicht mehr kurz gelöscht und neu angelegt. Pure-LAN-Geräte werden einmalig aufgeräumt. Debug-Logs zeigen Channel-Status und key=value-Details.",
+        "ru": "При перезапуске точки сцен, музыки и снимков больше не удаляются и не создаются заново. Чистые LAN-устройства один раз очищаются. Отладочные логи показывают статус каналов и key=value-детали.",
+        "pt": "O reinício já não apaga e volta a criar os pontos de cena, música e snapshot. Dispositivos só-LAN recebem uma limpeza única. Logs de debug mostram o estado dos canais e detalhes key=value.",
+        "nl": "Bij herstart worden scène-/muziek-/snapshot-datapoints niet meer kort verwijderd en opnieuw aangemaakt. Pure-LAN krijgt eenmalig schoonmaak. Debug-logs tonen kanaalstatus en key=value.",
+        "fr": "Au redémarrage, les points scène/musique/snapshot ne sont plus supprimés puis recréés. Les appareils LAN-only ont un nettoyage unique. Les logs debug affichent l'état des canaux et clé=valeur.",
+        "it": "Al riavvio i datapoint scene/musica/snapshot non vengono più eliminati e ricreati. Solo-LAN ottiene pulizia una tantum. I log di debug mostrano lo stato dei canali e key=value.",
+        "es": "Al reiniciar, los puntos de escena, música y snapshots ya no se eliminan y vuelven a crear. Los dispositivos solo-LAN reciben una limpieza única. Los registros de debug muestran el estado y key=value.",
+        "pl": "Przy restarcie stany scen, muzyki i migawek nie są usuwane i tworzone od nowa. Urządzenia tylko-LAN są raz oczyszczone. Debug pokazuje status kanałów oraz dodatkowe pola klucz=wartość.",
+        "uk": "Під час перезапуску точки сцен, музики й знімків більше не видаляються та не створюються повторно. Пристрої лише з LAN отримують одноразове очищення. Debug показує статус каналів і key=value.",
+        "zh-cn": "重启时不再删除并重新创建场景、音乐和快照数据点。仅 LAN 设备一次性清理。调试日志显示通道状态和结构化 key=value 详情。"
+      },
       "2.7.1": {
         "en": "Cleaner startup log: the first line now tells you to wait for the \"ready\" message, and one redundant connection-info line is gone.",
         "de": "Aufgeräumter Start-Log: die erste Zeile weist jetzt darauf hin auf die „ready\"-Meldung zu warten, und eine überflüssige Verbindungs-Info ist raus.",
@@ -80,19 +93,6 @@
         "pl": "Odświeżenie wewnętrznych narzędzi. Bez zmian dla użytkowników.",
         "uk": "Оновлення внутрішніх інструментів. Без змін для користувачів.",
         "zh-cn": "内部工具刷新。用户无任何变化。"
-      },
-      "2.6.3": {
-        "en": "Connection-status indicators recover on their own after a Govee outage. Restoring a snapshot on a multi-segment LED strip is fast again. Invalid pairing IPs and silently rejected Cloud commands are now reported. LED segment 0 turning blue on short hex input is fixed. The segment-detection wizard restores the previous look on adapter-stop. A rejected Govee API key now logs an actionable hint.",
-        "de": "Verbindungs-Statusanzeigen erholen sich nach einem Govee-Ausfall von selbst. Snapshot-Wiederherstellung auf einem LED-Strip mit Segmenten ist wieder schnell. Ungültige Pairing-IPs und stille Cloud-Ablehnungen werden jetzt gemeldet. LED-Segment 0 wurde bei kurzem Hex-Wert blau – behoben. Der Segment-Erkennungs-Wizard stellt beim Adapter-Stop den vorherigen Zustand wieder her. Ein abgelehnter Govee-API-Key liefert jetzt einen klaren Hinweis im Log.",
-        "ru": "Индикаторы статуса соединения восстанавливаются сами после сбоя Govee. Восстановление снапшота на LED-ленте с сегментами снова быстрое. Неверные IP сопряжения и тихо отклонённые Cloud-команды теперь сообщаются в журнал. Сегмент 0 синел при коротком hex – исправлено. Мастер обнаружения сегментов восстанавливает прежний вид при остановке адаптера. Отклонённый Govee API-ключ выдаёт понятную подсказку.",
-        "pt": "Os indicadores de estado de ligação recuperam sozinhos após uma falha Govee. O restore de um snapshot numa fita LED com segmentos voltou a ser rápido. IPs de pairing inválidos e comandos Cloud silenciosamente rejeitados são agora reportados. Segmento 0 ficar azul com hex curto está corrigido. O wizard de deteção de segmentos restaura o aspeto anterior ao parar o adaptador. Uma chave API Govee rejeitada gera agora uma dica clara no log.",
-        "nl": "Verbindings-statusindicatoren herstellen zichzelf na een Govee-storing. Snapshot-restore op een LED-strip met segmenten is weer snel. Ongeldige pairing-IPs en stilletjes geweigerde Cloud-commando's worden nu gemeld. Segment 0 blauw bij korte hex is opgelost. De segmentdetectie-wizard herstelt het vorige beeld bij adapter-stop. Een geweigerde Govee API-key levert nu een duidelijke hint in het log.",
-        "fr": "Les indicateurs d'état de connexion se rétablissent tout seuls après une panne Govee. La restauration d'un snapshot sur un ruban LED multi-segments est de nouveau rapide. Les IP d'appairage invalides et les commandes Cloud silencieusement rejetées sont désormais signalées. Le segment 0 devenait bleu avec un hex court — corrigé. L'assistant de détection de segments restaure l'état précédent à l'arrêt de l'adaptateur. Une clé API Govee rejetée donne maintenant un indice clair dans le log.",
-        "it": "Gli indicatori di stato della connessione si ripristinano da soli dopo un'interruzione Govee. Il restore di uno snapshot su una striscia LED con segmenti è di nuovo veloce. IP di accoppiamento non validi e comandi Cloud rifiutati silenziosamente vengono ora segnalati. Il segmento 0 diventava blu con hex corto: corretto. La procedura guidata di rilevamento segmenti ripristina l'aspetto precedente quando l'adattatore si ferma. Una chiave API Govee rifiutata mostra ora un suggerimento chiaro nel log.",
-        "es": "Los indicadores de estado de conexión se recuperan solos tras una caída de Govee. El restore de un snapshot en una tira LED con segmentos vuelve a ser rápido. IPs de emparejamiento no válidas y comandos Cloud rechazados en silencio se reportan ahora. Segmento 0 en azul con hex corto: corregido. El asistente de detección de segmentos restaura el estado anterior al detener el adaptador. Una clave API Govee rechazada muestra ahora una pista clara en el log.",
-        "pl": "Wskaźniki statusu połączenia same się przywracają po awarii Govee. Przywracanie snapshotu na taśmie LED z segmentami znów jest szybkie. Nieprawidłowe IP parowania i po cichu odrzucone polecenia Cloud są teraz raportowane. Segment 0 robił się niebieski przy krótkim hex – naprawione. Kreator wykrywania segmentów przywraca poprzedni widok przy zatrzymaniu adaptera. Odrzucony klucz API Govee daje teraz czytelną wskazówkę w logu.",
-        "uk": "Індикатори стану з'єднання відновлюються самі після збою Govee. Відновлення знімка на LED-стрічці з сегментами знову швидке. Неправильні IP сполучення та тихо відхилені команди Cloud тепер повідомляються. Сегмент 0 ставав синім за коротким hex – виправлено. Майстер виявлення сегментів відновлює попередній вигляд при зупинці адаптера. Відхилений Govee API-ключ тепер дає зрозумілу підказку в журналі.",
-        "zh-cn": "Govee 中断后连接状态指示自动恢复。多分段灯带的快照恢复再次变快。无效的配对 IP 和被悄悄拒绝的云命令现在都会上报。短 hex 输入下分段 0 显示蓝色已修复。停止适配器时段检测向导恢复先前画面。被拒绝的 Govee API key 现在会在日志中给出明确提示。"
       }
     },
     "titleLang": {
