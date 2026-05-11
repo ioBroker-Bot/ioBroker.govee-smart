@@ -594,7 +594,7 @@ class DeviceManager {
         }
       });
     }
-    if (!device.snapshotBleCmds && device.snapshots.length > 0) {
+    if ((force || !device.snapshotBleCmds) && device.snapshots.length > 0) {
       await runLimited(async () => {
         try {
           const snaps = await this.apiClient.fetchSnapshots(sku, device.deviceId);

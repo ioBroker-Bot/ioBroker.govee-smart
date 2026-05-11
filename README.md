@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.8.2 (2026-05-11)
 
 - Snapshot refresh per device now also reloads the activation data — when you re-record a snapshot in the Govee app it takes effect right away, no manual cache reset.
 - Three redundant messages around optional device features are gone from the debug log.
@@ -153,10 +153,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 - Refresh button is now per device under `devices.<id>.snapshots.refresh_cloud` instead of an adapter-wide button: a press hits Govee only for that one light, not for every device on your account.
 - The refresh also re-fetches the Govee device list, so a brand-new snapshot from the Govee Home app is picked up even when Govee's cloud hasn't caught up to it yet.
 - `info.refresh_cloud_data` is removed in favour of the per-device button above. ioBroker scripts that wrote to it need to point at `devices.<id>.snapshots.refresh_cloud` instead.
-
-### 2.6.7 (2026-05-10)
-
-- Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

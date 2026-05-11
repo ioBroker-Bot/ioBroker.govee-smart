@@ -296,7 +296,9 @@ class GoveeLanClient {
     }
     this.sendSocket.send(buf, 0, buf.length, COMMAND_PORT, ip, (err) => {
       if (err) {
-        this.log.debug(`LAN ptReal error to ${ip}: ${err.message}`);
+        this.log.warn(`LAN ptReal error to ${ip}: ${err.message}`);
+      } else {
+        this.log.debug(`LAN ptReal sent to ${ip}: ${base64Packets.length} packet(s), ${buf.length} bytes`);
       }
     });
   }

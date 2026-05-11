@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.8.1",
+    "version": "2.8.2",
     "news": {
-      "NEXT": {
+      "2.8.2": {
         "en": "Per-device snapshot refresh also reloads activation data — re-recorded snapshots work right away. Cleaner debug log. Failed local commands appear as a warning.",
         "de": "Snapshot-Refresh am Gerät lädt jetzt auch die Aktivierungs-Daten — neu aufgenommene Snapshots greifen sofort. Sauberes Debug-Log. Fehlgeschlagene lokale Befehle als Warnung.",
         "ru": "Обновление снепшота на устройстве теперь перезагружает и данные активации — пересозданные снепшоты работают сразу. Чище debug-лог. Неудачные локальные команды — как warning.",

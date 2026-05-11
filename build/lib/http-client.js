@@ -76,7 +76,12 @@ function httpsRequest(options) {
           reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
           return;
         }
-        if (raw.trim().length === 0) {
+        const trimmed = raw.trim();
+        if (trimmed.length === 0) {
+          resolve(null);
+          return;
+        }
+        if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
           resolve(null);
           return;
         }
