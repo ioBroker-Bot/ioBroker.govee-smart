@@ -130,13 +130,12 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 -->
 ### 2.8.1 (2026-05-11)
 
-- The channel-status prefix that 2.8.0 added now shows only on debug-level lines. Info, warn and error logs are back to their normal short form — the prefix was meant as a diagnostic aid for debug, not as user-facing noise.
+- Info, warn and error logs are back to their normal short form. The channel-status prefix from 2.8.0 stays only in debug logs.
 
 ### 2.8.0 (2026-05-11)
 
-- Restarting the adapter no longer briefly deletes and re-creates the scene, music and snapshot datapoints. The internal state-creation now runs in clear phases — LAN data is written from LAN discovery, Cloud data from the cloud refresh — and one phase no longer touches the other's territory.
-- Pure-LAN devices (no API key configured) no longer have empty scene/snapshot dropdowns lingering from earlier versions. A one-time cleanup on first start of 2.8.0 removes them.
-- Debug logs now carry the current channel status as a prefix and use structured key=value details, so a single log line tells you which channels were up at that moment and what the adapter actually saw.
+- Restart no longer briefly removes and re-creates scene, music and snapshot datapoints.
+- Lights without API key no longer have empty scene/snapshot dropdowns left over from earlier versions.
 
 ### 2.7.1 (2026-05-10)
 
