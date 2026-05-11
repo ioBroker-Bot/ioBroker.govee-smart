@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.8.0",
+    "version": "2.8.1",
     "news": {
-      "NEXT": {
+      "2.8.1": {
         "en": "The channel-status prefix added in 2.8.0 now shows only on debug-level lines. Info, warn and error logs are back to their normal short form.",
         "de": "Der Channel-Status-Prefix aus 2.8.0 erscheint jetzt nur noch auf debug-Zeilen. Info-, Warn- und Error-Logs sind wieder kurz und übersichtlich.",
         "ru": "Префикс статуса каналов из 2.8.0 теперь появляется только в строках уровня debug. Логи info, warn и error снова в коротком виде.",

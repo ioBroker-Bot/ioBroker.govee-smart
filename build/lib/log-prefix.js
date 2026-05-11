@@ -32,7 +32,7 @@ function installLogPrefix(log, getSnap) {
     return;
   }
   tagged[wrappedTag] = true;
-  for (const level of ["silly", "debug", "info", "warn", "error"]) {
+  for (const level of ["silly", "debug"]) {
     const orig = log[level].bind(log);
     log[level] = (msg) => {
       orig(`${formatChannelPrefix(getSnap())} ${msg}`);

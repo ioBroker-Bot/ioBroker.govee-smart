@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.8.1 (2026-05-11)
 
 - The channel-status prefix that 2.8.0 added now shows only on debug-level lines. Info, warn and error logs are back to their normal short form — the prefix was meant as a diagnostic aid for debug, not as user-facing noise.
 
@@ -152,10 +152,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.6.7 (2026-05-10)
 
 - Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.
-
-### 2.6.6 (2026-05-10)
-
-- Internal refactoring. No changes for users.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
