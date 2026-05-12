@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.8.4 (2026-05-12)
 
 - The device trust tier state under each device no longer carries a multi-language label object that would crash the admin with "Error in GUI" if rendered as a dropdown.
 
@@ -151,10 +151,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Restart no longer briefly removes and re-creates scene, music and snapshot datapoints.
 - Lights without API key no longer have empty scene/snapshot dropdowns left over from earlier versions.
-
-### 2.7.1 (2026-05-10)
-
-- Cleaner startup log: the first line now tells you to wait for the "ready" message, and one redundant connection-info line is gone.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

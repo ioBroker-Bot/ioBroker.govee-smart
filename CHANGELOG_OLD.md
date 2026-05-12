@@ -1,4 +1,8 @@
 # Older Changes
+## 2.7.1 (2026-05-10)
+
+- Cleaner startup log: the first line now tells you to wait for the "ready" message, and one redundant connection-info line is gone.
+
 ## 2.7.0 (2026-05-10)
 
 - Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after the update and via the refresh button. Previously the cache held the old list forever.

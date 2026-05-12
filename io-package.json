@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.8.3",
+    "version": "2.8.4",
     "news": {
+      "2.8.4": {
+        "en": "The device trust tier state no longer carries a multi-language label object that would crash the admin with \"Error in GUI\" if rendered as a dropdown.",
+        "de": "Der Trust-Tier-State pro Gerät trägt kein Mehrsprach-Label-Objekt mehr, das im Admin als Dropdown gerendert mit \"Error in GUI\" abstürzen würde.",
+        "ru": "Состояние trust tier для устройства больше не содержит мультиязычный объект-метку, который при отображении как dropdown приводил бы к \"Error in GUI\".",
+        "pt": "O estado trust tier por dispositivo já não contém um objeto multilingue que falharia com \"Error in GUI\" se renderizado como dropdown.",
+        "nl": "De trust-tier-state per apparaat bevat geen meertalig labelobject meer dat als dropdown gerenderd zou crashen met \"Error in GUI\".",
+        "fr": "L'état trust tier par appareil ne contient plus d'objet de label multilingue qui planterait avec \"Error in GUI\" rendu en dropdown.",
+        "it": "Lo stato trust tier per dispositivo non contiene più un oggetto-etichetta multilingua che si bloccherebbe con \"Error in GUI\" se reso come dropdown.",
+        "es": "El estado trust tier por dispositivo ya no contiene un objeto de etiqueta multilingüe que fallaría con \"Error in GUI\" si se renderizara como dropdown.",
+        "pl": "Stan trust tier dla urządzenia nie zawiera już wielojęzycznego obiektu etykiety, który po wyrenderowaniu jako dropdown zawiesiłby się z \"Error in GUI\".",
+        "uk": "Стан trust tier для пристрою більше не містить багатомовного об'єкта-мітки, який при відображенні як dropdown призводив би до \"Error in GUI\".",
+        "zh-cn": "每台设备的 trust tier 状态不再携带多语言标签对象，否则在作为下拉框渲染时会以 \"Error in GUI\" 崩溃。"
+      },
       "2.8.3": {
         "en": "Debug log covers every adapter path: App/Cloud API, cache, state-writes, capability mapping, LAN timing, MQTT login — bug reports triage from log alone.",
         "de": "Debug-Log deckt jeden Adapter-Pfad ab: App/Cloud-API, Cache, State-Writes, Capability-Mapping, LAN-Timing, MQTT-Login — Bug-Reports lassen sich nur aus dem Log triagieren.",
@@ -80,19 +93,6 @@
         "pl": "Snapshoty utworzone w aplikacji Govee Home pojawiają się teraz automatycznie w liście rozwijanej — stary cache ich już nie ukrywa. Przycisk odświeżania jest teraz per urządzenie pod snapshots.refresh_cloud; globalny info.refresh_cloud_data został usunięty.",
         "uk": "Знімки, створені в додатку Govee Home, тепер автоматично з'являються у випадному списку — старий кеш їх більше не приховує. Кнопка оновлення тепер на рівні пристрою в snapshots.refresh_cloud; глобальний info.refresh_cloud_data видалено.",
         "zh-cn": "在 Govee Home 应用中创建的快照现在会自动出现在下拉列表中——旧的缓存逻辑不再隐藏它们。刷新按钮已移到每个设备的 snapshots.refresh_cloud；全局 info.refresh_cloud_data 已移除。"
-      },
-      "NEXT": {
-        "en": "The device trust tier state no longer carries a multi-language label object that would crash the admin with \"Error in GUI\" if rendered as a dropdown.",
-        "de": "Der Trust-Tier-State pro Gerät trägt kein Mehrsprach-Label-Objekt mehr, das im Admin als Dropdown gerendert mit \"Error in GUI\" abstürzen würde.",
-        "ru": "Состояние trust tier для устройства больше не содержит мультиязычный объект-метку, который при отображении как dropdown приводил бы к \"Error in GUI\".",
-        "pt": "O estado trust tier por dispositivo já não contém um objeto multilingue que falharia com \"Error in GUI\" se renderizado como dropdown.",
-        "nl": "De trust-tier-state per apparaat bevat geen meertalig labelobject meer dat als dropdown gerenderd zou crashen met \"Error in GUI\".",
-        "fr": "L'état trust tier par appareil ne contient plus d'objet de label multilingue qui planterait avec \"Error in GUI\" rendu en dropdown.",
-        "it": "Lo stato trust tier per dispositivo non contiene più un oggetto-etichetta multilingua che si bloccherebbe con \"Error in GUI\" se reso come dropdown.",
-        "es": "El estado trust tier por dispositivo ya no contiene un objeto de etiqueta multilingüe que fallaría con \"Error in GUI\" si se renderizara como dropdown.",
-        "pl": "Stan trust tier dla urządzenia nie zawiera już wielojęzycznego obiektu etykiety, który po wyrenderowaniu jako dropdown zawiesiłby się z \"Error in GUI\".",
-        "uk": "Стан trust tier для пристрою більше не містить багатомовного об'єкта-мітки, який при відображенні як dropdown призводив би до \"Error in GUI\".",
-        "zh-cn": "每台设备的 trust tier 状态不再携带多语言标签对象，否则在作为下拉框渲染时会以 \"Error in GUI\" 崩溃。"
       }
     },
     "titleLang": {
