@@ -81,19 +81,6 @@
         "uk": "Чистіший ready-лог: прибрано зведення пристрої/сенсори/групи онлайн — воно виконувалося до завершення LAN-сканування і могло помилково показувати всі лампи як offline.",
         "zh-cn": "更干净的就绪日志：移除了设备/传感器/分组在线摘要——它在 LAN 扫描完成前就运行，可能错误地把所有灯显示为离线。"
       },
-      "2.6.6": {
-        "en": "Internal refactoring (main.ts on plan target ~800 LOC, 11 handler modules in lib/handlers/). No changes for users.",
-        "de": "Internes Refactoring (main.ts auf Plan-Ziel ~800 LOC, 11 Handler-Module in lib/handlers/). Keine Änderungen für Benutzer.",
-        "ru": "Внутренний рефакторинг (main.ts на целевые ~800 LOC, 11 хендлеров в lib/handlers/). Для пользователей ничего не меняется.",
-        "pt": "Refatoração interna (main.ts no alvo ~800 LOC, 11 handlers em lib/handlers/). Sem alterações para utilizadores.",
-        "nl": "Interne refactoring (main.ts op doel ~800 LOC, 11 handlers in lib/handlers/). Geen wijzigingen voor gebruikers.",
-        "fr": "Refactorisation interne (main.ts sur cible ~800 LOC, 11 handlers dans lib/handlers/). Aucun changement pour les utilisateurs.",
-        "it": "Refactoring interno (main.ts sul target ~800 LOC, 11 handler in lib/handlers/). Nessuna modifica per gli utenti.",
-        "es": "Refactorización interna (main.ts en el objetivo ~800 LOC, 11 handlers en lib/handlers/). Sin cambios para los usuarios.",
-        "pl": "Wewnętrzny refaktoring (main.ts na celu ~800 LOC, 11 handlerów w lib/handlers/). Bez zmian dla użytkowników.",
-        "uk": "Внутрішній рефакторинг (main.ts на цільові ~800 LOC, 11 хендлерів у lib/handlers/). Без змін для користувачів.",
-        "zh-cn": "内部重构（main.ts 达到 ~800 行的计划目标，lib/handlers/ 有 11 个处理器模块）。用户无任何变化。"
-      },
       "NEXT": {
         "en": "Debug log covers every adapter path: App/Cloud API, cache, state-writes, capability mapping, LAN timing, MQTT login — bug reports triage from log alone.",
         "de": "Debug-Log deckt jeden Adapter-Pfad ab: App/Cloud-API, Cache, State-Writes, Capability-Mapping, LAN-Timing, MQTT-Login — Bug-Reports lassen sich nur aus dem Log triagieren.",
