@@ -27,7 +27,8 @@ const buildCloudStateDefs = (
   device: GoveeDevice,
   localSnapshots?: { name: string }[],
   memberDevices?: GoveeDevice[],
-): StateDefinition[] => buildCloudStateDefsRaw(device, mockLog, localSnapshots, memberDevices);
+  lang?: string,
+): StateDefinition[] => buildCloudStateDefsRaw(device, mockLog, localSnapshots, memberDevices, lang);
 
 /**
  * Concat helper for tests that need the full state-def set (LAN + Cloud).
@@ -1641,7 +1642,7 @@ describe("CapabilityMapper", () => {
         channels: { lan: false, mqtt: false, cloud: true },
         capabilities: [],
       } as never;
-      const cloudDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "en");
+      const cloudDefs = buildCloudStateDefs(device, undefined, undefined, "en");
       const tier = cloudDefs.find(d => d.id === "tier");
       expect(tier, "tier state-def must exist for non-group devices").to.exist;
       expect(tier!.states, "tier state-def must have common.states").to.exist;
@@ -1667,15 +1668,15 @@ describe("CapabilityMapper", () => {
         channels: { lan: false, mqtt: false, cloud: true },
         capabilities: [],
       } as never;
-      const deDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "de");
+      const deDefs = buildCloudStateDefs(device, undefined, undefined, "de");
       const deTier = deDefs.find(d => d.id === "tier");
       // verified label differs en/de; smoke-check de is rendered
       expect(deTier!.states!.verified).to.match(/Verifiziert|Verified/);
-      const enDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "en");
+      const enDefs = buildCloudStateDefs(device, undefined, undefined, "en");
       const enTier = enDefs.find(d => d.id === "tier");
       expect(enTier!.states!.verified).to.match(/Verified/);
       // Unknown lang falls back to EN
-      const xxDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "xx");
+      const xxDefs = buildCloudStateDefs(device, undefined, undefined, "xx");
       const xxTier = xxDefs.find(d => d.id === "tier");
       expect(xxTier!.states!.verified).to.match(/Verified/);
     });
@@ -1701,7 +1702,7 @@ describe("CapabilityMapper", () => {
         channels: { lan: true, mqtt: false, cloud: true },
         capabilities: [],
       } as never;
-      const defs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "de");
+      const defs = buildCloudStateDefs(device, undefined, undefined, "de");
       for (const def of defs) {
         if (!def.states) continue;
         for (const [k, v] of Object.entries(def.states)) {
