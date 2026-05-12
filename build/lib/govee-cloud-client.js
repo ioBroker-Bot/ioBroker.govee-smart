@@ -241,8 +241,13 @@ class GoveeCloudClient {
         headers: { "Govee-API-Key": this.apiKey },
         body
       });
+      if (result.fallback) {
+        this.log.debug(
+          `Cloud API: ${method} ${path}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+        );
+      }
       this.lastErrorCategory = null;
-      return result;
+      return result.value;
     } catch (err) {
       if (err instanceof import_http_client.HttpError && err.statusCode === 429) {
         this.lastErrorCategory = "RATE_LIMIT";

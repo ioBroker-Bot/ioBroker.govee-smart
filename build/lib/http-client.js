@@ -78,15 +78,15 @@ function httpsRequest(options) {
         }
         const trimmed = raw.trim();
         if (trimmed.length === 0) {
-          resolve(null);
+          resolve({ value: null, statusCode, fallback: "empty" });
           return;
         }
         if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
-          resolve(null);
+          resolve({ value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed });
           return;
         }
         try {
-          resolve(JSON.parse(raw));
+          resolve({ value: JSON.parse(raw), statusCode });
         } catch (parseErr) {
           const snippet = raw.length > 100 ? `${raw.slice(0, 100)}\u2026` : raw;
           const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.8.2",
+    "version": "2.8.3",
     "news": {
+      "2.8.3": {
+        "en": "Debug log covers every adapter path: App/Cloud API, cache, state-writes, capability mapping, LAN timing, MQTT login — bug reports triage from log alone.",
+        "de": "Debug-Log deckt jeden Adapter-Pfad ab: App/Cloud-API, Cache, State-Writes, Capability-Mapping, LAN-Timing, MQTT-Login — Bug-Reports lassen sich nur aus dem Log triagieren.",
+        "ru": "Debug-лог покрывает каждый путь адаптера: App/Cloud API, кэш, записи состояний, маппинг capabilities, тайминг LAN, MQTT-логин — баг-репорты сортируются только по логу.",
+        "pt": "Debug log cobre cada caminho do adapter: App/Cloud API, cache, escritas, mapeamento de capabilities, tempos LAN, login MQTT — bug-reports triados só pelo log.",
+        "nl": "Debug-log dekt elk pad van het adapter: App/Cloud API, cache, state-writes, capability-mapping, LAN-timing, MQTT-login — bug-reports zijn alleen uit het log te triageren.",
+        "fr": "Le journal debug couvre chaque chemin de l'adapter : App/Cloud API, cache, écritures d'état, mapping capabilities, timing LAN, login MQTT — bug-reports triés depuis le seul log.",
+        "it": "Il log debug copre ogni percorso dell'adapter: App/Cloud API, cache, scritture di stato, mapping capabilities, timing LAN, login MQTT — bug-report dal solo log.",
+        "es": "El log debug cubre cada ruta del adapter: App/Cloud API, caché, escrituras, mapeo de capabilities, timing LAN, login MQTT — bug-reports solo desde el log.",
+        "pl": "Debug-log obejmuje każdą ścieżkę adaptera: App/Cloud API, cache, zapisy stanu, mapowanie capabilities, timing LAN, login MQTT — bug-raporty z samego loga.",
+        "uk": "Debug-лог охоплює кожен шлях адаптера: App/Cloud API, кеш, записи стану, мапінг capabilities, тайминг LAN, MQTT-логін — баг-репорти лише з лога.",
+        "zh-cn": "debug 日志覆盖每条适配器路径：App/Cloud API、缓存、状态写、capability 映射、LAN 时序、MQTT 登录——bug 报告仅靠日志即可分类。"
+      },
       "2.8.2": {
         "en": "Per-device snapshot refresh also reloads activation data — re-recorded snapshots work right away. Cleaner debug log. Failed local commands appear as a warning.",
         "de": "Snapshot-Refresh am Gerät lädt jetzt auch die Aktivierungs-Daten — neu aufgenommene Snapshots greifen sofort. Sauberes Debug-Log. Fehlgeschlagene lokale Befehle als Warnung.",
@@ -80,19 +93,6 @@
         "pl": "Czystszy log gotowości: usunięto podsumowanie urządzeń/czujników/grup online — działało przed zakończeniem skanu LAN i mogło błędnie pokazywać wszystkie lampy jako offline.",
         "uk": "Чистіший ready-лог: прибрано зведення пристрої/сенсори/групи онлайн — воно виконувалося до завершення LAN-сканування і могло помилково показувати всі лампи як offline.",
         "zh-cn": "更干净的就绪日志：移除了设备/传感器/分组在线摘要——它在 LAN 扫描完成前就运行，可能错误地把所有灯显示为离线。"
-      },
-      "NEXT": {
-        "en": "Debug log covers every adapter path: App/Cloud API, cache, state-writes, capability mapping, LAN timing, MQTT login — bug reports triage from log alone.",
-        "de": "Debug-Log deckt jeden Adapter-Pfad ab: App/Cloud-API, Cache, State-Writes, Capability-Mapping, LAN-Timing, MQTT-Login — Bug-Reports lassen sich nur aus dem Log triagieren.",
-        "ru": "Debug-лог покрывает каждый путь адаптера: App/Cloud API, кэш, записи состояний, маппинг capabilities, тайминг LAN, MQTT-логин — баг-репорты сортируются только по логу.",
-        "pt": "Debug log cobre cada caminho do adapter: App/Cloud API, cache, escritas, mapeamento de capabilities, tempos LAN, login MQTT — bug-reports triados só pelo log.",
-        "nl": "Debug-log dekt elk pad van het adapter: App/Cloud API, cache, state-writes, capability-mapping, LAN-timing, MQTT-login — bug-reports zijn alleen uit het log te triageren.",
-        "fr": "Le journal debug couvre chaque chemin de l'adapter : App/Cloud API, cache, écritures d'état, mapping capabilities, timing LAN, login MQTT — bug-reports triés depuis le seul log.",
-        "it": "Il log debug copre ogni percorso dell'adapter: App/Cloud API, cache, scritture di stato, mapping capabilities, timing LAN, login MQTT — bug-report dal solo log.",
-        "es": "El log debug cubre cada ruta del adapter: App/Cloud API, caché, escrituras, mapeo de capabilities, timing LAN, login MQTT — bug-reports solo desde el log.",
-        "pl": "Debug-log obejmuje każdą ścieżkę adaptera: App/Cloud API, cache, zapisy stanu, mapowanie capabilities, timing LAN, login MQTT — bug-raporty z samego loga.",
-        "uk": "Debug-лог охоплює кожен шлях адаптера: App/Cloud API, кеш, записи стану, мапінг capabilities, тайминг LAN, MQTT-логін — баг-репорти лише з лога.",
-        "zh-cn": "debug 日志覆盖每条适配器路径：App/Cloud API、缓存、状态写、capability 映射、LAN 时序、MQTT 登录——bug 报告仅靠日志即可分类。"
       }
     },
     "titleLang": {

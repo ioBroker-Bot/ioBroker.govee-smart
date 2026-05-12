@@ -62,17 +62,27 @@ function coerceNum(v) {
   }
   return null;
 }
-function mapCapabilities(capabilities) {
+function mapCapabilities(capabilities, log) {
+  var _a, _b;
   const states = [];
   if (!Array.isArray(capabilities)) {
     return states;
   }
+  let mapped = 0;
+  let skipped = 0;
   for (const cap of capabilities) {
-    const mapped = mapSingleCapability(cap);
-    if (mapped) {
-      states.push(...mapped);
+    const result = mapSingleCapability(cap);
+    if (result) {
+      states.push(...result);
+      mapped++;
+    } else {
+      skipped++;
+      log.debug(
+        `Cap skipped: type=${(_a = cap == null ? void 0 : cap.type) != null ? _a : "?"} instance=${(_b = cap == null ? void 0 : cap.instance) != null ? _b : "?"} \u2014 no mapping (capability not handled or malformed)`
+      );
     }
   }
+  log.debug(`mapCapabilities: ${mapped} mapped, ${skipped} skipped, ${states.length} state def(s) produced`);
   return states;
 }
 function hasDynamicSceneCapability(capabilities, instance) {
@@ -547,10 +557,15 @@ function mapMusicSetting(cap) {
   }
   return states;
 }
-function applyQuirksToStates(sku, states) {
+function applyQuirksToStates(sku, states, log) {
   for (const state of states) {
     if (state.id === "colorTemperature" && state.min != null && state.max != null) {
       const corrected = (0, import_device_registry.applyColorTempQuirk)(sku, state.min, state.max);
+      if (corrected.min !== state.min || corrected.max !== state.max) {
+        log.debug(
+          `Quirk applied for ${sku}: colorTemperature range ${state.min}-${state.max}K \u2192 ${corrected.min}-${corrected.max}K`
+        );
+      }
       state.min = corrected.min;
       state.max = corrected.max;
       state.def = corrected.min;
@@ -712,20 +727,20 @@ const SCENE_DROPDOWN_RULES = [
     source: (d) => d.snapshots
   }
 ];
-function buildLanStateDefs(device) {
+function buildLanStateDefs(device, log) {
   if (!device.lanIp) {
     return [];
   }
   const stateDefs = getDefaultLanStates();
-  applyQuirksToStates(device.sku, stateDefs);
+  applyQuirksToStates(device.sku, stateDefs, log);
   return stateDefs;
 }
-function buildCloudStateDefs(device, localSnapshots, memberDevices) {
+function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || []);
   }
-  const stateDefs = mapCapabilities(device.capabilities).filter((d) => !LAN_STATE_IDS.has(d.id));
-  applyQuirksToStates(device.sku, stateDefs);
+  const stateDefs = mapCapabilities(device.capabilities, log).filter((d) => !LAN_STATE_IDS.has(d.id));
+  applyQuirksToStates(device.sku, stateDefs, log);
   const isLight = device.type === "devices.types.light";
   for (const r of SCENE_DROPDOWN_RULES) {
     if (!isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {

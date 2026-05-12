@@ -1,4 +1,11 @@
 # Older Changes
+## 2.7.0 (2026-05-10)
+
+- Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after the update and via the refresh button. Previously the cache held the old list forever.
+- Refresh button is now per device under `devices.<id>.snapshots.refresh_cloud` instead of an adapter-wide button: a press hits Govee only for that one light, not for every device on your account.
+- The refresh also re-fetches the Govee device list, so a brand-new snapshot from the Govee Home app is picked up even when Govee's cloud hasn't caught up to it yet.
+- `info.refresh_cloud_data` is removed in favour of the per-device button above. ioBroker scripts that wrote to it need to point at `devices.<id>.snapshots.refresh_cloud` instead.
+
 ## 2.6.7 (2026-05-10)
 
 - Cleaner ready-log: removed the device/sensor/group online-summary because it ran before the LAN scan had settled and could falsely show all lights as offline.

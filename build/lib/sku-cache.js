@@ -74,7 +74,13 @@ class SkuCache {
       } finally {
         fs.closeSync(fd);
       }
-      this.log.debug(`Cache saved for ${data.sku}`);
+      const sceneN = Array.isArray(data.sceneLibrary) ? data.sceneLibrary.length : 0;
+      const musicN = Array.isArray(data.musicLibrary) ? data.musicLibrary.length : 0;
+      const diyN = Array.isArray(data.diyLibrary) ? data.diyLibrary.length : 0;
+      const snapN = Array.isArray(data.snapshotBleCmds) ? data.snapshotBleCmds.length : 0;
+      this.log.debug(
+        `Cache saved for ${data.sku} (scenes=${sceneN}, music=${musicN}, diy=${diyN}, snapshotBleCmds=${snapN})`
+      );
     } catch (e) {
       this.log.warn(`Cache write failed for ${data.sku}: ${(0, import_types.errMessage)(e)}`);
     }
@@ -83,23 +89,39 @@ class SkuCache {
   loadAll() {
     const results = [];
     if (!this.dataAvailable) {
+      this.log.debug(`Cache load: skipped \u2014 cache directory not available (${this.cacheDir})`);
       return results;
     }
+    let corruptCount = 0;
+    let skippedFiles = 0;
     try {
       if (!fs.existsSync(this.cacheDir)) {
+        this.log.debug(`Cache load: miss \u2014 directory does not exist yet (${this.cacheDir})`);
         return results;
       }
       for (const file of fs.readdirSync(this.cacheDir)) {
         if (!file.endsWith(".json")) {
+          skippedFiles++;
           continue;
         }
         try {
           const raw = fs.readFileSync(path.join(this.cacheDir, file), "utf-8");
           results.push(JSON.parse(raw));
         } catch {
+          corruptCount++;
         }
       }
     } catch {
+    }
+    if (results.length === 0) {
+      this.log.debug(`Cache load: miss \u2014 no cached devices found in ${this.cacheDir}`);
+    } else {
+      const now = Date.now();
+      const ages = results.map((d) => typeof d.lastSeenOnNetwork === "number" ? now - d.lastSeenOnNetwork : -1).filter((a) => a >= 0);
+      const ageInfo = ages.length === results.length ? ` (oldest=${Math.round(Math.max(...ages) / 864e5)}d, newest=${Math.round(Math.min(...ages) / 864e5)}d)` : ages.length === 0 ? " (no age data, legacy entries)" : ` (${results.length - ages.length} legacy entry/entries without age)`;
+      this.log.debug(
+        `Cache load: hit \u2014 ${results.length} device(s)${ageInfo}${corruptCount > 0 ? `, ${corruptCount} corrupt file(s) skipped` : ""}${skippedFiles > 0 ? `, ${skippedFiles} non-json file(s) skipped` : ""}`
+      );
     }
     return results;
   }
@@ -113,7 +135,9 @@ class SkuCache {
    */
   pruneStale(maxAgeDays = 14) {
     const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1e3;
+    const nowMs = Date.now();
     let pruned = 0;
+    const prunedDetails = [];
     try {
       if (!fs.existsSync(this.cacheDir)) {
         return 0;
@@ -130,8 +154,10 @@ class SkuCache {
             continue;
           }
           if (data.lastSeenOnNetwork < cutoff) {
+            const ageDays = Math.round((nowMs - data.lastSeenOnNetwork) / 864e5);
             fs.unlinkSync(full);
             pruned++;
+            prunedDetails.push(`${data.sku} ${data.deviceId} (${ageDays}d)`);
           }
         } catch {
         }
@@ -139,7 +165,9 @@ class SkuCache {
     } catch {
     }
     if (pruned > 0) {
-      this.log.info(`Cache: pruned ${pruned} stale entries (not seen on network for ${maxAgeDays}+ days)`);
+      this.log.info(
+        `Cache: pruned ${pruned} stale entries (not seen for ${maxAgeDays}+ days): ${prunedDetails.join(", ")}`
+      );
     }
     return pruned;
   }

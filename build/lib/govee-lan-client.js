@@ -71,6 +71,15 @@ class GoveeLanClient {
   onDiscovery = null;
   onStatus = null;
   seenDeviceIps = /* @__PURE__ */ new Set();
+  /**
+   * Per-IP timestamp of the last command we sent (ptReal/setScene/etc).
+   * Used to annotate incoming LAN-status responses with the Δt — gives an
+   * approximate "did this status follow a command of ours?" signal in the
+   * debug log. Proximity, not proof: Govee's UDP protocol doesn't carry
+   * command IDs, so a small Δ is *probably* a response but could be
+   * unrelated polling.
+   */
+  lastCommandSentMs = /* @__PURE__ */ new Map();
   /** Multicast-Membership-Adresse — gemerkt für dropMembership in stop(). */
   multicastBind;
   /**
@@ -299,6 +308,7 @@ class GoveeLanClient {
         this.log.warn(`LAN ptReal error to ${ip}: ${err.message}`);
       } else {
         this.log.debug(`LAN ptReal sent to ${ip}: ${base64Packets.length} packet(s), ${buf.length} bytes`);
+        this.lastCommandSentMs.set(ip, Date.now());
       }
     });
   }
@@ -522,6 +532,11 @@ class GoveeLanClient {
       color,
       colorTemInKelvin: toNum(data.colorTemInKelvin)
     };
+    const lastSend = this.lastCommandSentMs.get(sourceIp);
+    if (lastSend !== void 0) {
+      const dt = Date.now() - lastSend;
+      this.log.debug(`LAN status from ${sourceIp}: \u0394 ${dt}ms since last command (proximity, not ack)`);
+    }
     (_a = this.onStatus) == null ? void 0 : _a.call(this, sourceIp, status);
   }
 }

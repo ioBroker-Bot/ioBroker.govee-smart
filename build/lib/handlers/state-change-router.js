@@ -139,30 +139,48 @@ async function handleGenericCapabilityCommand(adapter, device, id, stateSuffix, 
   const capInstance = (_b = obj == null ? void 0 : obj.native) == null ? void 0 : _b.capabilityInstance;
   if (typeof capType === "string" && typeof capInstance === "string") {
     try {
+      adapter.log.debug(
+        `Routing to generic capability for ${device.name}: cap=${capType}/${capInstance} state=${stateSuffix} val=${JSON.stringify(val)}`
+      );
       await adapter.deviceManager.sendCapabilityCommand(device, capType, capInstance, val);
       await adapter.setStateAsync(id, { val, ack: true });
     } catch (err) {
       adapter.log.warn(`Command failed for ${device.name}: ${(0, import_types.errMessage)(err)}`);
     }
   } else {
-    adapter.log.debug(`Unknown writable state: ${stateSuffix}`);
+    adapter.log.debug(
+      `No handler matched for ${device.name} (${device.sku}) state=${stateSuffix} val=${JSON.stringify(val)} \u2014 writable state without command mapping or capability metadata, silently ignored`
+    );
   }
 }
 async function onStateChange(adapter, id, state) {
   var _a;
-  if (!state || state.ack || !adapter.deviceManager || !adapter.stateManager || adapter.unloading) {
+  if (!state || state.ack) {
+    return;
+  }
+  if (!adapter.deviceManager || !adapter.stateManager) {
+    adapter.log.debug(`onStateChange ignored ${id}: adapter not ready (deviceManager/stateManager missing)`);
+    return;
+  }
+  if (adapter.unloading) {
+    adapter.log.debug(`onStateChange ignored ${id}: adapter is unloading`);
     return;
   }
   const localId = id.replace(`${adapter.namespace}.`, "");
   if (!localId.startsWith("devices.") && !localId.startsWith("groups.")) {
+    adapter.log.debug(`onStateChange ignored ${id}: not a devices.* / groups.* path`);
     return;
   }
   const device = findDeviceForState(adapter, localId);
   if (!device) {
+    adapter.log.debug(`onStateChange ignored ${id}: no device matches this state path`);
     return;
   }
   const prefix = adapter.stateManager.devicePrefix(device);
   const stateSuffix = localId.slice(prefix.length + 1);
+  adapter.log.debug(
+    `onStateChange ${id}: device=${device.name} (${device.sku}) suffix=${stateSuffix} val=${JSON.stringify(state.val)}`
+  );
   const resolved = await resolveDropdownInput(adapter, id, state.val);
   if (!resolved.ok) {
     adapter.log.warn(`Unknown dropdown value for ${id}: ${String(state.val)} \u2014 ignoring`);

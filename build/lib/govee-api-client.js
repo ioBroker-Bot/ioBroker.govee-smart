@@ -26,6 +26,15 @@ module.exports = __toCommonJS(govee_api_client_exports);
 var import_http_client = require("./http-client");
 var import_govee_constants = require("./govee-constants");
 class GoveeApiClient {
+  /**
+   * @param log Adapter logger. Each fetch method emits a debug-line for the
+   *   request and a debug-line summarising the result — this is what made
+   *   Issue #13 v2.8.2 hard to triage from the log alone (the App-API path
+   *   was completely silent before v2.8.3).
+   */
+  constructor(log) {
+    this.log = log;
+  }
   bearerToken = null;
   /** Account-derived client ID. Defaults to anonymous fallback until setEmail() is called. */
   clientId = (0, import_govee_constants.deriveGoveeClientId)(void 0);
@@ -85,14 +94,22 @@ class GoveeApiClient {
    */
   async fetchDeviceList() {
     if (!this.bearerToken) {
+      this.log.debug(`App API skip /device/rest/devices/v1/list: no bearer token`);
       return [];
     }
-    const resp = await (0, import_http_client.httpsRequest)({
+    this.log.debug(`App API POST /device/rest/devices/v1/list bearer=yes`);
+    const result = await (0, import_http_client.httpsRequest)({
       method: "POST",
       url: `${import_govee_constants.GOVEE_APP_BASE_URL}/device/rest/devices/v1/list`,
       headers: this.authHeaders(),
       body: {}
     });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /device/rest/devices/v1/list: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     const out = [];
     const list = Array.isArray(resp == null ? void 0 : resp.devices) ? resp.devices : [];
     for (const d of list) {
@@ -124,8 +141,9 @@ class GoveeApiClient {
    */
   async fetchSceneLibrary(sku) {
     var _a, _b, _c, _d, _e, _f;
+    this.log.debug(`App API GET /light-effect-libraries sku=${sku} bearer=no (public endpoint)`);
     const url = `https://app2.govee.com/appsku/v1/light-effect-libraries?sku=${encodeURIComponent(sku)}`;
-    const resp = await (0, import_http_client.httpsRequest)({
+    const result = await (0, import_http_client.httpsRequest)({
       method: "GET",
       url,
       headers: {
@@ -133,6 +151,12 @@ class GoveeApiClient {
         "User-Agent": import_govee_constants.GOVEE_USER_AGENT
       }
     });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /light-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     const scenes = [];
     const categories = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories) ? resp.data.categories : [];
     for (const cat of categories) {
@@ -181,10 +205,18 @@ class GoveeApiClient {
   async fetchMusicLibrary(sku) {
     var _a, _b, _c;
     if (!this.bearerToken) {
+      this.log.debug(`App API skip /music-effect-libraries sku=${sku}: no bearer token`);
       return [];
     }
+    this.log.debug(`App API GET /music-effect-libraries sku=${sku} bearer=yes`);
     const url = `https://app2.govee.com/appsku/v1/music-effect-libraries?sku=${encodeURIComponent(sku)}`;
-    const resp = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /music-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     const modes = [];
     let modeIdx = 0;
     const musicCats = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories) ? resp.data.categories : [];
@@ -219,10 +251,18 @@ class GoveeApiClient {
   async fetchDiyLibrary(sku) {
     var _a, _b, _c;
     if (!this.bearerToken) {
+      this.log.debug(`App API skip /diy-light-effect-libraries sku=${sku}: no bearer token`);
       return [];
     }
+    this.log.debug(`App API GET /diy-light-effect-libraries sku=${sku} bearer=yes`);
     const url = `https://app2.govee.com/appsku/v1/diy-light-effect-libraries?sku=${encodeURIComponent(sku)}`;
-    const resp = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /diy-light-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     const diys = [];
     const diyCats = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories) ? resp.data.categories : [];
     for (const cat of diyCats) {
@@ -254,10 +294,18 @@ class GoveeApiClient {
   async fetchSkuFeatures(sku) {
     var _a;
     if (!this.bearerToken) {
+      this.log.debug(`App API skip /sku-supported-feature sku=${sku}: no bearer token`);
       return null;
     }
+    this.log.debug(`App API GET /sku-supported-feature sku=${sku} bearer=yes`);
     const url = `https://app2.govee.com/appsku/v1/sku-supported-feature?sku=${encodeURIComponent(sku)}`;
-    const resp = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /sku-supported-feature sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     if (!resp || typeof resp !== "object") {
       return null;
     }
@@ -273,10 +321,18 @@ class GoveeApiClient {
   async fetchSnapshots(sku, deviceId) {
     var _a;
     if (!this.bearerToken) {
+      this.log.debug(`App API skip /devices/snapshots sku=${sku}: no bearer token`);
       return [];
     }
+    this.log.debug(`App API GET /devices/snapshots sku=${sku} device=${deviceId} bearer=yes`);
     const url = `https://app2.govee.com/bff-app/v1/devices/snapshots?sku=${encodeURIComponent(sku)}&device=${encodeURIComponent(deviceId)}&snapshotId=-1`;
-    const resp = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /devices/snapshots sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     const results = [];
     const snaps = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.snapshots) ? resp.data.snapshots : [];
     for (const snap of snaps) {
@@ -310,10 +366,18 @@ class GoveeApiClient {
   async fetchGroupMembers() {
     var _a;
     if (!this.bearerToken) {
+      this.log.debug(`App API skip /exec-plat/home: no bearer token`);
       return [];
     }
+    this.log.debug(`App API GET /exec-plat/home bearer=yes`);
     const url = "https://app2.govee.com/bff-app/v1/exec-plat/home";
-    const resp = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
+    if (result.fallback) {
+      this.log.debug(
+        `App API /exec-plat/home: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+    const resp = result.value;
     const groups = [];
     const components = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.components) ? resp.data.components : [];
     for (const comp of components) {

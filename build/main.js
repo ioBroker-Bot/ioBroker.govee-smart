@@ -217,7 +217,7 @@ class GoveeAdapter extends utils.Adapter {
     this.groupFanout = new import_group_fanout.GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
     this.messageRouter = new import_message_router.MessageRouter(this.buildMessageRouterHost());
     this.deviceManager.setSkuCache(this.skuCache);
-    const apiClient = new import_govee_api_client.GoveeApiClient();
+    const apiClient = new import_govee_api_client.GoveeApiClient(this.log);
     apiClient.setEmail(config.goveeEmail);
     this.deviceManager.setApiClient(apiClient);
     this.deviceManager.setCallbacks({

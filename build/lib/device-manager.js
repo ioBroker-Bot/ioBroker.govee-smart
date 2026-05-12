@@ -234,9 +234,12 @@ class DeviceManager {
       return false;
     }
     let changed = false;
+    const nowMs = Date.now();
     for (const entry of cached) {
       const key = this.deviceKey(entry.sku, entry.deviceId);
       const existing = this.devices.get(key);
+      const ageDays = typeof entry.lastSeenOnNetwork === "number" ? Math.round((nowMs - entry.lastSeenOnNetwork) / 864e5) : null;
+      const ageInfo = ageDays === null ? "no age data (legacy entry)" : `${ageDays}d since last seen`;
       if (existing) {
         existing.name = entry.name || existing.name;
         existing.type = entry.type || existing.type;
@@ -256,9 +259,15 @@ class DeviceManager {
         existing.manualSegments = entry.manualSegments;
         existing.channels.cloud = entry.capabilities.length > 0;
         changed = true;
+        this.log.debug(
+          `Cache merged into LAN-discovered device ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`
+        );
       } else {
         this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
         changed = true;
+        this.log.debug(
+          `Cache restored (no LAN discovery yet) for ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`
+        );
       }
     }
     if (changed) {
@@ -532,10 +541,12 @@ class DeviceManager {
         try {
           const lib = await this.apiClient.fetchSceneLibrary(sku);
           this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map((s) => s.name) });
+          this.log.debug(
+            `Scene library for ${sku}: ${lib.length} scene(s)${lib.length === 0 ? " \u2014 empty (Govee returned no data for this SKU)" : ""}`
+          );
           if (lib.length > 0) {
             device.sceneLibrary = lib;
             changed = true;
-            this.log.debug(`Scene library for ${sku}: ${lib.length} scenes`);
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
@@ -549,10 +560,12 @@ class DeviceManager {
         try {
           const lib = await this.apiClient.fetchMusicLibrary(sku);
           this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map((m) => m.name) });
+          this.log.debug(
+            `Music library for ${sku}: ${lib.length} mode(s)${lib.length === 0 ? " \u2014 empty (Govee returned no data for this SKU)" : ""}`
+          );
           if (lib.length > 0) {
             device.musicLibrary = lib;
             changed = true;
-            this.log.debug(`Music library for ${sku}: ${lib.length} modes`);
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
@@ -566,10 +579,12 @@ class DeviceManager {
         try {
           const lib = await this.apiClient.fetchDiyLibrary(sku);
           this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map((d) => d.name) });
+          this.log.debug(
+            `DIY library for ${sku}: ${lib.length} effect(s)${lib.length === 0 ? " \u2014 empty (Govee returned no data for this SKU)" : ""}`
+          );
           if (lib.length > 0) {
             device.diyLibrary = lib;
             changed = true;
-            this.log.debug(`DIY library for ${sku}: ${lib.length} effects`);
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
@@ -587,6 +602,8 @@ class DeviceManager {
             device.skuFeatures = features;
             changed = true;
             this.log.debug(`SKU features for ${sku}: ${JSON.stringify(features).slice(0, 200)}`);
+          } else {
+            this.log.debug(`SKU features for ${sku}: null \u2014 Govee returned no data for this SKU`);
           }
         } catch (e) {
           this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
@@ -598,6 +615,9 @@ class DeviceManager {
       await runLimited(async () => {
         try {
           const snaps = await this.apiClient.fetchSnapshots(sku, device.deviceId);
+          this.log.debug(
+            `Snapshot BLE for ${sku}: ${snaps.length} snapshot(s) with local data${snaps.length === 0 ? " \u2014 Govee returned no BLE-cmds for this SKU/device" : ""}`
+          );
           if (snaps.length > 0) {
             device.snapshotBleCmds = device.snapshots.map((ds) => {
               var _a;
@@ -605,7 +625,6 @@ class DeviceManager {
               return (_a = match == null ? void 0 : match.bleCmds) != null ? _a : [];
             });
             changed = true;
-            this.log.debug(`Snapshot BLE for ${sku}: ${snaps.length} snapshots with local data`);
           }
         } catch (e) {
           this.log.debug(`Could not load snapshot BLE for ${sku}: ${(0, import_types.errMessage)(e)}`);

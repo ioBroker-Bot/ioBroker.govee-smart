@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.8.3 (2026-05-12)
 
 - Debug log now covers every adapter path: App and Cloud API calls (with body snippets on null), cache load/save with age, state-writes, capability mapping, LAN command timing, MQTT login server reply.
 - Bug reports can be triaged from a debug log alone — no more "the adapter did nothing and didn't say why".
@@ -151,13 +151,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.7.1 (2026-05-10)
 
 - Cleaner startup log: the first line now tells you to wait for the "ready" message, and one redundant connection-info line is gone.
-
-### 2.7.0 (2026-05-10)
-
-- Newly created snapshots in the Govee Home app now appear in the ioBroker dropdown — both after the update and via the refresh button. Previously the cache held the old list forever.
-- Refresh button is now per device under `devices.<id>.snapshots.refresh_cloud` instead of an adapter-wide button: a press hits Govee only for that one light, not for every device on your account.
-- The refresh also re-fetches the Govee device list, so a brand-new snapshot from the Govee Home app is picked up even when Govee's cloud hasn't caught up to it yet.
-- `info.refresh_cloud_data` is removed in favour of the per-device button above. ioBroker scripts that wrote to it need to point at `devices.<id>.snapshots.refresh_cloud` instead.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

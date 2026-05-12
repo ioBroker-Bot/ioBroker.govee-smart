@@ -57,24 +57,24 @@ function updateConnectionState(adapter) {
   }
 }
 async function checkAppVersionDrift(adapter) {
-  var _a, _b, _c, _d, _e, _f;
+  var _a, _b, _c, _d, _e, _f, _g;
   try {
-    const resp = await (0, import_http_client.httpsRequest)({
+    const result = await (0, import_http_client.httpsRequest)({
       method: "GET",
       url: "https://itunes.apple.com/lookup?bundleId=com.ihoment.GoVeeSensor",
       headers: { "User-Agent": "ioBroker.govee-smart" },
       timeout: 1e4
     });
-    const liveVersion = (_b = (_a = resp.results) == null ? void 0 : _a[0]) == null ? void 0 : _b.version;
+    const liveVersion = (_c = (_b = (_a = result.value) == null ? void 0 : _a.results) == null ? void 0 : _b[0]) == null ? void 0 : _c.version;
     if (typeof liveVersion !== "string" || liveVersion.length === 0) {
       return;
     }
     const localParts = import_govee_constants.GOVEE_APP_VERSION.split(".").map(Number);
     const liveParts = liveVersion.split(".").map(Number);
-    const localMajor = (_c = localParts[0]) != null ? _c : 0;
-    const localMinor = (_d = localParts[1]) != null ? _d : 0;
-    const liveMajor = (_e = liveParts[0]) != null ? _e : 0;
-    const liveMinor = (_f = liveParts[1]) != null ? _f : 0;
+    const localMajor = (_d = localParts[0]) != null ? _d : 0;
+    const localMinor = (_e = localParts[1]) != null ? _e : 0;
+    const liveMajor = (_f = liveParts[0]) != null ? _f : 0;
+    const liveMinor = (_g = liveParts[1]) != null ? _g : 0;
     const liveTotal = liveMajor * 100 + liveMinor;
     const localTotal = localMajor * 100 + localMinor;
     const driftMinor = liveTotal - localTotal;

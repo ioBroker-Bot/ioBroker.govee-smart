@@ -237,6 +237,7 @@ class GoveeMqttClient {
         const apiStatus = (_b = loginResp.status) != null ? _b : 0;
         const apiMsg = (_c = loginResp.message) != null ? _c : "unknown error";
         const statusStr = `(status ${apiStatus || "?"})`;
+        this.log.debug(`MQTT login error response body: ${JSON.stringify(loginResp).slice(0, 300)}`);
         if (apiStatus === 455 || apiStatus === 454 && codeWasSent) {
           throw new Error(`Verification code invalid or expired ${statusStr}`);
         }
@@ -623,7 +624,7 @@ class GoveeMqttClient {
     }
   }
   /** Login to Govee account */
-  login() {
+  async login() {
     var _a;
     const body = {
       email: this.email,
@@ -634,7 +635,7 @@ class GoveeMqttClient {
     if (code) {
       body.code = code;
     }
-    return this.httpsRequestImpl({
+    const result = await this.httpsRequestImpl({
       method: "POST",
       url: LOGIN_URL,
       headers: {
@@ -647,6 +648,12 @@ class GoveeMqttClient {
       },
       body
     });
+    if (!result.value) {
+      throw new Error(
+        `Govee login returned no body (status=${result.statusCode}${result.fallback ? `, fallback=${result.fallback}` : ""}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""})`
+      );
+    }
+    return result.value;
   }
   /**
    * Last time `requestVerificationCode` actually issued a request — guards against
@@ -695,8 +702,8 @@ class GoveeMqttClient {
     });
   }
   /** Get IoT key (P12 certificate) */
-  getIotKey() {
-    return this.httpsRequestImpl({
+  async getIotKey() {
+    const result = await this.httpsRequestImpl({
       method: "GET",
       url: IOT_KEY_URL,
       headers: {
@@ -707,6 +714,12 @@ class GoveeMqttClient {
         "User-Agent": import_govee_constants.GOVEE_USER_AGENT
       }
     });
+    if (!result.value) {
+      throw new Error(
+        `Govee IoT-key request returned no body (status=${result.statusCode}${result.fallback ? `, fallback=${result.fallback}` : ""})`
+      );
+    }
+    return result.value;
   }
   /**
    * Extract PEM key + cert from PKCS12
