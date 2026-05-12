@@ -229,6 +229,37 @@ export class StateManager {
    * geworden ist), aber weiß nicht ob das Object jemals da war. delObject
    * + delState ist nur dann sicher wenn das Object EXISTIERT.
    *
+   * Force-replace `common.states` on a persisted state object if any existing
+   * value is non-string (= translation object from older releases).
+   *
+   * `extendObjectAsync` deep-merges and CANNOT replace an object-value with a
+   * string. Only a full `setObjectAsync` replaces. Same fix-pattern as
+   * hassemu v1.27.2 (URL-dropdown) and v1.28.4 (mode-dropdown). Admin
+   * renders states-values as React children — a translation object triggers
+   * React Error #31 → fatal "Error in GUI" on dropdown open (write:true) or
+   * any render path (write:false like diag.tier).
+   *
+   * @param id    Full state path.
+   * @param fresh Plain-string `common.states` map to write.
+   */
+  private async repairCommonStatesIfBuggy(id: string, fresh: Record<string, string>): Promise<void> {
+    const existing = await this.adapter.getObjectAsync(id).catch(() => null);
+    if (!existing) {
+      return;
+    }
+    const states = existing.common?.states;
+    if (!states || typeof states !== "object") {
+      return;
+    }
+    const buggy = Object.values(states as Record<string, unknown>).some(v => typeof v !== "string");
+    if (!buggy) {
+      return;
+    }
+    existing.common = { ...existing.common, states: fresh } as ioBroker.StateCommon;
+    await this.adapter.setObjectAsync(id, existing).catch(() => undefined);
+  }
+
+  /**
    * @param id Voller State-Pfad (`devices.X.info.Y`)
    */
   private async safeDeleteState(id: string): Promise<void> {
@@ -585,11 +616,7 @@ export class StateManager {
           common.max = def.max;
         }
         if (def.states) {
-          // Cast: StateDefinition.states allows translation objects per value
-          // (ioBroker Admin v6+). The runtime ioBroker.StateCommon type only
-          // exposes string values yet — same pattern as `name: ... as
-          // ioBroker.StringOrTranslated`.
-          common.states = def.states as Record<string, string>;
+          common.states = def.states;
         }
         if (def.def !== undefined) {
           common.def = def.def;
@@ -606,6 +633,18 @@ export class StateManager {
             capabilityInstance: def.capabilityInstance,
           },
         });
+
+        // Existing diag.tier datapoints from v2.6.0+ may carry translation-object
+        // VALUES in common.states (the old buildCloudStateDefs wrote tLabel(...)
+        // directly). extendObjectAsync deep-merges and cannot replace an
+        // object-value with a string. Force-replace via setObjectAsync when
+        // any persisted state value is non-string. Pattern proven in hassemu
+        // v1.27.2 / v1.28.4. React Error #31 would otherwise fatal-crash Admin
+        // on dropdown open (write:true states) or any view that renders the
+        // value (write:false states like diag.tier).
+        if (def.states) {
+          await this.repairCommonStatesIfBuggy(`${prefix}.${channel}.${def.id}`, def.states);
+        }
 
         // Initialize or validate state value
         if (def.def !== undefined) {

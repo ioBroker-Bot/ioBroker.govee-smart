@@ -735,7 +735,7 @@ function buildLanStateDefs(device, log) {
   applyQuirksToStates(device.sku, stateDefs, log);
   return stateDefs;
 }
-function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
+function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = "en") {
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || []);
   }
@@ -879,10 +879,10 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
     write: false,
     def: "unknown",
     states: {
-      verified: (0, import_i18n_states.tLabel)("deviceTierVerified"),
-      reported: (0, import_i18n_states.tLabel)("deviceTierReported"),
-      seed: (0, import_i18n_states.tLabel)("deviceTierSeed"),
-      unknown: (0, import_i18n_states.tLabel)("deviceTierUnknown")
+      verified: (0, import_i18n_states.resolveLabel)("deviceTierVerified", lang),
+      reported: (0, import_i18n_states.resolveLabel)("deviceTierReported", lang),
+      seed: (0, import_i18n_states.resolveLabel)("deviceTierSeed", lang),
+      unknown: (0, import_i18n_states.resolveLabel)("deviceTierUnknown", lang)
     },
     capabilityType: "local",
     capabilityInstance: "diagnosticsTier",

@@ -128,6 +128,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- The device trust tier state under each device no longer carries a multi-language label object that would crash the admin with "Error in GUI" if rendered as a dropdown.
+
 ### 2.8.3 (2026-05-12)
 
 - Debug log now covers every adapter path: App and Cloud API calls (with body snippets on null), cache load/save with age, state-writes, capability mapping, LAN command timing, MQTT login server reply.

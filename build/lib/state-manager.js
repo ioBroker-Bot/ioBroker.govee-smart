@@ -182,6 +182,37 @@ class StateManager {
    * geworden ist), aber weiß nicht ob das Object jemals da war. delObject
    * + delState ist nur dann sicher wenn das Object EXISTIERT.
    *
+   * Force-replace `common.states` on a persisted state object if any existing
+   * value is non-string (= translation object from older releases).
+   *
+   * `extendObjectAsync` deep-merges and CANNOT replace an object-value with a
+   * string. Only a full `setObjectAsync` replaces. Same fix-pattern as
+   * hassemu v1.27.2 (URL-dropdown) and v1.28.4 (mode-dropdown). Admin
+   * renders states-values as React children — a translation object triggers
+   * React Error #31 → fatal "Error in GUI" on dropdown open (write:true) or
+   * any render path (write:false like diag.tier).
+   *
+   * @param id    Full state path.
+   * @param fresh Plain-string `common.states` map to write.
+   */
+  async repairCommonStatesIfBuggy(id, fresh) {
+    var _a;
+    const existing = await this.adapter.getObjectAsync(id).catch(() => null);
+    if (!existing) {
+      return;
+    }
+    const states = (_a = existing.common) == null ? void 0 : _a.states;
+    if (!states || typeof states !== "object") {
+      return;
+    }
+    const buggy = Object.values(states).some((v) => typeof v !== "string");
+    if (!buggy) {
+      return;
+    }
+    existing.common = { ...existing.common, states: fresh };
+    await this.adapter.setObjectAsync(id, existing).catch(() => void 0);
+  }
+  /**
    * @param id Voller State-Pfad (`devices.X.info.Y`)
    */
   async safeDeleteState(id) {
@@ -502,6 +533,9 @@ class StateManager {
             capabilityInstance: def.capabilityInstance
           }
         });
+        if (def.states) {
+          await this.repairCommonStatesIfBuggy(`${prefix}.${channel}.${def.id}`, def.states);
+        }
         if (def.def !== void 0) {
           const current = await this.adapter.getStateAsync(`${prefix}.${channel}.${def.id}`);
           if (!current || current.val === null || current.val === void 0) {

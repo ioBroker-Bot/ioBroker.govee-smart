@@ -733,11 +733,32 @@ export const STATE_LABELS: Record<string, StateName> = {
 };
 
 /**
- * Returns the translation object for a state-list label. Use as value in a
- * `common.states` map; ioBroker localizes it like `common.name`.
+ * Translation object for a label.
+ *
+ * **WARNING:** the return value is a translation object — it MUST NOT be used
+ * as a `common.states` VALUE. Admin renders states-values as React children
+ * and a `{en, de, …}` object triggers React Error #31 → fatal "Error in GUI"
+ * on dropdown open (verified hassemu v1.28.4 + govee-smart 2026-05-12).
+ * Use {@link resolveLabel} for `common.states` VALUES (plain-string).
  *
  * @param key Translation key in {@link STATE_LABELS}.
  */
 export function tLabel(key: keyof typeof STATE_LABELS): StateName {
   return STATE_LABELS[key];
+}
+
+/**
+ * Resolve a label to a plain-string in the given language with EN-fallback.
+ * Use this for `common.states`-VALUES — Admin requires plain-string there.
+ *
+ * @param key  Translation key in {@link STATE_LABELS}.
+ * @param lang Two-letter ISO language code (e.g. `adapter.language ?? "en"`).
+ */
+export function resolveLabel(key: keyof typeof STATE_LABELS, lang: string): string {
+  const obj = STATE_LABELS[key];
+  if (typeof obj === "string") {
+    return obj;
+  }
+  const dict = obj as unknown as Record<string, string>;
+  return dict[lang] ?? dict.en ?? key;
 }

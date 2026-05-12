@@ -1617,4 +1617,97 @@ describe("CapabilityMapper", () => {
       expect(cloudDefs.some(d => d.id === "gradient_toggle")).to.be.true;
     });
   });
+
+  describe("common.states plain-string invariant (React #31, v2.8.4)", () => {
+    // Admin renders states-values as React children — a translation object
+    // triggers React Error #31 → fatal "Error in GUI". These tests guard
+    // that every state-def emitted has plain-string VALUES, irrespective of
+    // language.
+
+    it("diag.tier VALUES are plain-string in default (en) language", () => {
+      const device: GoveeDevice = {
+        sku: "H6172",
+        deviceId: "AA:BB:CC:DD:EE:FF",
+        name: "Test",
+        type: "devices.types.light",
+        scenes: [],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: true },
+        channels: { lan: false, mqtt: false, cloud: true },
+        capabilities: [],
+      } as never;
+      const cloudDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "en");
+      const tier = cloudDefs.find(d => d.id === "tier");
+      expect(tier, "tier state-def must exist for non-group devices").to.exist;
+      expect(tier!.states, "tier state-def must have common.states").to.exist;
+      for (const [k, v] of Object.entries(tier!.states!)) {
+        expect(typeof v).to.equal("string", `tier states[${k}] must be plain-string, got ${typeof v}`);
+      }
+    });
+
+    it("diag.tier VALUES use the requested language with EN fallback", () => {
+      const device: GoveeDevice = {
+        sku: "H6172",
+        deviceId: "AA:BB:CC:DD:EE:FF",
+        name: "Test",
+        type: "devices.types.light",
+        scenes: [],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: true },
+        channels: { lan: false, mqtt: false, cloud: true },
+        capabilities: [],
+      } as never;
+      const deDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "de");
+      const deTier = deDefs.find(d => d.id === "tier");
+      // verified label differs en/de; smoke-check de is rendered
+      expect(deTier!.states!.verified).to.match(/Verifiziert|Verified/);
+      const enDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "en");
+      const enTier = enDefs.find(d => d.id === "tier");
+      expect(enTier!.states!.verified).to.match(/Verified/);
+      // Unknown lang falls back to EN
+      const xxDefs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "xx");
+      const xxTier = xxDefs.find(d => d.id === "tier");
+      expect(xxTier!.states!.verified).to.match(/Verified/);
+    });
+
+    it("all common.states VALUES across cloud-defs are plain-string", () => {
+      const device: GoveeDevice = {
+        sku: "H6172",
+        deviceId: "AA:BB:CC:DD:EE:FF",
+        name: "Test",
+        type: "devices.types.light",
+        lanIp: "192.168.1.10",
+        scenes: [
+          { name: "Sunset", value: { id: 1 } },
+          { name: "Rainbow", value: { id: 2 } },
+        ],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: true },
+        channels: { lan: true, mqtt: false, cloud: true },
+        capabilities: [],
+      } as never;
+      const defs = buildCloudStateDefs(device, undefined as never, undefined, undefined, "de");
+      for (const def of defs) {
+        if (!def.states) continue;
+        for (const [k, v] of Object.entries(def.states)) {
+          expect(typeof v).to.equal("string", `${def.id} states[${k}] must be plain-string, got ${typeof v}`);
+        }
+      }
+    });
+  });
 });

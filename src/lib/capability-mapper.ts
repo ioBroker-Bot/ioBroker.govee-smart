@@ -6,7 +6,7 @@ import {
   type GoveeDevice,
 } from "./types";
 import { applyColorTempQuirk } from "./device-registry";
-import { tDesc, tLabel, tName } from "./i18n-states";
+import { resolveLabel, tDesc, tName } from "./i18n-states";
 
 /** ioBroker state definition derived from a Govee capability */
 export interface StateDefinition {
@@ -39,10 +39,15 @@ export interface StateDefinition {
   /** Max value for numbers */
   max?: number;
   /**
-   * Predefined values for a select (value → label). Label can be a plain
-   * string or a `{en, de, ...}` translation object (ioBroker Admin v6+).
+   * Predefined values for a select (value → label).
+   *
+   * **Labels MUST be plain-string** — Admin renders states-values as React
+   * children and a `{en, de, …}` translation object triggers React Error #31
+   * → fatal "Error in GUI" on dropdown open (verified 2026-05-12). For
+   * localized labels, resolve via {@link resolveLabel} with the adapter's
+   * `system.config.language` value once.
    */
-  states?: Record<string, string | Record<string, string>>;
+  states?: Record<string, string>;
   /** Default value for new states */
   def?: ioBroker.StateValue;
   /** Original capability type */
@@ -1070,12 +1075,15 @@ export function buildLanStateDefs(device: GoveeDevice, log: ioBroker.Logger): St
  * @param log Adapter logger — forwarded to mapCapabilities / applyQuirksToStates.
  * @param localSnapshots Optional local snapshot names
  * @param memberDevices Resolved member devices (only for BaseGroup)
+ * @param lang Two-letter ISO language code (e.g. `adapter.language ?? "en"`).
+ *             Resolves `common.states` VALUES that must be plain-string for Admin.
  */
 export function buildCloudStateDefs(
   device: GoveeDevice,
   log: ioBroker.Logger,
   localSnapshots?: { name: string }[],
   memberDevices?: GoveeDevice[],
+  lang: string = "en",
 ): StateDefinition[] {
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || []);
@@ -1256,10 +1264,10 @@ export function buildCloudStateDefs(
     write: false,
     def: "unknown",
     states: {
-      verified: tLabel("deviceTierVerified"),
-      reported: tLabel("deviceTierReported"),
-      seed: tLabel("deviceTierSeed"),
-      unknown: tLabel("deviceTierUnknown"),
+      verified: resolveLabel("deviceTierVerified", lang),
+      reported: resolveLabel("deviceTierReported", lang),
+      seed: resolveLabel("deviceTierSeed", lang),
+      unknown: resolveLabel("deviceTierUnknown", lang),
     },
     capabilityType: "local",
     capabilityInstance: "diagnosticsTier",

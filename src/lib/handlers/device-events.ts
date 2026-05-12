@@ -19,6 +19,7 @@ import * as groupStateHelpers from "./group-state-helpers";
 export interface DeviceEventsAdapter {
   readonly log: ioBroker.Logger;
   readonly namespace: string;
+  readonly language?: ioBroker.Languages;
   readonly deviceManager: DeviceManager | null;
   readonly stateManager: StateManager | null;
   readonly localSnapshots: LocalSnapshotStore | null;
@@ -130,7 +131,7 @@ export function onCloudDataReady<T extends DeviceEventsAdapter & connectionState
   if (device.sku === "BaseGroup" && device.groupMembers) {
     memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
   }
-  const cloudDefs = buildCloudStateDefs(device, adapter.log, localSnaps, memberDevices);
+  const cloudDefs = buildCloudStateDefs(device, adapter.log, localSnaps, memberDevices, adapter.language ?? "en");
   const capN = Array.isArray(device.capabilities) ? device.capabilities.length : 0;
   adapter.log.debug(
     `buildCloudStateDefs for ${device.sku} ${device.deviceId}: ${capN} cap(s) in → ${cloudDefs.length} state def(s) out`,
