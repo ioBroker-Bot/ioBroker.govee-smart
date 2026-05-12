@@ -86,13 +86,13 @@ export function updateConnectionState(adapter: ConnectionStateAdapter): void {
  */
 export async function checkAppVersionDrift(adapter: ConnectionStateAdapter): Promise<void> {
   try {
-    const resp = await httpsRequest<{ resultCount?: number; results?: Array<{ version?: string }> }>({
+    const result = await httpsRequest<{ resultCount?: number; results?: Array<{ version?: string }> }>({
       method: "GET",
       url: "https://itunes.apple.com/lookup?bundleId=com.ihoment.GoVeeSensor",
       headers: { "User-Agent": "ioBroker.govee-smart" },
       timeout: 10_000,
     });
-    const liveVersion = resp.results?.[0]?.version;
+    const liveVersion = result.value?.results?.[0]?.version;
     if (typeof liveVersion !== "string" || liveVersion.length === 0) {
       return;
     }

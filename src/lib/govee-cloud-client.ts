@@ -276,7 +276,7 @@ export class GoveeCloudClient {
    * @param path API endpoint path
    * @param body Optional request body
    */
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T | null> {
     this.log.debug(`Cloud API: ${method} ${path} auth=apiKey`);
     try {
       const result = await this.httpsRequestImpl<T>({
@@ -285,10 +285,15 @@ export class GoveeCloudClient {
         headers: { "Govee-API-Key": this.apiKey },
         body,
       });
+      if (result.fallback) {
+        this.log.debug(
+          `Cloud API: ${method} ${path}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
+        );
+      }
       // Reset Failure-Kategorie bei Erfolg — getFailureReason() returnt
       // dann null bis zum nächsten Fehler.
       this.lastErrorCategory = null;
-      return result;
+      return result.value;
     } catch (err) {
       // 429 explizit per statusCode klassifizieren — classifyError schaut nur in
       // err.message, und HttpError("Too many requests", 429, …) hat keinen "429"-

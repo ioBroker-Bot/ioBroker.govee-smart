@@ -24,18 +24,47 @@ export interface HttpRequestOptions {
 }
 
 /**
+ * Result envelope returned by every successful httpsRequest. `value` is the
+ * parsed JSON; it is `null` when Govee returned an empty body or a plain-text
+ * HTTP-status-line body (see `fallback`). The status code + body snippet are
+ * always present so callers can debug-log without enabling silly level — this
+ * closes the gap from Issue #13 where `App API .../sku-supported-feature: null`
+ * gave no hint *why* it was null.
+ */
+export interface HttpResult<T> {
+  /** Parsed JSON. `null` when fallback is `"empty"` or `"plain-text-status"`. */
+  value: T | null;
+  /** HTTP status code (200-399 — 4xx/5xx reject as HttpError). */
+  statusCode: number;
+  /**
+   * Set when the response wasn't JSON. `"empty"` = empty/whitespace body
+   * (some Govee endpoints return bare 200 for SKUs they don't recognise).
+   * `"plain-text-status"` = body like `"403 Forbbiden"` (Govee's typo) — a
+   * server-side bug observed for some SKU/bearer combinations.
+   */
+  fallback?: "empty" | "plain-text-status";
+  /**
+   * First ~100 chars of the body when `fallback` is set, so callers can
+   * log "why is this null" without enabling silly-level wire logging.
+   */
+  bodySnippet?: string;
+}
+
+/**
  * Signature der httpsRequest-Funktion. Cloud/Mqtt-Clients nehmen das als
  * optionalen DI-Parameter — Default ist die echte httpsRequest, Tests können
  * einen Mock injizieren ohne Module-Replacement.
  */
-export type HttpsRequestFn = <T>(options: HttpRequestOptions) => Promise<T>;
+export type HttpsRequestFn = <T>(options: HttpRequestOptions) => Promise<HttpResult<T>>;
 
 /**
- * Perform an HTTPS request and parse the JSON response.
+ * Perform an HTTPS request and parse the JSON response. Resolves with an
+ * {@link HttpResult} envelope (`value` + `statusCode` + optional `fallback`/
+ * `bodySnippet`) for 2xx/3xx, rejects with {@link HttpError} for 4xx/5xx.
  *
  * @param options Request options
  */
-export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
+export function httpsRequest<T>(options: HttpRequestOptions): Promise<HttpResult<T>> {
   return new Promise((resolve, reject) => {
     const u = new URL(options.url);
     const postData = options.body ? JSON.stringify(options.body) : undefined;
@@ -103,7 +132,7 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
         // `Invalid JSON` stack trace in the log (Issue #13).
         const trimmed = raw.trim();
         if (trimmed.length === 0) {
-          resolve(null as T);
+          resolve({ value: null, statusCode, fallback: "empty" });
           return;
         }
 
@@ -113,15 +142,15 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<T> {
         // `^<3-digit-status> <non-whitespace>` plus a 100-char length cap
         // catches these without swallowing JSON literals that happen to
         // start with a number (`123.45` lacks the trailing whitespace+text).
-        // Caller sees the same `null` shape as the empty-body case above.
-        // Issue #13 follow-up (tukey42, H61A8 — 2026-05-12).
+        // Issue #13 follow-up (tukey42, H61A8 — 2026-05-12). v2.8.3 carries
+        // the body snippet through HttpResult so callers can debug-log it.
         if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
-          resolve(null as T);
+          resolve({ value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed });
           return;
         }
 
         try {
-          resolve(JSON.parse(raw) as T);
+          resolve({ value: JSON.parse(raw) as T, statusCode });
         } catch (parseErr) {
           // Include a 100-char prefix of the body so a "this endpoint
           // returned HTML / a non-JSON 200" can be diagnosed without

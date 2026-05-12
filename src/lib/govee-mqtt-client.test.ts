@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { GoveeMqttClient } from "./govee-mqtt-client";
-import { type HttpRequestOptions, type HttpsRequestFn } from "./http-client";
+import { type HttpRequestOptions, type HttpResult, type HttpsRequestFn } from "./http-client";
 import { mockLog, mockTimers } from "./test-helpers";
 
 /**
@@ -20,15 +20,22 @@ interface FakeHttpsRequest {
   calls: HttpRequestOptions[];
 }
 
+function isHttpResult(x: unknown): x is HttpResult<unknown> {
+  return typeof x === "object" && x !== null && "statusCode" in x && "value" in x;
+}
+
 function makeFakeHttps(respond: (call: HttpRequestOptions, idx: number) => unknown): FakeHttpsRequest {
   const calls: HttpRequestOptions[] = [];
-  const fn: HttpsRequestFn = <T>(options: HttpRequestOptions): Promise<T> => {
+  const fn: HttpsRequestFn = <T>(options: HttpRequestOptions): Promise<HttpResult<T>> => {
     calls.push(options);
     const result = respond(options, calls.length - 1);
     if (result instanceof Error) {
       return Promise.reject(result);
     }
-    return Promise.resolve(result as T);
+    if (isHttpResult(result)) {
+      return Promise.resolve(result as HttpResult<T>);
+    }
+    return Promise.resolve({ value: result as T, statusCode: 200 });
   };
   return { fn, calls };
 }

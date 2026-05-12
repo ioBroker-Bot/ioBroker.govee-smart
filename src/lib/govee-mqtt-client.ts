@@ -272,6 +272,10 @@ export class GoveeMqttClient {
         const apiStatus = loginResp.status ?? 0;
         const apiMsg = loginResp.message ?? "unknown error";
         const statusStr = `(status ${apiStatus || "?"})`;
+        // Dump the full response body (capped) so a bug report with
+        // debug log shows exactly what Govee returned — useful when
+        // they change error semantics or add new status codes.
+        this.log.debug(`MQTT login error response body: ${JSON.stringify(loginResp).slice(0, 300)}`);
         // Classify the Govee response to avoid misleading error messages.
         // 454/455 (2FA) MUST come before generic AUTH so the user gets the
         // correct "request a code" hint instead of "check email/password".
@@ -754,7 +758,7 @@ export class GoveeMqttClient {
   }
 
   /** Login to Govee account */
-  private login(): Promise<GoveeLoginResponse> {
+  private async login(): Promise<GoveeLoginResponse> {
     const body: Record<string, string> = {
       email: this.email,
       password: this.password,
@@ -764,7 +768,7 @@ export class GoveeMqttClient {
     if (code) {
       body.code = code;
     }
-    return this.httpsRequestImpl<GoveeLoginResponse>({
+    const result = await this.httpsRequestImpl<GoveeLoginResponse>({
       method: "POST",
       url: LOGIN_URL,
       headers: {
@@ -777,6 +781,12 @@ export class GoveeMqttClient {
       },
       body,
     });
+    if (!result.value) {
+      throw new Error(
+        `Govee login returned no body (status=${result.statusCode}${result.fallback ? `, fallback=${result.fallback}` : ""}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""})`,
+      );
+    }
+    return result.value;
   }
 
   /**
@@ -828,8 +838,8 @@ export class GoveeMqttClient {
   }
 
   /** Get IoT key (P12 certificate) */
-  private getIotKey(): Promise<GoveeIotKeyResponse> {
-    return this.httpsRequestImpl<GoveeIotKeyResponse>({
+  private async getIotKey(): Promise<GoveeIotKeyResponse> {
+    const result = await this.httpsRequestImpl<GoveeIotKeyResponse>({
       method: "GET",
       url: IOT_KEY_URL,
       headers: {
@@ -840,6 +850,12 @@ export class GoveeMqttClient {
         "User-Agent": GOVEE_USER_AGENT,
       },
     });
+    if (!result.value) {
+      throw new Error(
+        `Govee IoT-key request returned no body (status=${result.statusCode}${result.fallback ? `, fallback=${result.fallback}` : ""})`,
+      );
+    }
+    return result.value;
   }
 
   /**

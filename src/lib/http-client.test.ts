@@ -92,7 +92,7 @@ function httpRequestPlain<T>(options: {
   body?: unknown;
   timeout?: number;
   signal?: AbortSignal;
-}): Promise<T> {
+}): Promise<import("./http-client").HttpResult<T>> {
   return new Promise((resolve, reject) => {
     const u = new URL(options.url);
     const postData = options.body ? JSON.stringify(options.body) : undefined;
@@ -134,18 +134,18 @@ function httpRequestPlain<T>(options: {
           return;
         }
         // Mirror http-client.ts: empty/whitespace + plain-text status-line bodies
-        // resolve as null (Pattern #56 + #56-extension for "403 Forbbiden" plain text).
+        // resolve as null in the HttpResult envelope (Pattern #56 + extension).
         const trimmed = raw.trim();
         if (trimmed.length === 0) {
-          resolve(null as T);
+          resolve({ value: null, statusCode, fallback: "empty" });
           return;
         }
         if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
-          resolve(null as T);
+          resolve({ value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed });
           return;
         }
         try {
-          resolve(JSON.parse(raw) as T);
+          resolve({ value: JSON.parse(raw) as T, statusCode });
         } catch (parseErr) {
           const snippet = raw.length > 100 ? `${raw.slice(0, 100)}…` : raw;
           const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
@@ -211,14 +211,16 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
     await stub.stop();
   });
 
-  it("parses 200 JSON response", async () => {
+  it("parses 200 JSON response into HttpResult envelope", async () => {
     stub.queue.push({ statusCode: 200, body: JSON.stringify({ hello: "world" }) });
     const result = await httpRequestPlain<{ hello: string }>({
       method: "GET",
       url: `http://127.0.0.1:${stub.port}/foo`,
       headers: { Accept: "application/json" },
     });
-    expect(result.hello).to.equal("world");
+    expect(result.statusCode).to.equal(200);
+    expect(result.fallback).to.be.undefined;
+    expect(result.value?.hello).to.equal("world");
     expect(stub.requests[0].method).to.equal("GET");
     expect(stub.requests[0].path).to.equal("/foo");
   });
@@ -275,7 +277,7 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
     }
   });
 
-  it("resolves null on empty body (Pattern #56, Issue #13 v2.7.0)", async () => {
+  it("resolves null+fallback='empty' on empty body (Pattern #56, Issue #13 v2.7.0)", async () => {
     // Some Govee undocumented endpoints return HTTP 200 with no body
     // for SKUs they don't recognise. Should resolve null instead of throwing.
     stub.queue.push({ statusCode: 200, body: "" });
@@ -284,43 +286,49 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/empty`,
       headers: {},
     });
-    expect(result).to.be.null;
+    expect(result.value).to.be.null;
+    expect(result.fallback).to.equal("empty");
+    expect(result.statusCode).to.equal(200);
   });
 
-  it("resolves null on whitespace-only body (Pattern #56)", async () => {
+  it("resolves null+fallback='empty' on whitespace-only body (Pattern #56)", async () => {
     stub.queue.push({ statusCode: 200, body: "   \n\t  " });
     const result = await httpRequestPlain({
       method: "GET",
       url: `http://127.0.0.1:${stub.port}/whitespace`,
       headers: {},
     });
-    expect(result).to.be.null;
+    expect(result.value).to.be.null;
+    expect(result.fallback).to.equal("empty");
   });
 
-  it("resolves null on plain-text HTTP-status-line body like '403 Forbbiden' (Issue #13 v2.8.2, tukey42 H61A8)", async () => {
+  it("resolves null+fallback='plain-text-status' with body snippet on '403 Forbbiden' (Issue #13 v2.8.2/v2.8.3)", async () => {
     // Govee returns HTTP 200 with a plain-text status-line body
     // ("403 Forbbiden" — their typo) for SKU/Bearer combos without
-    // permission. Treat the same as empty body so the caller's
-    // optional-chaining produces an empty result instead of an
-    // `Invalid JSON in HTTP 200 response: ... body starts with: 403 Forbbiden`
-    // stack trace.
+    // permission. v2.8.3 carries the snippet through HttpResult so
+    // callers can debug-log it without enabling silly-level wire logs.
     stub.queue.push({ statusCode: 200, body: "403 Forbbiden" });
     const result = await httpRequestPlain({
       method: "GET",
       url: `http://127.0.0.1:${stub.port}/forbidden`,
       headers: {},
     });
-    expect(result).to.be.null;
+    expect(result.value).to.be.null;
+    expect(result.fallback).to.equal("plain-text-status");
+    expect(result.bodySnippet).to.equal("403 Forbbiden");
+    expect(result.statusCode).to.equal(200);
   });
 
-  it("resolves null on '401 Unauthorized' plain-text body", async () => {
+  it("resolves null+fallback='plain-text-status' on '401 Unauthorized' plain-text body", async () => {
     stub.queue.push({ statusCode: 200, body: "401 Unauthorized" });
     const result = await httpRequestPlain({
       method: "GET",
       url: `http://127.0.0.1:${stub.port}/unauth`,
       headers: {},
     });
-    expect(result).to.be.null;
+    expect(result.value).to.be.null;
+    expect(result.fallback).to.equal("plain-text-status");
+    expect(result.bodySnippet).to.equal("401 Unauthorized");
   });
 
   it("does NOT swallow JSON literals that start with a number (e.g. `123.45`)", async () => {
@@ -333,7 +341,8 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/jsonnumber`,
       headers: {},
     });
-    expect(result).to.equal(123.45);
+    expect(result.value).to.equal(123.45);
+    expect(result.fallback).to.be.undefined;
   });
 
   it("does NOT swallow HTML-like error pages even if short", async () => {

@@ -43,6 +43,15 @@ export class GoveeLanClient {
   private onDiscovery: LanDiscoveryCallback | null = null;
   private onStatus: LanStatusCallback | null = null;
   private readonly seenDeviceIps = new Set<string>();
+  /**
+   * Per-IP timestamp of the last command we sent (ptReal/setScene/etc).
+   * Used to annotate incoming LAN-status responses with the Δt — gives an
+   * approximate "did this status follow a command of ours?" signal in the
+   * debug log. Proximity, not proof: Govee's UDP protocol doesn't carry
+   * command IDs, so a small Δ is *probably* a response but could be
+   * unrelated polling.
+   */
+  private readonly lastCommandSentMs = new Map<string, number>();
   /** Multicast-Membership-Adresse — gemerkt für dropMembership in stop(). */
   private multicastBind: string | undefined;
 
@@ -332,6 +341,7 @@ export class GoveeLanClient {
         // a "snapshot/scene did not activate" report can be triaged
         // without enabling silly-level wire logging.
         this.log.debug(`LAN ptReal sent to ${ip}: ${base64Packets.length} packet(s), ${buf.length} bytes`);
+        this.lastCommandSentMs.set(ip, Date.now());
       }
     });
   }
@@ -597,6 +607,15 @@ export class GoveeLanClient {
       color,
       colorTemInKelvin: toNum(data.colorTemInKelvin),
     };
+
+    // Approximate "did this follow a command of ours?" signal — small Δ is
+    // *probably* a response, but UDP carries no command ID so it can't be
+    // proven. Honest framing: proximity, not proof.
+    const lastSend = this.lastCommandSentMs.get(sourceIp);
+    if (lastSend !== undefined) {
+      const dt = Date.now() - lastSend;
+      this.log.debug(`LAN status from ${sourceIp}: Δ ${dt}ms since last command (proximity, not ack)`);
+    }
 
     this.onStatus?.(sourceIp, status);
   }

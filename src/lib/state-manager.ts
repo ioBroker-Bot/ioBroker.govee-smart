@@ -489,10 +489,16 @@ export class StateManager {
    * @param device Govee device
    */
   async createLanStates(device: GoveeDevice): Promise<void> {
-    const stateDefs = buildLanStateDefs(device);
+    const stateDefs = buildLanStateDefs(device, this.adapter.log);
     if (stateDefs.length === 0) {
+      this.adapter.log.debug(
+        `buildLanStateDefs for ${device.sku} ${device.deviceId}: 0 states (no LAN IP / not a light) — LAN phase skipped`,
+      );
       return;
     }
+    this.adapter.log.debug(
+      `buildLanStateDefs for ${device.sku} ${device.deviceId}: ${stateDefs.length} state(s) → writing to LAN channel`,
+    );
     const prefix = this.devicePrefix(device);
     await this.writeStateDefsToChannels(prefix, stateDefs, "LAN");
   }

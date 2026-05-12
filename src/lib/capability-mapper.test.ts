@@ -1,17 +1,33 @@
 import { expect } from "chai";
 import {
-  applyQuirksToStates,
-  buildCloudStateDefs,
-  buildLanStateDefs,
+  applyQuirksToStates as applyQuirksToStatesRaw,
+  buildCloudStateDefs as buildCloudStateDefsRaw,
+  buildLanStateDefs as buildLanStateDefsRaw,
   getDefaultLanStates,
   LAN_STATE_IDS,
-  mapCapabilities,
+  mapCapabilities as mapCapabilitiesRaw,
   mapCloudStateValue,
   planCloudCapabilityWrites,
   type StateDefinition,
 } from "./capability-mapper";
 import { _resetDeviceRegistry, initDeviceRegistry } from "./device-registry";
+import { mockLog } from "./test-helpers";
 import type { CloudCapability, CloudStateCapability, GoveeDevice } from "./types";
+
+// Test-side wrappers that auto-inject `mockLog` so the existing 60+ tests
+// don't each have to thread the logger through. The production callers
+// pass their real adapter logger — v2.8.3 required logger DI for the
+// capability-mapper functions so per-cap skip-decisions land in the
+// debug log.
+const mapCapabilities = (caps: CloudCapability[]): StateDefinition[] => mapCapabilitiesRaw(caps, mockLog);
+const applyQuirksToStates = (sku: string, states: StateDefinition[]): StateDefinition[] =>
+  applyQuirksToStatesRaw(sku, states, mockLog);
+const buildLanStateDefs = (device: GoveeDevice): StateDefinition[] => buildLanStateDefsRaw(device, mockLog);
+const buildCloudStateDefs = (
+  device: GoveeDevice,
+  localSnapshots?: { name: string }[],
+  memberDevices?: GoveeDevice[],
+): StateDefinition[] => buildCloudStateDefsRaw(device, mockLog, localSnapshots, memberDevices);
 
 /**
  * Concat helper for tests that need the full state-def set (LAN + Cloud).

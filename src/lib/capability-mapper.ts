@@ -111,20 +111,34 @@ function coerceNum(v: unknown): number | null {
  * Pure function — no side effects, easily testable.
  *
  * @param capabilities Device capabilities from Cloud API
+ * @param log Adapter logger — per-cap skip-decisions land on debug.
  */
-export function mapCapabilities(capabilities: CloudCapability[]): StateDefinition[] {
+export function mapCapabilities(capabilities: CloudCapability[], log: ioBroker.Logger): StateDefinition[] {
   const states: StateDefinition[] = [];
 
   if (!Array.isArray(capabilities)) {
     return states;
   }
 
+  let mapped = 0;
+  let skipped = 0;
   for (const cap of capabilities) {
-    const mapped = mapSingleCapability(cap);
-    if (mapped) {
-      states.push(...mapped);
+    const result = mapSingleCapability(cap);
+    if (result) {
+      states.push(...result);
+      mapped++;
+    } else {
+      skipped++;
+      // Unknown / unhandled cap shape — log so bug reports can see what
+      // Govee sent that we didn't know what to do with. Includes type+
+      // instance because that's enough to grep against device-registry
+      // entries when adding support for a new SKU.
+      log.debug(
+        `Cap skipped: type=${cap?.type ?? "?"} instance=${cap?.instance ?? "?"} — no mapping (capability not handled or malformed)`,
+      );
     }
   }
+  log.debug(`mapCapabilities: ${mapped} mapped, ${skipped} skipped, ${states.length} state def(s) produced`);
 
   return states;
 }
@@ -747,11 +761,17 @@ function mapMusicSetting(cap: CloudCapability): StateDefinition[] {
  *
  * @param sku Device model (e.g. "H60A1")
  * @param states State definitions to adjust
+ * @param log Adapter logger — quirk-applied events land on debug.
  */
-export function applyQuirksToStates(sku: string, states: StateDefinition[]): StateDefinition[] {
+export function applyQuirksToStates(sku: string, states: StateDefinition[], log: ioBroker.Logger): StateDefinition[] {
   for (const state of states) {
     if (state.id === "colorTemperature" && state.min != null && state.max != null) {
       const corrected = applyColorTempQuirk(sku, state.min, state.max);
+      if (corrected.min !== state.min || corrected.max !== state.max) {
+        log.debug(
+          `Quirk applied for ${sku}: colorTemperature range ${state.min}-${state.max}K → ${corrected.min}-${corrected.max}K`,
+        );
+      }
       state.min = corrected.min;
       state.max = corrected.max;
       state.def = corrected.min;
@@ -1026,13 +1046,14 @@ const SCENE_DROPDOWN_RULES: ReadonlyArray<{
  * LAN-Discovery sichtbar wird oder mit lanIp aus dem Cache geladen wird.
  *
  * @param device Govee device
+ * @param log Adapter logger — forwarded to applyQuirksToStates.
  */
-export function buildLanStateDefs(device: GoveeDevice): StateDefinition[] {
+export function buildLanStateDefs(device: GoveeDevice, log: ioBroker.Logger): StateDefinition[] {
   if (!device.lanIp) {
     return [];
   }
   const stateDefs = getDefaultLanStates();
-  applyQuirksToStates(device.sku, stateDefs);
+  applyQuirksToStates(device.sku, stateDefs, log);
   return stateDefs;
 }
 
@@ -1046,11 +1067,13 @@ export function buildLanStateDefs(device: GoveeDevice): StateDefinition[] {
  * für ein Gerät aus dem Cache oder einem frischen Cloud-Load verfügbar sind.
  *
  * @param device Govee device
+ * @param log Adapter logger — forwarded to mapCapabilities / applyQuirksToStates.
  * @param localSnapshots Optional local snapshot names
  * @param memberDevices Resolved member devices (only for BaseGroup)
  */
 export function buildCloudStateDefs(
   device: GoveeDevice,
+  log: ioBroker.Logger,
   localSnapshots?: { name: string }[],
   memberDevices?: GoveeDevice[],
 ): StateDefinition[] {
@@ -1061,9 +1084,9 @@ export function buildCloudStateDefs(
   // Capability-derived states with LAN-default IDs filtered out — the LAN
   // phase owns those, capability mapper duplicates would land in the same
   // channel and confuse cleanup. Single source of truth: LAN_STATE_IDS.
-  const stateDefs: StateDefinition[] = mapCapabilities(device.capabilities).filter(d => !LAN_STATE_IDS.has(d.id));
+  const stateDefs: StateDefinition[] = mapCapabilities(device.capabilities, log).filter(d => !LAN_STATE_IDS.has(d.id));
 
-  applyQuirksToStates(device.sku, stateDefs);
+  applyQuirksToStates(device.sku, stateDefs, log);
 
   // Light-only synthetic state defs — scenes / snapshots / music / scene_speed
   // only make sense for lights. Sensors and appliances would otherwise see

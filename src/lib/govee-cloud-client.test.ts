@@ -1,26 +1,36 @@
 import { expect } from "chai";
 import { GoveeCloudClient } from "./govee-cloud-client";
-import { HttpError, type HttpRequestOptions, type HttpsRequestFn } from "./http-client";
+import { HttpError, type HttpRequestOptions, type HttpResult, type HttpsRequestFn } from "./http-client";
 import { mockLog } from "./test-helpers";
 
 /**
  * Helper to build a fake httpsRequest impl. The recorder collects every
  * call, the response is a function so tests can vary the result per call.
+ *
+ * Tests may return either a bare value (auto-wrapped as `{value, statusCode:200}`),
+ * a pre-built `HttpResult<T>`, or an Error (becomes a rejection).
  */
 interface FakeHttpsRequest {
   fn: HttpsRequestFn;
   calls: HttpRequestOptions[];
 }
 
+function isHttpResult(x: unknown): x is HttpResult<unknown> {
+  return typeof x === "object" && x !== null && "statusCode" in x && "value" in x;
+}
+
 function makeFakeHttps(respond: (call: HttpRequestOptions, idx: number) => unknown): FakeHttpsRequest {
   const calls: HttpRequestOptions[] = [];
-  const fn: HttpsRequestFn = <T>(options: HttpRequestOptions): Promise<T> => {
+  const fn: HttpsRequestFn = <T>(options: HttpRequestOptions): Promise<HttpResult<T>> => {
     calls.push(options);
     const result = respond(options, calls.length - 1);
     if (result instanceof Error) {
       return Promise.reject(result);
     }
-    return Promise.resolve(result as T);
+    if (isHttpResult(result)) {
+      return Promise.resolve(result as HttpResult<T>);
+    }
+    return Promise.resolve({ value: result as T, statusCode: 200 });
   };
   return { fn, calls };
 }

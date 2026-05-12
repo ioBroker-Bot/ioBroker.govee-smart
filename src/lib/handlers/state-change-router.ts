@@ -212,13 +212,21 @@ export async function handleGenericCapabilityCommand(
   const capInstance = obj?.native?.capabilityInstance;
   if (typeof capType === "string" && typeof capInstance === "string") {
     try {
+      adapter.log.debug(
+        `Routing to generic capability for ${device.name}: cap=${capType}/${capInstance} state=${stateSuffix} val=${JSON.stringify(val)}`,
+      );
       await adapter.deviceManager.sendCapabilityCommand(device, capType, capInstance, val);
       await adapter.setStateAsync(id, { val, ack: true });
     } catch (err) {
       adapter.log.warn(`Command failed for ${device.name}: ${errMessage(err)}`);
     }
   } else {
-    adapter.log.debug(`Unknown writable state: ${stateSuffix}`);
+    // No STATE_TO_COMMAND entry + no native capabilityType/Instance — nothing
+    // we can route. Logging this is the bug-report-from-debug-log path for
+    // "I wrote my state and the adapter ignored me".
+    adapter.log.debug(
+      `No handler matched for ${device.name} (${device.sku}) state=${stateSuffix} val=${JSON.stringify(val)} — writable state without command mapping or capability metadata, silently ignored`,
+    );
   }
 }
 
@@ -235,22 +243,39 @@ export async function onStateChange(
   id: string,
   state: ioBroker.State | null | undefined,
 ): Promise<void> {
-  if (!state || state.ack || !adapter.deviceManager || !adapter.stateManager || adapter.unloading) {
+  // Silent early-skips for the noisy routine cases (ack=true is fired on
+  // every setState we do ourselves; logging that would flood the debug
+  // log). The remaining gates DO get a debug line because they're rare
+  // and load-bearing for "why did the adapter ignore my write?" reports.
+  if (!state || state.ack) {
+    return;
+  }
+  if (!adapter.deviceManager || !adapter.stateManager) {
+    adapter.log.debug(`onStateChange ignored ${id}: adapter not ready (deviceManager/stateManager missing)`);
+    return;
+  }
+  if (adapter.unloading) {
+    adapter.log.debug(`onStateChange ignored ${id}: adapter is unloading`);
     return;
   }
 
   const localId = id.replace(`${adapter.namespace}.`, "");
   if (!localId.startsWith("devices.") && !localId.startsWith("groups.")) {
+    adapter.log.debug(`onStateChange ignored ${id}: not a devices.* / groups.* path`);
     return;
   }
 
   const device = findDeviceForState(adapter, localId);
   if (!device) {
+    adapter.log.debug(`onStateChange ignored ${id}: no device matches this state path`);
     return;
   }
 
   const prefix = adapter.stateManager.devicePrefix(device);
   const stateSuffix = localId.slice(prefix.length + 1);
+  adapter.log.debug(
+    `onStateChange ${id}: device=${device.name} (${device.sku}) suffix=${stateSuffix} val=${JSON.stringify(state.val)}`,
+  );
 
   const resolved = await resolveDropdownInput(adapter, id, state.val);
   if (!resolved.ok) {
