@@ -181,6 +181,7 @@ async function onStateChange(adapter, id, state) {
   adapter.log.debug(
     `onStateChange ${id}: device=${device.name} (${device.sku}) suffix=${stateSuffix} val=${JSON.stringify(state.val)}`
   );
+  adapter.deviceManager.getDiagnostics().addLog(device.deviceId, "debug", `User-write ${stateSuffix}=${JSON.stringify(state.val)}`);
   const resolved = await resolveDropdownInput(adapter, id, state.val);
   if (!resolved.ok) {
     adapter.log.warn(`Unknown dropdown value for ${id}: ${String(state.val)} \u2014 ignoring`);

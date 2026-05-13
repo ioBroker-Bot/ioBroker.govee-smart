@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.9.0",
     "news": {
+      "NEXT": {
+        "en": "Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable from the export alone. Groups now have their own diagnostics button.",
+        "de": "Issue-Berichte enthalten jetzt die gespeicherten Szenen-, Snapshot- und Effekt-Daten. Probleme aus dem Export analysierbar. Gruppen haben jetzt einen eigenen Diagnose-Button.",
+        "ru": "Отчёты об ошибках теперь содержат сохранённые данные сцен, снимков и эффектов устройства. Проблемы анализируются прямо из экспорта. У групп — своя кнопка диагностики.",
+        "pt": "Relatórios incluem agora os dados de cenas, snapshots e efeitos guardados no dispositivo. Problemas analisáveis a partir do próprio export. Grupos têm botão de diagnóstico próprio.",
+        "nl": "Issue-rapporten bevatten nu de opgeslagen scène-, snapshot- en effect-data. Problemen alleen al uit de export analyseerbaar. Groepen krijgen een eigen diagnose-knop.",
+        "fr": "Les rapports d'incident contiennent maintenant les données de scènes, snapshots et effets. Problèmes analysables depuis le seul export. Les groupes ont leur propre bouton diagnostic.",
+        "it": "I rapporti includono ora i dati di scene, snapshot ed effetti salvati nel dispositivo. Problemi analizzabili dal solo export. I gruppi hanno un proprio pulsante di diagnostica.",
+        "es": "Los informes incluyen ahora los datos de escenas, snapshots y efectos guardados. Los problemas se analizan desde la propia exportación. Los grupos tienen su propio botón de diagnóstico.",
+        "pl": "Raporty zawierają teraz zapisane dane scen, snapshotów i efektów urządzenia. Problemy analizowalne z samego eksportu. Grupy mają teraz własny przycisk diagnostyki.",
+        "uk": "Звіти про проблеми тепер містять збережені дані сцен, снапшотів і ефектів пристрою. Проблеми аналізуються з самого експорту. У груп — своя кнопка діагностики.",
+        "zh-cn": "故障报告现在包含设备保存的场景、快照与效果数据，设备问题可直接通过导出分析。分组也拥有独立的诊断按钮。"
+      },
       "2.9.0": {
         "en": "info.online for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive true during real outages.",
         "de": "info.online für Lights spiegelt jetzt die echte LAN-Erreichbarkeit wider (90-s-Fenster). Cloud und MQTT-Push schreiben den State nicht mehr — sie haben bei echten Ausfällen fälschlich true geliefert.",
@@ -80,19 +93,6 @@
         "pl": "Przy restarcie stany scen, muzyki i migawek nie znikają już na krótko. Lampy bez klucza API nie mają już pustych list pozostałych po starszych wersjach.",
         "uk": "Під час перезапуску точки сцен, музики й знімків більше не зникають на короткий час. Лампи без API-ключа не мають порожніх списків зі старих версій.",
         "zh-cn": "重启时场景、音乐和快照数据点不再短暂消失。没有 API key 的灯具不再有从旧版本遗留的空场景/快照下拉列表。"
-      },
-      "2.7.1": {
-        "en": "Cleaner startup log: the first line now tells you to wait for the \"ready\" message, and one redundant connection-info line is gone.",
-        "de": "Aufgeräumter Start-Log: die erste Zeile weist jetzt darauf hin auf die „ready\"-Meldung zu warten, und eine überflüssige Verbindungs-Info ist raus.",
-        "ru": "Чище стартовый лог: первая строка теперь говорит дождаться сообщения «ready», а одна лишняя строка о подключении убрана.",
-        "pt": "Log de arranque mais limpo: a primeira linha agora indica esperar pela mensagem \"ready\", e uma linha de info de ligação redundante foi removida.",
-        "nl": "Schoner startup-log: de eerste regel zegt nu om op het \"ready\"-bericht te wachten, en één overbodige verbindings-infomelding is weg.",
-        "fr": "Log de démarrage plus propre : la première ligne dit maintenant d'attendre le message « ready », et une info de connexion redondante a été supprimée.",
-        "it": "Log di avvio più pulito: la prima riga ora indica di attendere il messaggio \"ready\", e una info di connessione ridondante è rimossa.",
-        "es": "Log de arranque más limpio: la primera línea ahora indica esperar al mensaje «ready», y una info de conexión redundante se eliminó.",
-        "pl": "Czystszy log startowy: pierwsza linia teraz mówi, by czekać na komunikat „ready\", a jedna zbędna informacja o połączeniu została usunięta.",
-        "uk": "Чистіший стартовий лог: перший рядок тепер каже дочекатися повідомлення «ready», а один зайвий рядок про підключення прибрано.",
-        "zh-cn": "更干净的启动日志：第一行现在提示等待 \"ready\" 消息，一条多余的连接信息已移除。"
       }
     },
     "titleLang": {

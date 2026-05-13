@@ -70,6 +70,9 @@ class GoveeLanClient {
   log;
   onDiscovery = null;
   onStatus = null;
+  onSend = null;
+  onStatusRecord = null;
+  onScanRecord = null;
   seenDeviceIps = /* @__PURE__ */ new Set();
   /**
    * Per-IP timestamp of the last command we sent (ptReal/setScene/etc).
@@ -89,6 +92,35 @@ class GoveeLanClient {
   constructor(log, timers) {
     this.log = log;
     this.timers = timers;
+  }
+  /**
+   * Register a send hook called for every outgoing UDP datagram. main.ts
+   * resolves the destination IP to a deviceId and forwards into the
+   * DiagnosticsCollector — closes the v2.9.0 diag blind spot where ptReal
+   * sends were only visible in the adapter log, not in per-device diag.
+   *
+   * @param cb Callback receiving (ip, cmd, payload, bytes, error?)
+   */
+  setSendHook(cb) {
+    this.onSend = cb;
+  }
+  /**
+   * Register a hook called for every parsed devStatus reply. Used for diag
+   * capture — adapter looks up the device by IP and records the payload as
+   * a pseudo-endpoint (`lan://devStatus`).
+   *
+   * @param cb Callback receiving (sourceIp, status)
+   */
+  setStatusRecordHook(cb) {
+    this.onStatusRecord = cb;
+  }
+  /**
+   * Register a hook called for every parsed scan reply. Diag-only.
+   *
+   * @param cb Callback receiving (lanDevice)
+   */
+  setScanRecordHook(cb) {
+    this.onScanRecord = cb;
   }
   /**
    * Start LAN discovery and listening for responses.
@@ -153,6 +185,17 @@ class GoveeLanClient {
       }
     });
   }
+  /**
+   * Snapshot of the discovery cache + last-command-sent timestamps for
+   * the runtime-state diag export. Returns plain serialisable shapes so
+   * the DiagnosticsCollector can clone-and-cap them safely.
+   */
+  getDiagSnapshot() {
+    return {
+      seenDeviceIps: Array.from(this.seenDeviceIps),
+      lastCommandSentMs: Object.fromEntries(this.lastCommandSentMs)
+    };
+  }
   /** Stop all sockets and timers */
   stop() {
     this.stopped = true;
@@ -202,8 +245,10 @@ class GoveeLanClient {
    * @param data Command data
    */
   sendCommand(ip, cmd, data) {
+    var _a;
     if (!this.sendSocket) {
       this.log.debug(`LAN send dropped (socket not ready): ${cmd} \u2192 ${ip}`);
+      (_a = this.onSend) == null ? void 0 : _a.call(this, ip, cmd, data, 0, "socket not ready");
       return;
     }
     const message = {
@@ -214,8 +259,13 @@ class GoveeLanClient {
       this.log.debug(`LAN payload large (${buf.length} bytes) \u2014 may be PMTU-fragmented for ${ip}`);
     }
     this.sendSocket.send(buf, 0, buf.length, COMMAND_PORT, ip, (err) => {
+      var _a2, _b;
       if (err) {
         this.log.debug(`LAN send error to ${ip}: ${err.message}`);
+        (_a2 = this.onSend) == null ? void 0 : _a2.call(this, ip, cmd, data, buf.length, err.message);
+      } else {
+        this.lastCommandSentMs.set(ip, Date.now());
+        (_b = this.onSend) == null ? void 0 : _b.call(this, ip, cmd, data, buf.length);
       }
     });
   }
@@ -292,8 +342,10 @@ class GoveeLanClient {
    * @param base64Packets Array of Base64-encoded 20-byte BLE packets
    */
   sendPtReal(ip, base64Packets) {
+    var _a;
     if (!this.sendSocket) {
       this.log.debug(`LAN ptReal dropped (socket not ready): ${ip}`);
+      (_a = this.onSend) == null ? void 0 : _a.call(this, ip, "ptReal", { command: base64Packets }, 0, "socket not ready");
       return;
     }
     const message = {
@@ -304,11 +356,14 @@ class GoveeLanClient {
       this.log.debug(`ptReal payload large (${buf.length} bytes) \u2014 may be PMTU-fragmented for ${ip}`);
     }
     this.sendSocket.send(buf, 0, buf.length, COMMAND_PORT, ip, (err) => {
+      var _a2, _b;
       if (err) {
         this.log.warn(`LAN ptReal error to ${ip}: ${err.message}`);
+        (_a2 = this.onSend) == null ? void 0 : _a2.call(this, ip, "ptReal", { command: base64Packets }, buf.length, err.message);
       } else {
         this.log.debug(`LAN ptReal sent to ${ip}: ${base64Packets.length} packet(s), ${buf.length} bytes`);
         this.lastCommandSentMs.set(ip, Date.now());
+        (_b = this.onSend) == null ? void 0 : _b.call(this, ip, "ptReal", { command: base64Packets }, buf.length);
       }
     });
   }
@@ -488,7 +543,7 @@ class GoveeLanClient {
    * @param data Parsed scan response payload
    */
   handleScanResponse(data) {
-    var _a;
+    var _a, _b;
     if (typeof data.ip !== "string" || typeof data.device !== "string" || typeof data.sku !== "string" || !data.ip || !data.device || !data.sku) {
       return;
     }
@@ -508,7 +563,8 @@ class GoveeLanClient {
       this.seenDeviceIps.add(key);
       this.log.debug(`LAN: Found ${lanDevice.sku} (${lanDevice.device}) at ${lanDevice.ip}`);
     }
-    (_a = this.onDiscovery) == null ? void 0 : _a.call(this, lanDevice);
+    (_a = this.onScanRecord) == null ? void 0 : _a.call(this, lanDevice);
+    (_b = this.onDiscovery) == null ? void 0 : _b.call(this, lanDevice);
   }
   /**
    * Handle status response — matched to device by source IP.
@@ -518,7 +574,7 @@ class GoveeLanClient {
    * @param sourceIp Source IP address from UDP message
    */
   handleStatusResponse(data, sourceIp) {
-    var _a;
+    var _a, _b;
     const toNum = (v) => typeof v === "number" && Number.isFinite(v) ? v : 0;
     const colorRaw = data.color;
     const color = colorRaw && typeof colorRaw === "object" ? {
@@ -537,7 +593,8 @@ class GoveeLanClient {
       const dt = Date.now() - lastSend;
       this.log.debug(`LAN status from ${sourceIp}: \u0394 ${dt}ms since last command (proximity, not ack)`);
     }
-    (_a = this.onStatus) == null ? void 0 : _a.call(this, sourceIp, status);
+    (_a = this.onStatusRecord) == null ? void 0 : _a.call(this, sourceIp, status);
+    (_b = this.onStatus) == null ? void 0 : _b.call(this, sourceIp, status);
   }
 }
 function clampByte(v) {

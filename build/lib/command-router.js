@@ -40,6 +40,13 @@ class CommandRouter {
   /** Callback for batch segment state sync */
   onSegmentBatchUpdate;
   /**
+   * Optional diag-log hook fired once per `sendCommand` call so the per-device
+   * diag ring buffer carries the channel-routing decision ("LAN took it",
+   * "Cloud fallback", "no channel available"). Without this, the diag JSON
+   * couldn't show why a user's state-write didn't reach the device.
+   */
+  onDiagLog;
+  /**
    * @param log ioBroker logger
    * @param timers Adapter timer wrapper — routed through `this.setTimeout` so
    *   pending color-mode delays get cleared on onUnload.
@@ -117,7 +124,10 @@ class CommandRouter {
    * @param value Command value
    */
   async sendCommand(device, command, value) {
-    var _a;
+    var _a, _b;
+    const summary = `${command}=${JSON.stringify(value)}`;
+    const channel = device.lanIp ? "LAN" : device.channels.cloud && this.cloudClient ? "Cloud" : device.channels.cloud ? "Cloud (not ready)" : "none";
+    (_a = this.onDiagLog) == null ? void 0 : _a.call(this, device.deviceId, "debug", `sendCommand ${summary} \u2192 ${channel}`);
     if (command.startsWith("segmentColor:")) {
       const segIdx = parseInt(command.split(":")[1], 10);
       if (isNaN(segIdx) || segIdx < 0) {
@@ -138,7 +148,7 @@ class CommandRouter {
     if (command === "segmentBatch") {
       const parsed = typeof value === "string" ? this.parseSegmentBatch(device, value) : this.coerceParsedBatch(value);
       if (parsed) {
-        (_a = this.onSegmentBatchUpdate) == null ? void 0 : _a.call(this, device, parsed);
+        (_b = this.onSegmentBatchUpdate) == null ? void 0 : _b.call(this, device, parsed);
       }
       if (device.lanIp && this.lanClient && parsed) {
         await this.forceColorMode(device);

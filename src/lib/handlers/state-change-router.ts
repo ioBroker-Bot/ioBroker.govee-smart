@@ -276,6 +276,12 @@ export async function onStateChange(
   adapter.log.debug(
     `onStateChange ${id}: device=${device.name} (${device.sku}) suffix=${stateSuffix} val=${JSON.stringify(state.val)}`,
   );
+  // v2.9.1 — surface the user-write into the per-device diag log so a
+  // "I set state X and the adapter ignored me" report has the write
+  // attempt + the subsequent routing/skip logs in one place.
+  adapter.deviceManager
+    .getDiagnostics()
+    .addLog(device.deviceId, "debug", `User-write ${stateSuffix}=${JSON.stringify(state.val)}`);
 
   const resolved = await resolveDropdownInput(adapter, id, state.val);
   if (!resolved.ok) {

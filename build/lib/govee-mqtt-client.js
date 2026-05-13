@@ -87,8 +87,11 @@ class GoveeMqttClient {
   onToken = null;
   /**
    * Diagnostics hook — called for each parsed message with the device id,
-   * source topic and any op.command hex strings. The hook is responsible
-   * for forwarding to a DiagnosticsCollector if one is set up.
+   * source topic and either an op.command hex string (BLE bytes) or the
+   * raw JSON envelope. The hook is responsible for forwarding to a
+   * DiagnosticsCollector if one is set up. v2.9.1: rawJson is always
+   * forwarded so state-only pushes (no op.command) are captured too —
+   * old shape only fired on op.command BLE strings.
    */
   onPacket = null;
   /**
@@ -385,32 +388,37 @@ class GoveeMqttClient {
    */
   handleMessage(payload, topic) {
     var _a;
+    const rawText = payload.toString();
     try {
-      const raw = JSON.parse(payload.toString());
+      const raw = JSON.parse(rawText);
       const sku = typeof raw.sku === "string" ? raw.sku : "";
       const device = typeof raw.device === "string" ? raw.device : "";
       const state = raw.state && typeof raw.state === "object" ? raw.state : void 0;
       const op = raw.op && typeof raw.op === "object" ? raw.op : void 0;
       if (sku || device) {
         (_a = this.onStatus) == null ? void 0 : _a.call(this, { sku, device, state, op });
-        if (this.onPacket && device && Array.isArray(op == null ? void 0 : op.command)) {
-          for (const cmd of op.command) {
-            if (typeof cmd === "string" && cmd) {
-              this.onPacket(device, topic, cmd);
+        if (this.onPacket && device) {
+          if (Array.isArray(op == null ? void 0 : op.command)) {
+            for (const cmd of op.command) {
+              if (typeof cmd === "string" && cmd) {
+                this.onPacket(device, topic, { hex: cmd, rawJson: rawText });
+              }
             }
+          } else {
+            this.onPacket(device, topic, { rawJson: rawText });
           }
         }
       }
     } catch {
-      this.log.debug(`MQTT: Failed to parse message: ${payload.toString().slice(0, 200)}`);
+      this.log.debug(`MQTT: Failed to parse message: ${rawText.slice(0, 200)}`);
     }
   }
   /**
    * Register a hook called for every parsed MQTT packet. Used by the
-   * adapter to forward op.command hex strings into the DiagnosticsCollector
-   * for `diag.export`.
+   * adapter to forward op.command hex strings + the raw JSON envelope into
+   * the DiagnosticsCollector for `diag.export`.
    *
-   * @param cb Callback receiving (deviceId, topic, hex)
+   * @param cb Callback receiving (deviceId, topic, {hex?, rawJson?})
    */
   setPacketHook(cb) {
     this.onPacket = cb;

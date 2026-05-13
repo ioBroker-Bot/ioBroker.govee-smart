@@ -59,7 +59,18 @@ export async function loadCloudStates(adapter: CloudStateLoaderAdapter): Promise
       }
       await Promise.all(writes);
       loaded++;
-    } catch {
+    } catch (e) {
+      // v2.9.1 — record failure with HTTP status (and HttpError.responseBody
+      // when available) so the diag JSON shows why state-load failed instead
+      // of just "could not load". Previously this catch was silent — Class
+      // C2 of the v2.9.1 diag-coverage audit.
+      if (adapter.deviceManager) {
+        const status =
+          e && typeof e === "object" && "statusCode" in e ? (e as { statusCode?: number }).statusCode : undefined;
+        adapter.deviceManager
+          .getDiagnostics()
+          .recordApiFailure(device.deviceId, "/router/api/v1/device/state", e, status);
+      }
       adapter.log.debug(`Could not load Cloud state for ${device.name} (${device.sku})`);
     }
   }
@@ -94,6 +105,17 @@ export async function applyCloudCapabilities(
   const planned = planCloudCapabilityWrites(caps, Boolean(device.lanIp), LAN_STATE_IDS);
   for (const mapped of planned) {
     await adapter.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
+    // v2.9.1 — mirror appliance/sensor values into device.state so the diag-
+    // export `state` field is honest about non-Light runtime state. Without
+    // this, `state` only ever held Light fields (power/brightness/color/
+    // colorTemperature/scene) because handleLanStatus/handleMqttStatus were
+    // the only writers — App-API + OpenAPI-MQTT routed straight to setState
+    // without touching the in-memory device. Diag-export then showed an
+    // empty `state: {online: ?}` for sensors / appliances even though the
+    // real values lived in the state tree.
+    if (mapped.value !== null && mapped.value !== undefined) {
+      (device.state as Record<string, unknown>)[mapped.stateId] = mapped.value;
+    }
   }
   const writes = planned.map(mapped => {
     const statePath = adapter.stateManager!.resolveStatePath(prefix, mapped.stateId);

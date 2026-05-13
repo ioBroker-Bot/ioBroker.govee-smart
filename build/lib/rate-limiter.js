@@ -155,6 +155,20 @@ class RateLimiter {
   get dailyUsage() {
     return this.callsToday;
   }
+  /**
+   * Snapshot of usage + limits for the diag runtime-state export. Returns
+   * plain values so the DiagnosticsCollector can clone-and-cap safely.
+   * Plus `queueLength` for "Cloud calls piling up?" forensics.
+   */
+  getUsageSnapshot() {
+    return {
+      usedToday: this.callsToday,
+      usedThisMinute: this.callsThisMinute,
+      dailyLimit: this.perDayLimit,
+      perMinuteLimit: this.perMinuteLimit,
+      queueLength: this.queue.length
+    };
+  }
   /** Process queued calls */
   processQueue() {
     if (this.stopped) {

@@ -88,6 +88,13 @@ export class DeviceManager {
     this.log = log;
     this.commandRouter = new CommandRouter(log, timers);
     this.diagnostics = new DiagnosticsCollector();
+    // v2.9.1 — funnel command-router routing decisions into the per-device
+    // diag ring buffer. Without this, "I clicked but nothing happened" was
+    // not triage-able from diag JSON alone — the channel decision lived
+    // only in the adapter log.
+    this.commandRouter.onDiagLog = (deviceId, level, msg) => {
+      this.diagnostics.addLog(deviceId, level, msg);
+    };
   }
 
   /**
@@ -96,6 +103,26 @@ export class DeviceManager {
    */
   getDiagnostics(): DiagnosticsCollector {
     return this.diagnostics;
+  }
+
+  /**
+   * Snapshot of the per-source `lastErrorCategory` trackers — used by the
+   * diag runtime-state provider to surface "Cloud-Device-List path keeps
+   * failing with TIMEOUT" / "App-API hit RATE_LIMIT last poll" etc.
+   *
+   * Each entry is a category string or null when the source has never seen
+   * a failure (or the last attempt succeeded).
+   */
+  getErrorCategorySnapshot(): {
+    deviceManager: ErrorCategory | null;
+    appApi: ErrorCategory | null;
+    groupMembers: ErrorCategory | null;
+  } {
+    return {
+      deviceManager: this.lastErrorCategory,
+      appApi: this.lastAppApiErrorCategory,
+      groupMembers: this.lastGroupMembersErrorCategory,
+    };
   }
 
   /**
@@ -680,7 +707,12 @@ export class DeviceManager {
         const ep = `/light-effect-libraries?sku=${sku}`;
         try {
           const lib = await this.apiClient!.fetchSceneLibrary(sku);
-          this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map(s => s.name) });
+          // v2.9.1 — record the raw library array (incl. scenceParam Base64
+          // + speedInfo.config JSON) so a byte-level "why does this scene
+          // not activate on H61A8 but works on H61BE?" diagnosis can be done
+          // from the diag JSON alone. Old projection ({count, names}) hid
+          // the very bytes the user would need.
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, lib);
           this.log.debug(
             `Scene library for ${sku}: ${lib.length} scene(s)${lib.length === 0 ? " — empty (Govee returned no data for this SKU)" : ""}`,
           );
@@ -700,7 +732,7 @@ export class DeviceManager {
         const ep = `/light-effect-libraries-music?sku=${sku}`;
         try {
           const lib = await this.apiClient!.fetchMusicLibrary(sku);
-          this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map(m => m.name) });
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, lib);
           this.log.debug(
             `Music library for ${sku}: ${lib.length} mode(s)${lib.length === 0 ? " — empty (Govee returned no data for this SKU)" : ""}`,
           );
@@ -720,7 +752,7 @@ export class DeviceManager {
         const ep = `/diy-effect-libraries?sku=${sku}`;
         try {
           const lib = await this.apiClient!.fetchDiyLibrary(sku);
-          this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map(d => d.name) });
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, lib);
           this.log.debug(
             `DIY library for ${sku}: ${lib.length} effect(s)${lib.length === 0 ? " — empty (Govee returned no data for this SKU)" : ""}`,
           );
@@ -762,8 +794,13 @@ export class DeviceManager {
     // until the cache file was manually deleted (Issue #13 v2.8.2, tukey42).
     if ((force || !device.snapshotBleCmds) && device.snapshots.length > 0) {
       await runLimited(async () => {
+        const ep = `/bff-app/v1/devices/snapshots?sku=${sku}`;
         try {
           const snaps = await this.apiClient!.fetchSnapshots(sku, device.deviceId);
+          // v2.9.1 — record the full bleCmds payload (per-snapshot Base64
+          // packet groups). Was completely absent from apiHistory in v2.9.0;
+          // Issue #13 H61A8 byte-level analysis couldn't proceed without it.
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, snaps);
           this.log.debug(
             `Snapshot BLE for ${sku}: ${snaps.length} snapshot(s) with local data${snaps.length === 0 ? " — Govee returned no BLE-cmds for this SKU/device" : ""}`,
           );
@@ -775,7 +812,8 @@ export class DeviceManager {
             changed = true;
           }
         } catch (e) {
-          this.log.debug(`Could not load snapshot BLE for ${sku}: ${errMessage(e)}`);
+          this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
+          this.logUndocApiFailure(sku, "snapshot BLE", ep, hasBearer, e);
         }
       });
     }
@@ -798,8 +836,21 @@ export class DeviceManager {
       return false;
     }
 
+    const ep = "/bff-app/v1/exec-plat/home";
     try {
       const apiGroups = await this.apiClient.fetchGroupMembers();
+      // v2.9.1 — record per-group response in apiHistory of each BaseGroup
+      // device. The fetch is account-wide so we tag every group's deviceId.
+      for (const group of this.devices.values()) {
+        if (group.sku === "BaseGroup") {
+          const apiGroup = apiGroups.find(g => String(g.groupId) === group.deviceId);
+          this.diagnostics.recordApiSuccess(
+            group.deviceId,
+            ep,
+            apiGroup ?? { resolved: false, groupId: group.deviceId },
+          );
+        }
+      }
       if (apiGroups.length === 0) {
         this.log.debug("No group membership data from API");
         return false;
@@ -847,6 +898,14 @@ export class DeviceManager {
       this.lastGroupMembersErrorCategory = null;
       return changed;
     } catch (e) {
+      // v2.9.1 — record failure on every BaseGroup so the diag JSON shows
+      // why group fan-out doesn't work without needing the adapter log.
+      const status = this.extractStatus(e);
+      for (const group of this.devices.values()) {
+        if (group.sku === "BaseGroup") {
+          this.diagnostics.recordApiFailure(group.deviceId, ep, e, status);
+        }
+      }
       // Group-membership is best-effort — but a persistent failure (e.g. API
       // permission revoked) should still surface once so the user knows
       // groups won't fan-out. logDedup demotes repeats to debug.
@@ -1412,6 +1471,17 @@ export class DeviceManager {
     if (!device) {
       return;
     }
+    // v2.9.1 — surface each Cloud-events arrival per-device. Without this,
+    // "appliance state never updates" reports couldn't be triaged from the
+    // diag alone because the appliance push-channel was entirely silent.
+    const capSummary = event.capabilities
+      .map(c => `${c.type?.replace("devices.capabilities.", "") ?? "?"}/${c.instance ?? "?"}`)
+      .join(", ");
+    this.diagnostics.addLog(
+      device.deviceId,
+      "debug",
+      `OpenAPI-MQTT event for ${device.sku}: ${event.capabilities.length} cap(s) [${capSummary}]`,
+    );
     this.onCloudCapabilities?.(device, event.capabilities);
     // Same online-cap unwrap as the App-API path. OpenAPI-MQTT events
     // are the only signal we get for appliance state (heater on/off,

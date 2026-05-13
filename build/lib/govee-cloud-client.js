@@ -96,6 +96,13 @@ class GoveeCloudClient {
   async getDevices() {
     const resp = await this.request("GET", "/router/api/v1/user/devices");
     const devices = Array.isArray(resp == null ? void 0 : resp.data) ? resp.data : [];
+    if (this.onResponse) {
+      for (const cd of devices) {
+        if (cd && typeof cd.device === "string" && cd.device) {
+          this.onResponse(cd.device, "/router/api/v1/user/devices", cd);
+        }
+      }
+    }
     if (devices.length === 0 && !this.warnedEmptyDeviceList) {
       this.warnedEmptyDeviceList = true;
       this.log.info(`Cloud: device list returned empty \u2014 check the API key matches the account that owns the devices`);

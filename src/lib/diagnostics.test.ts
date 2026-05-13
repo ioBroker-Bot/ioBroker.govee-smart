@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { DiagnosticsCollector } from "./diagnostics";
 import { _resetDeviceRegistry, initDeviceRegistry } from "./device-registry";
+import { HttpError } from "./http-client";
 import type { GoveeDevice } from "./types";
 
 function makeDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
@@ -36,16 +37,16 @@ describe("DiagnosticsCollector", () => {
       expect(logs[0].ts).to.match(/^\d{4}-\d{2}-\d{2}T/);
     });
 
-    it("bounds at 20 entries — newest 20 retained", () => {
+    it("bounds at 100 entries — newest 100 retained (v2.9.1 raised cap)", () => {
       const c = new DiagnosticsCollector();
-      for (let i = 0; i < 25; i++) {
+      for (let i = 0; i < 120; i++) {
         c.addLog("dev1", "info", `entry ${i}`);
       }
       const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0");
       const logs = result.recentLogs as Array<{ msg: string }>;
-      expect(logs).to.have.lengthOf(20);
-      expect(logs[0].msg).to.equal("entry 5");
-      expect(logs[19].msg).to.equal("entry 24");
+      expect(logs).to.have.lengthOf(100);
+      expect(logs[0].msg).to.equal("entry 20");
+      expect(logs[99].msg).to.equal("entry 119");
     });
 
     it("ignores empty/non-string deviceId", () => {
@@ -76,16 +77,16 @@ describe("DiagnosticsCollector", () => {
       expect(packets[0].hex).to.equal("qqgFAQEEAAAAA=");
     });
 
-    it("bounds at 10 packets — newest 10 retained", () => {
+    it("bounds at 50 packets — newest 50 retained (v2.9.1 raised cap)", () => {
       const c = new DiagnosticsCollector();
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < 60; i++) {
         c.addMqttPacket("dev1", "GA/topic", `hex${i}`);
       }
       const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0");
       const packets = result.lastMqttPackets as Array<{ hex: string }>;
-      expect(packets).to.have.lengthOf(10);
-      expect(packets[0].hex).to.equal("hex5");
-      expect(packets[9].hex).to.equal("hex14");
+      expect(packets).to.have.lengthOf(50);
+      expect(packets[0].hex).to.equal("hex10");
+      expect(packets[49].hex).to.equal("hex59");
     });
 
     it("rejects empty hex strings", () => {
@@ -122,34 +123,35 @@ describe("DiagnosticsCollector", () => {
       expect(list[1].body).to.deep.equal({ v: 2 });
     });
 
-    it("evicts oldest entry when endpoint exceeds the per-endpoint cap", () => {
+    it("evicts oldest entry when endpoint exceeds the per-endpoint cap (v2.9.1 cap=6)", () => {
       const c = new DiagnosticsCollector();
-      c.recordApiSuccess("dev1", "/api/state", { v: 1 });
-      c.recordApiSuccess("dev1", "/api/state", { v: 2 });
-      c.recordApiSuccess("dev1", "/api/state", { v: 3 });
-      c.recordApiSuccess("dev1", "/api/state", { v: 4 });
+      for (let i = 1; i <= 8; i++) {
+        c.recordApiSuccess("dev1", "/api/state", { v: i });
+      }
       const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0");
       const list = (result.apiHistory as Record<string, unknown[]>)["/api/state"] as Array<{ body: unknown }>;
-      // Cap is MAX_RESPONSES_PER_ENDPOINT = 3 — oldest dropped, newest at end.
-      expect(list).to.have.lengthOf(3);
-      expect(list[0].body).to.deep.equal({ v: 2 });
-      expect(list[2].body).to.deep.equal({ v: 4 });
+      // Cap is MAX_RESPONSES_PER_ENDPOINT = 6 — oldest dropped, newest at end.
+      expect(list).to.have.lengthOf(6);
+      expect(list[0].body).to.deep.equal({ v: 3 });
+      expect(list[5].body).to.deep.equal({ v: 8 });
     });
 
-    it("evicts oldest endpoint when more than 12 distinct endpoints are tracked", () => {
+    it("evicts oldest endpoint when more than 24 distinct endpoints are tracked (v2.9.1 cap=24)", () => {
       const c = new DiagnosticsCollector();
-      // 13 distinct endpoints — first should be evicted.
-      for (let i = 0; i < 13; i++) {
+      // 25 distinct endpoints — first should be evicted.
+      for (let i = 0; i < 25; i++) {
         c.recordApiSuccess("dev1", `/ep${i}`, { v: i });
       }
-      const hist = (c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0").apiHistory) as Record<string, unknown[]>;
+      const hist = c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0").apiHistory as Record<string, unknown[]>;
       expect(hist["/ep0"]).to.be.undefined;
-      expect(hist["/ep12"]).to.exist;
+      expect(hist["/ep24"]).to.exist;
     });
 
-    it("truncates large bodies with marker", () => {
+    it("truncates large bodies with marker (v2.9.1 cap=65536)", () => {
       const c = new DiagnosticsCollector();
-      const big = "x".repeat(20000);
+      // Body must exceed MAX_BODY_BYTES (65_536) to trigger truncation. Use
+      // ~70 KB so the cloneAndCap branch fires.
+      const big = "x".repeat(70_000);
       c.recordApiSuccess("dev1", "/api/big", { huge: big });
       const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0");
       const list = (result.apiHistory as Record<string, Array<{ body: unknown }>>)["/api/big"];
@@ -269,6 +271,244 @@ describe("DiagnosticsCollector", () => {
       expect(result.recentLogs).to.deep.equal([]);
       expect(result.lastMqttPackets).to.deep.equal([]);
       expect(result.apiHistory).to.deep.equal({});
+    });
+  });
+
+  // ===========================================================================
+  // v2.9.1 Diag-Coverage-Welle — pro Klasse mindestens ein Regression-Test.
+  // Findings-Klassen A-K aus dem Brief `feedback_diag_system_self_service.md`.
+  // ===========================================================================
+
+  describe("v2.9.1 Class A — raw Bytes in generate() (TUKEY-Blocker)", () => {
+    it("A1 — snapshotBleCmds raw packets exposed per-snapshot", () => {
+      // H61BE n8licht fixture from research-snapshot-ptreal.md Z.69-86.
+      // Two cmd-groups: brightness (cmdType 17) + A3 scene-data (cmdType 18).
+      // Used as canonical test fixture so the test outlives Govee API drift.
+      const N8LICHT_BLE_CMDS: string[][] = [
+        ["MwRkAAAAAAAAAAAAAAAAAAAAAFM="],
+        ["owABBEACABT/ypEAAQIDBAUGB1Q=", "owEICQoLDA0ODxAREhMBFGQAAdI=", "owIBAgMEBQYHCAkKCwwNDg8QERIToA=="],
+      ];
+      const c = new DiagnosticsCollector();
+      const result = c.generate(
+        makeDevice({
+          snapshots: [{ name: "n8licht", value: 2719361 }],
+          snapshotBleCmds: [N8LICHT_BLE_CMDS],
+        }),
+        "2.9.1",
+      );
+      const snaps = result.snapshots as { count: number; bleCmds: Array<{ name: string; packets: string[][] }> };
+      expect(snaps.count).to.equal(1);
+      expect(snaps.bleCmds).to.have.lengthOf(1);
+      expect(snaps.bleCmds[0].name).to.equal("n8licht");
+      expect(snaps.bleCmds[0].packets).to.deep.equal(N8LICHT_BLE_CMDS);
+    });
+
+    it("A2 — sceneLibrary surfaces scenceParam + speedInfo.config (not just hasParam)", () => {
+      const c = new DiagnosticsCollector();
+      const result = c.generate(
+        makeDevice({
+          sceneLibrary: [
+            {
+              name: "Easter",
+              sceneCode: 11217,
+              scenceParam: "AyYAAQAKAgH/GQG0Cgo=",
+              speedInfo: { supSpeed: true, speedIndex: 1, config: "[{\"page\":0,\"moveIn\":[252,253,255]}]" },
+            },
+          ],
+        }),
+        "2.9.1",
+      );
+      const lib = result.sceneLibrary as { entries: Array<Record<string, unknown>> };
+      expect(lib.entries[0].scenceParam).to.equal("AyYAAQAKAgH/GQG0Cgo=");
+      const speedInfo = lib.entries[0].speedInfo as { supSpeed: boolean; config: string };
+      expect(speedInfo.supSpeed).to.be.true;
+      expect(speedInfo.config).to.include("moveIn");
+    });
+
+    it("A4+A5 — diyLibrary and musicLibrary surface scenceParam", () => {
+      const c = new DiagnosticsCollector();
+      const result = c.generate(
+        makeDevice({
+          diyLibrary: [{ name: "MyDIY", diyCode: 10, scenceParam: "DIY_PARAM_BASE64" }],
+          musicLibrary: [{ name: "Spectrum", musicCode: 1, scenceParam: "MUSIC_PARAM_BASE64", mode: 1 }],
+        }),
+        "2.9.1",
+      );
+      const diy = result.diyLibrary as { entries: Array<Record<string, unknown>> };
+      const music = result.musicLibrary as { entries: Array<Record<string, unknown>> };
+      expect(diy.entries[0].scenceParam).to.equal("DIY_PARAM_BASE64");
+      expect(music.entries[0].scenceParam).to.equal("MUSIC_PARAM_BASE64");
+    });
+  });
+
+  describe("v2.9.1 Class C3 — HttpError.responseBody flows into recordApiFailure", () => {
+    it("captures responseBody so the diag JSON shows the body, not just the status", () => {
+      const c = new DiagnosticsCollector();
+      const err = new HttpError("HTTP 401", 401, {}, "{\"message\":\"API key invalid\"}");
+      c.recordApiFailure("dev1", "/router/api/v1/user/devices", err, 401);
+      const list = (c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").apiHistory as Record<
+        string,
+        Array<Record<string, unknown>>
+      >)["/router/api/v1/user/devices"];
+      const body = list[0].body as Record<string, unknown>;
+      expect(body.error).to.equal("HTTP 401");
+      expect(body.status).to.equal(401);
+      expect(body.responseBody).to.equal("{\"message\":\"API key invalid\"}");
+    });
+
+    it("truncates the responseBody when it would exceed the cap", () => {
+      const c = new DiagnosticsCollector();
+      const huge = "x".repeat(80_000);
+      const err = new HttpError("HTTP 500", 500, {}, huge);
+      c.recordApiFailure("dev1", "/api/oops", err, 500);
+      const list = (c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").apiHistory as Record<
+        string,
+        Array<Record<string, unknown>>
+      >)["/api/oops"];
+      const body = list[0].body as Record<string, unknown>;
+      expect((body.responseBody as string).length).to.be.lessThan(80_000);
+      expect((body.responseBody as string).endsWith("…")).to.be.true;
+    });
+  });
+
+  describe("v2.9.1 Class E — LAN UDP send capture", () => {
+    it("addLanSend records outgoing ptReal payloads per-device", () => {
+      const c = new DiagnosticsCollector();
+      c.addLanSend("dev1", "10.2.1.36", "ptReal", { command: ["pkt1", "pkt2"] }, 572);
+      const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1");
+      const sends = result.lanSends as Array<Record<string, unknown>>;
+      expect(sends).to.have.lengthOf(1);
+      expect(sends[0].ip).to.equal("10.2.1.36");
+      expect(sends[0].cmd).to.equal("ptReal");
+      expect(sends[0].bytes).to.equal(572);
+      expect((sends[0].payload as Record<string, unknown[]>).command).to.deep.equal(["pkt1", "pkt2"]);
+    });
+
+    it("captures error field when the UDP send fails", () => {
+      const c = new DiagnosticsCollector();
+      c.addLanSend("dev1", "10.2.1.36", "ptReal", { command: ["pkt1"] }, 0, "EHOSTUNREACH");
+      const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1");
+      const sends = result.lanSends as Array<Record<string, unknown>>;
+      expect(sends[0].error).to.equal("EHOSTUNREACH");
+    });
+
+    it("bounds at 30 lan-sends — newest 30 retained", () => {
+      const c = new DiagnosticsCollector();
+      for (let i = 0; i < 40; i++) {
+        c.addLanSend("dev1", "10.2.1.36", "turn", { value: i }, 50);
+      }
+      const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1");
+      const sends = result.lanSends as Array<Record<string, unknown>>;
+      expect(sends).to.have.lengthOf(30);
+    });
+  });
+
+  describe("v2.9.1 Class F1 — AWS-IoT MQTT envelope durchgereicht", () => {
+    it("addMqttPacket accepts {hex, rawJson} so state-only pushes are captured too", () => {
+      const c = new DiagnosticsCollector();
+      const envelope = JSON.stringify({ sku: "H61BE", device: "23:3E:CA", state: { onOff: 1 } });
+      c.addMqttPacket("dev1", "GA/account", { hex: "abc123", rawJson: envelope });
+      const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1");
+      const packets = result.lastMqttPackets as Array<Record<string, unknown>>;
+      expect(packets[0].hex).to.equal("abc123");
+      expect(packets[0].rawJson).to.equal(envelope);
+    });
+
+    it("addMqttPacket accepts rawJson-only (no op.command in MQTT message)", () => {
+      const c = new DiagnosticsCollector();
+      const envelope = JSON.stringify({ sku: "H61BE", device: "23:3E:CA", state: { onOff: 1 } });
+      c.addMqttPacket("dev1", "GA/account", { rawJson: envelope });
+      const packets = (c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").lastMqttPackets) as Array<
+        Record<string, unknown>
+      >;
+      expect(packets[0].hex).to.be.undefined;
+      expect(packets[0].rawJson).to.equal(envelope);
+    });
+
+    it("ignores empty payload-objects (no hex AND no rawJson)", () => {
+      const c = new DiagnosticsCollector();
+      c.addMqttPacket("dev1", "GA/account", {});
+      const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1");
+      expect(result.lastMqttPackets).to.deep.equal([]);
+    });
+  });
+
+  describe("v2.9.1 Class G — device-runtime fields in diag.device", () => {
+    it("surfaces sceneSpeed, manualMode/manualSegments, lastSeenOnNetwork, lastLanReplyAt, groupMembers", () => {
+      const c = new DiagnosticsCollector();
+      const result = c.generate(
+        makeDevice({
+          deviceId: "dev1",
+          sceneSpeed: 2,
+          manualMode: true,
+          manualSegments: [0, 1, 3, 5, 7],
+          lastSeenOnNetwork: 1700000000000,
+          lastLanReplyAt: 1700000001000,
+          groupMembers: [{ sku: "H61BE", deviceId: "11:22:33" }],
+        }),
+        "2.9.1",
+      );
+      const dev = result.device as Record<string, unknown>;
+      expect(dev.sceneSpeed).to.equal(2);
+      expect(dev.manualMode).to.equal(true);
+      expect(dev.manualSegments).to.deep.equal([0, 1, 3, 5, 7]);
+      expect(dev.lastSeenOnNetwork).to.equal(1700000000000);
+      expect(dev.lastLanReplyAt).to.equal(1700000001000);
+      expect(dev.groupMembers).to.deep.equal([{ sku: "H61BE", deviceId: "11:22:33" }]);
+    });
+  });
+
+  describe("v2.9.1 Class K — runtime-state provider", () => {
+    it("provider returns a snapshot pulled at generate-time", () => {
+      const c = new DiagnosticsCollector();
+      c.setRuntimeStateProvider(() => ({
+        deviceManagerLastErrorCategory: "TIMEOUT",
+        cloudFailureReason: "Cloud request timeout",
+        mqttFailureReason: null,
+        rateLimiter: { usedToday: 42, usedThisMinute: 3, dailyLimit: 9000, perMinuteLimit: 8, queueLength: 0 },
+        wizardSession: null,
+        lanSeenDeviceIps: ["23:3E:CA:39:32:35:1D:6F:10.0.0.1"],
+      }));
+      const result = c.generate(makeDevice(), "2.9.1");
+      const rt = result.runtimeState as Record<string, unknown>;
+      expect(rt.deviceManagerLastErrorCategory).to.equal("TIMEOUT");
+      expect(rt.cloudFailureReason).to.equal("Cloud request timeout");
+      expect((rt.rateLimiter as Record<string, number>).usedToday).to.equal(42);
+      expect(rt.lanSeenDeviceIps).to.deep.equal(["23:3E:CA:39:32:35:1D:6F:10.0.0.1"]);
+    });
+
+    it("yields null runtimeState when no provider is wired", () => {
+      const c = new DiagnosticsCollector();
+      const result = c.generate(makeDevice(), "2.9.1");
+      expect(result.runtimeState).to.be.null;
+    });
+
+    it("cacheSnapshotProvider returns the persisted view; clone-and-cap protects bigger payloads", () => {
+      const c = new DiagnosticsCollector();
+      c.setCacheSnapshotProvider((sku, deviceId) => ({
+        cachedAt: 1700000000000,
+        sceneLibrary: [{ name: "Forest", sceneCode: 212 }],
+        snapshotBleCmds: [[["BASE64_OF_PACKET"]]],
+        skuFromArg: sku,
+        deviceFromArg: deviceId,
+      }));
+      const result = c.generate(makeDevice({ sku: "H61BE", deviceId: "dev1" }), "2.9.1");
+      const cache = result.cache as Record<string, unknown>;
+      expect(cache.skuFromArg).to.equal("H61BE");
+      expect(cache.deviceFromArg).to.equal("dev1");
+      expect(cache.cachedAt).to.equal(1700000000000);
+    });
+
+    it("localSnapshotsProvider returns user-saved snapshot definitions", () => {
+      const c = new DiagnosticsCollector();
+      c.setLocalSnapshotsProvider(() => [
+        { name: "Morning", power: true, brightness: 60, colorRgb: "#ffaa00", colorTemperature: 0 },
+      ]);
+      const result = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1");
+      const snaps = result.localSnapshots as Array<Record<string, unknown>>;
+      expect(snaps).to.have.lengthOf(1);
+      expect(snaps[0].name).to.equal("Morning");
+      expect(snaps[0].brightness).to.equal(60);
     });
   });
 });

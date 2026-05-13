@@ -1086,7 +1086,7 @@ export function buildCloudStateDefs(
   lang: string = "en",
 ): StateDefinition[] {
   if (device.sku === "BaseGroup") {
-    return buildGroupStateDefs(memberDevices || []);
+    return buildGroupStateDefs(memberDevices || [], lang);
   }
 
   // Capability-derived states with LAN-default IDs filtered out — the LAN
@@ -1327,11 +1327,12 @@ function memberHasControlState(member: GoveeDevice, stateId: string): boolean {
 /**
  * Build state definitions for a BaseGroup device.
  * Capabilities = intersection of controllable member devices.
- * No snapshots, no diagnostics, no segments.
+ * No snapshots, no segments; diag-states (export/result/tier) included since v2.9.1.
  *
  * @param members Resolved member devices
+ * @param lang Two-letter ISO language code for diag-tier dropdown labels
  */
-function buildGroupStateDefs(members: GoveeDevice[]): StateDefinition[] {
+function buildGroupStateDefs(members: GoveeDevice[], lang: string = "en"): StateDefinition[] {
   const controllable = members.filter(m => m.lanIp || m.channels.cloud);
   if (controllable.length === 0) {
     return [];
@@ -1385,6 +1386,51 @@ function buildGroupStateDefs(members: GoveeDevice[]): StateDefinition[] {
       });
     }
   }
+
+  // v2.9.1 — BaseGroups now get the same three diag states (export / result /
+  // tier) as regular devices. Group-specific issues ("fan-out doesn't reach
+  // member X") are otherwise un-export-able via the user's self-service path.
+  // Tier defaults to "verified" because BaseGroup isn't a real SKU and
+  // therefore has no quirks entry — the diag-button just renders consistently.
+  stateDefs.push({
+    id: "export",
+    name: tName("exportDiagnostics"),
+    type: "boolean",
+    role: "button",
+    write: true,
+    def: false,
+    capabilityType: "local",
+    capabilityInstance: "diagnosticsExport",
+    channel: "diag",
+  });
+  stateDefs.push({
+    id: "result",
+    name: tName("diagnosticsJson"),
+    type: "string",
+    role: "json",
+    write: false,
+    def: "",
+    capabilityType: "local",
+    capabilityInstance: "diagnosticsResult",
+    channel: "diag",
+  });
+  stateDefs.push({
+    id: "tier",
+    name: tName("deviceTier"),
+    type: "string",
+    role: "text",
+    write: false,
+    def: "verified",
+    states: {
+      verified: resolveLabel("deviceTierVerified", lang),
+      reported: resolveLabel("deviceTierReported", lang),
+      seed: resolveLabel("deviceTierSeed", lang),
+      unknown: resolveLabel("deviceTierUnknown", lang),
+    },
+    capabilityType: "local",
+    capabilityInstance: "diagnosticsTier",
+    channel: "diag",
+  });
 
   return stateDefs;
 }

@@ -129,6 +129,14 @@ class SegmentWizard {
     return this.session !== null;
   }
   /**
+   * Snapshot the active session — used by the diag-export runtime-state
+   * provider. Returns null when no session is in flight. Plain object so
+   * the DiagnosticsCollector can clone-and-cap it safely.
+   */
+  getSessionSnapshot() {
+    return this.session ? { ...this.session, visible: [...this.session.visible] } : null;
+  }
+  /**
    * Look up a localized string, resolving against the host's current language.
    *
    * @param key Lookup key into WIZARD_STRINGS

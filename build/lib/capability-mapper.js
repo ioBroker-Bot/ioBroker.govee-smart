@@ -737,7 +737,7 @@ function buildLanStateDefs(device, log) {
 }
 function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = "en") {
   if (device.sku === "BaseGroup") {
-    return buildGroupStateDefs(memberDevices || []);
+    return buildGroupStateDefs(memberDevices || [], lang);
   }
   const stateDefs = mapCapabilities(device.capabilities, log).filter((d) => !LAN_STATE_IDS.has(d.id));
   applyQuirksToStates(device.sku, stateDefs, log);
@@ -914,7 +914,7 @@ function memberHasControlState(member, stateId) {
       return false;
   }
 }
-function buildGroupStateDefs(members) {
+function buildGroupStateDefs(members, lang = "en") {
   const controllable = members.filter((m) => m.lanIp || m.channels.cloud);
   if (controllable.length === 0) {
     return [];
@@ -961,6 +961,45 @@ function buildGroupStateDefs(members) {
       });
     }
   }
+  stateDefs.push({
+    id: "export",
+    name: (0, import_i18n_states.tName)("exportDiagnostics"),
+    type: "boolean",
+    role: "button",
+    write: true,
+    def: false,
+    capabilityType: "local",
+    capabilityInstance: "diagnosticsExport",
+    channel: "diag"
+  });
+  stateDefs.push({
+    id: "result",
+    name: (0, import_i18n_states.tName)("diagnosticsJson"),
+    type: "string",
+    role: "json",
+    write: false,
+    def: "",
+    capabilityType: "local",
+    capabilityInstance: "diagnosticsResult",
+    channel: "diag"
+  });
+  stateDefs.push({
+    id: "tier",
+    name: (0, import_i18n_states.tName)("deviceTier"),
+    type: "string",
+    role: "text",
+    write: false,
+    def: "verified",
+    states: {
+      verified: (0, import_i18n_states.resolveLabel)("deviceTierVerified", lang),
+      reported: (0, import_i18n_states.resolveLabel)("deviceTierReported", lang),
+      seed: (0, import_i18n_states.resolveLabel)("deviceTierSeed", lang),
+      unknown: (0, import_i18n_states.resolveLabel)("deviceTierUnknown", lang)
+    },
+    capabilityType: "local",
+    capabilityInstance: "diagnosticsTier",
+    channel: "diag"
+  });
   return stateDefs;
 }
 // Annotate the CommonJS export names for ESM import in node:

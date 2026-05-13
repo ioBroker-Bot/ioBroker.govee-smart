@@ -1497,7 +1497,9 @@ describe("DeviceManager", () => {
       expect((result.scenes as any).count).to.equal(2);
       expect((result.scenes as any).names).to.deep.equal(["Sunset", "Rainbow"]);
       expect((result.sceneLibrary as any).count).to.equal(1);
-      expect((result.sceneLibrary as any).entries[0].speedSupported).to.be.true;
+      // v2.9.1 — sceneLibrary now exports full entries (incl. scenceParam +
+      // speedInfo). Old shape projected `speedSupported: boolean` only.
+      expect((result.sceneLibrary as any).entries[0].speedInfo.supSpeed).to.be.true;
       expect((result.musicLibrary as any).count).to.equal(1);
       expect((result.diyLibrary as any).count).to.equal(1);
       expect(result.quirks).to.be.null; // H6160 has no quirks

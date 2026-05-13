@@ -13,6 +13,29 @@ export type LanDiscoveryCallback = (device: LanDevice) => void;
 export type LanStatusCallback = (sourceIp: string, status: LanStatus) => void;
 
 /**
+ * Callback fired for every outgoing UDP datagram. Wired to the DiagnosticsCollector
+ * via main.ts so `diag.export` carries the verbatim bytes the adapter put on the
+ * wire — closes the "did the adapter even send the snapshot?" diag blind spot.
+ *
+ * Note: ip is the destination, not a device id. main.ts resolves to deviceId.
+ */
+export type LanSendCallback = (ip: string, cmd: string, payload: unknown, bytes: number, error?: string) => void;
+
+/**
+ * Callback fired for every parsed devStatus reply. Wired to the
+ * DiagnosticsCollector so a "device ack'd the command but didn't render"
+ * report has the actual response payload in the diag JSON.
+ */
+export type LanStatusRecordCallback = (sourceIp: string, status: LanStatus) => void;
+
+/**
+ * Callback fired for every parsed scan reply. Diag-only side-channel that
+ * lets the DiagnosticsCollector log the raw LAN discovery handshake — useful
+ * for "device shows up in scan but the adapter doesn't add it" reports.
+ */
+export type LanScanRecordCallback = (lanDevice: LanDevice) => void;
+
+/**
  * Govee LAN UDP client for device discovery and control.
  * Handles multicast discovery on port 4001, listens on 4002, sends commands to 4003.
  */
@@ -42,6 +65,9 @@ export class GoveeLanClient {
   private readonly log: ioBroker.Logger;
   private onDiscovery: LanDiscoveryCallback | null = null;
   private onStatus: LanStatusCallback | null = null;
+  private onSend: LanSendCallback | null = null;
+  private onStatusRecord: LanStatusRecordCallback | null = null;
+  private onScanRecord: LanScanRecordCallback | null = null;
   private readonly seenDeviceIps = new Set<string>();
   /**
    * Per-IP timestamp of the last command we sent (ptReal/setScene/etc).
@@ -62,6 +88,38 @@ export class GoveeLanClient {
   constructor(log: ioBroker.Logger, timers: TimerAdapter) {
     this.log = log;
     this.timers = timers;
+  }
+
+  /**
+   * Register a send hook called for every outgoing UDP datagram. main.ts
+   * resolves the destination IP to a deviceId and forwards into the
+   * DiagnosticsCollector — closes the v2.9.0 diag blind spot where ptReal
+   * sends were only visible in the adapter log, not in per-device diag.
+   *
+   * @param cb Callback receiving (ip, cmd, payload, bytes, error?)
+   */
+  setSendHook(cb: LanSendCallback | null): void {
+    this.onSend = cb;
+  }
+
+  /**
+   * Register a hook called for every parsed devStatus reply. Used for diag
+   * capture — adapter looks up the device by IP and records the payload as
+   * a pseudo-endpoint (`lan://devStatus`).
+   *
+   * @param cb Callback receiving (sourceIp, status)
+   */
+  setStatusRecordHook(cb: LanStatusRecordCallback | null): void {
+    this.onStatusRecord = cb;
+  }
+
+  /**
+   * Register a hook called for every parsed scan reply. Diag-only.
+   *
+   * @param cb Callback receiving (lanDevice)
+   */
+  setScanRecordHook(cb: LanScanRecordCallback | null): void {
+    this.onScanRecord = cb;
   }
 
   /**
@@ -159,6 +217,18 @@ export class GoveeLanClient {
     });
   }
 
+  /**
+   * Snapshot of the discovery cache + last-command-sent timestamps for
+   * the runtime-state diag export. Returns plain serialisable shapes so
+   * the DiagnosticsCollector can clone-and-cap them safely.
+   */
+  getDiagSnapshot(): { seenDeviceIps: string[]; lastCommandSentMs: Record<string, number> } {
+    return {
+      seenDeviceIps: Array.from(this.seenDeviceIps),
+      lastCommandSentMs: Object.fromEntries(this.lastCommandSentMs),
+    };
+  }
+
   /** Stop all sockets and timers */
   stop(): void {
     this.stopped = true;
@@ -221,6 +291,7 @@ export class GoveeLanClient {
   private sendCommand(ip: string, cmd: string, data: Record<string, unknown>): void {
     if (!this.sendSocket) {
       this.log.debug(`LAN send dropped (socket not ready): ${cmd} → ${ip}`);
+      this.onSend?.(ip, cmd, data, 0, "socket not ready");
       return;
     }
     const message: LanMessage = {
@@ -236,6 +307,10 @@ export class GoveeLanClient {
     this.sendSocket.send(buf, 0, buf.length, COMMAND_PORT, ip, err => {
       if (err) {
         this.log.debug(`LAN send error to ${ip}: ${err.message}`);
+        this.onSend?.(ip, cmd, data, buf.length, err.message);
+      } else {
+        this.lastCommandSentMs.set(ip, Date.now());
+        this.onSend?.(ip, cmd, data, buf.length);
       }
     });
   }
@@ -320,6 +395,7 @@ export class GoveeLanClient {
   sendPtReal(ip: string, base64Packets: string[]): void {
     if (!this.sendSocket) {
       this.log.debug(`LAN ptReal dropped (socket not ready): ${ip}`);
+      this.onSend?.(ip, "ptReal", { command: base64Packets }, 0, "socket not ready");
       return;
     }
     const message = {
@@ -336,12 +412,14 @@ export class GoveeLanClient {
         // send is acceptable noise; recurring sends to the same offline IP
         // will repeat, which is the right signal.
         this.log.warn(`LAN ptReal error to ${ip}: ${err.message}`);
+        this.onSend?.(ip, "ptReal", { command: base64Packets }, buf.length, err.message);
       } else {
         // Success on debug: confirms the UDP datagram left the socket so
         // a "snapshot/scene did not activate" report can be triaged
         // without enabling silly-level wire logging.
         this.log.debug(`LAN ptReal sent to ${ip}: ${base64Packets.length} packet(s), ${buf.length} bytes`);
         this.lastCommandSentMs.set(ip, Date.now());
+        this.onSend?.(ip, "ptReal", { command: base64Packets }, buf.length);
       }
     });
   }
@@ -579,6 +657,7 @@ export class GoveeLanClient {
       this.seenDeviceIps.add(key);
       this.log.debug(`LAN: Found ${lanDevice.sku} (${lanDevice.device}) at ${lanDevice.ip}`);
     }
+    this.onScanRecord?.(lanDevice);
     this.onDiscovery?.(lanDevice);
   }
 
@@ -617,6 +696,7 @@ export class GoveeLanClient {
       this.log.debug(`LAN status from ${sourceIp}: Δ ${dt}ms since last command (proximity, not ack)`);
     }
 
+    this.onStatusRecord?.(sourceIp, status);
     this.onStatus?.(sourceIp, status);
   }
 }

@@ -140,6 +140,31 @@ export class SkuCache {
     }
   }
 
+  /**
+   * Load a single cached entry by sku+deviceId — used by the diag-export
+   * pipeline to surface the on-disk view per-device without re-reading the
+   * whole cache dir. Returns null when no file exists or the JSON is corrupt.
+   *
+   * @param sku Product model
+   * @param deviceId Device identifier
+   */
+  loadOne(sku: string, deviceId: string): CachedDeviceData | null {
+    if (!this.dataAvailable) {
+      return null;
+    }
+    const file = this.cacheFile(sku, deviceId);
+    try {
+      if (!fs.existsSync(file)) {
+        return null;
+      }
+      const raw = fs.readFileSync(file, "utf-8");
+      return JSON.parse(raw) as CachedDeviceData;
+    } catch (e) {
+      this.log.debug(`Cache loadOne failed for ${sku}: ${errMessage(e)}`);
+      return null;
+    }
+  }
+
   /** Load all cached devices. */
   loadAll(): CachedDeviceData[] {
     const results: CachedDeviceData[] = [];

@@ -233,6 +233,27 @@ class GoveeAdapter extends utils.Adapter {
     this.messageRouter = new MessageRouter(this.buildMessageRouterHost());
     this.deviceManager.setSkuCache(this.skuCache);
 
+    // v2.9.1 — wire diag providers so generate() can render persisted-cache,
+    // local-snapshots and adapter-runtime state. Providers are pulled at
+    // diag.export time, so a wizard that's running THEN gets captured even
+    // though the collector itself doesn't track it live.
+    const diag = this.deviceManager.getDiagnostics();
+    diag.setCacheSnapshotProvider((sku, deviceId) => this.skuCache?.loadOne(sku, deviceId) ?? null);
+    diag.setLocalSnapshotsProvider((sku, deviceId) => this.localSnapshots?.getSnapshots(sku, deviceId) ?? []);
+    diag.setRuntimeStateProvider(() => {
+      const errorCats = this.deviceManager?.getErrorCategorySnapshot();
+      return {
+        deviceManagerLastErrorCategory: errorCats?.deviceManager ?? null,
+        appApiLastErrorCategory: errorCats?.appApi ?? null,
+        groupMembersLastErrorCategory: errorCats?.groupMembers ?? null,
+        cloudFailureReason: this.cloudClient?.getFailureReason() ?? null,
+        mqttFailureReason: this.mqttClient?.getFailureReason() ?? null,
+        rateLimiter: this.rateLimiter?.getUsageSnapshot() ?? null,
+        wizardSession: this.segmentWizard?.getSessionSnapshot() ?? null,
+        lanSeenDeviceIps: this.lanClient?.getDiagSnapshot().seenDeviceIps ?? [],
+      };
+    });
+
     // API client for undocumented scene/music/DIY libraries (always available)
     const apiClient = new GoveeApiClient(this.log);
     apiClient.setEmail(config.goveeEmail);
@@ -327,6 +348,30 @@ class GoveeAdapter extends utils.Adapter {
     this.lanClient = new GoveeLanClient(this.log, this);
     this.deviceManager.setLanClient(this.lanClient);
 
+    // v2.9.1 — wire LAN-traffic into the diag-collector. Resolves
+    // destination-IP → device on every send/status/scan so the diag
+    // JSON carries the verbatim UDP bytes per device. Closes Class E
+    // of the v2.9.1 audit (LAN UDP completely silent in diag before).
+    this.lanClient.setSendHook((ip, cmd, payload, bytes, error) => {
+      const dev = this.deviceManager?.getDevices().find(d => d.lanIp === ip);
+      if (!dev) {
+        return;
+      }
+      this.deviceManager!.getDiagnostics().addLanSend(dev.deviceId, ip, cmd, payload, bytes, error);
+    });
+    this.lanClient.setStatusRecordHook((ip, status) => {
+      const dev = this.deviceManager?.getDevices().find(d => d.lanIp === ip);
+      if (!dev) {
+        return;
+      }
+      this.deviceManager!.getDiagnostics().recordApiSuccess(dev.deviceId, "lan://devStatus", status);
+    });
+    this.lanClient.setScanRecordHook(lanDevice => {
+      this.deviceManager
+        ?.getDiagnostics()
+        .addLog(lanDevice.device, "debug", `LAN scan reply: ip=${lanDevice.ip} sku=${lanDevice.sku}`);
+    });
+
     this.lanClient.start(
       lanDevice => {
         this.deviceManager!.handleLanDiscovery(lanDevice);
@@ -355,10 +400,12 @@ class GoveeAdapter extends utils.Adapter {
     if (config.goveeEmail && config.goveePassword) {
       this.mqttClient = new GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
 
-      // Forward every parsed MQTT op.command into the diagnostics ring buffer
-      // so diag.export contains the recent packets per device.
-      this.mqttClient.setPacketHook((deviceId, topic, hex) => {
-        this.deviceManager?.getDiagnostics().addMqttPacket(deviceId, topic, hex);
+      // Forward every parsed MQTT message into the diagnostics ring buffer
+      // so diag.export contains the recent packets per device. v2.9.1: the
+      // hook gets both BLE-hex (op.command) and the raw JSON envelope so
+      // state-only pushes are also captured.
+      this.mqttClient.setPacketHook((deviceId, topic, payload) => {
+        this.deviceManager?.getDiagnostics().addMqttPacket(deviceId, topic, payload);
       });
 
       // 2FA: forward optional code from settings into the next login attempt;
@@ -452,6 +499,24 @@ class GoveeAdapter extends utils.Adapter {
             val: connected,
             ack: true,
           }).catch(() => {});
+        },
+        // v2.9.1 — raw payload hook. Cloud-events MQTT topic is account-wide
+        // (`GA/<apiKey>`), payload carries `sku`/`device`. Parse here so the
+        // raw envelope lands per-device in the diag (same model as AWS-IoT).
+        // Account-level bucket would have meant a new diag struct; per-device
+        // keeps shape consistent with all other capture paths.
+        rawJson => {
+          if (!this.deviceManager) {
+            return;
+          }
+          try {
+            const parsed = JSON.parse(rawJson) as { sku?: unknown; device?: unknown };
+            if (typeof parsed?.device === "string" && parsed.device) {
+              this.deviceManager.getDiagnostics().addMqttPacket(parsed.device, "openapi-events", { rawJson });
+            }
+          } catch {
+            /* malformed — already debug-logged in the client */
+          }
         },
       );
 

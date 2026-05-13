@@ -1,3 +1,4 @@
+import { HttpError } from "./http-client";
 import { getDeviceQuirks } from "./device-registry";
 import type { GoveeDevice } from "./types";
 
@@ -11,14 +12,16 @@ export interface LogEntry {
   msg: string;
 }
 
-/** A captured MQTT packet (op.command-array hex-joined). */
+/** A captured MQTT packet (op.command-array hex-joined or raw JSON payload). */
 export interface MqttPacketEntry {
   /** ISO timestamp */
   ts: string;
-  /** AWS-IoT topic the packet arrived on */
+  /** AWS-IoT account topic or Cloud-events topic the packet arrived on */
   topic: string;
-  /** Hex-encoded packet bytes (lowercase, space-separated) */
-  hex: string;
+  /** Hex-encoded BLE bytes (lowercase, space-separated) — set for AWS-IoT op.command entries. */
+  hex?: string;
+  /** Raw JSON envelope around the message — captured so state-correlation isn't lost. */
+  rawJson?: string;
 }
 
 /** One captured API call (success or failure) for a Cloud / App-API endpoint. */
@@ -27,12 +30,63 @@ export interface ApiResponseEntry {
   ts: string;
   /** Endpoint identifier (e.g. "/router/api/v1/device/state") */
   endpoint: string;
-  /** True = body holds the parsed response. False = body holds `{ error, status }`. */
+  /** True = body holds the parsed response. False = body holds `{ error, status, responseBody }`. */
   ok: boolean;
   /** HTTP status code if known. Useful for failed calls (e.g. 403 from /light-effect-libraries). */
   statusCode?: number;
-  /** Response body on success. On failure: `{ error: string, status?: number }`. */
+  /** Response body on success. On failure: `{ error, status?, responseBody? }`. */
   body: unknown;
+}
+
+/**
+ * Outgoing LAN UDP datagram entry — captures ptReal / colorwc / brightness /
+ * turn sends so the diag-reader can see exactly what the adapter pushed onto
+ * the wire for a device. Recorded per-device because LAN-traffic is device-IP-
+ * keyed.
+ */
+export interface LanSendEntry {
+  /** ISO timestamp */
+  ts: string;
+  /** Destination IP address */
+  ip: string;
+  /** Datagram type — "ptReal", "turn", "brightness", "colorwc", "devStatus" */
+  cmd: string;
+  /** Outgoing packet payloads — Base64 BLE strings for ptReal, JSON-serialised data otherwise */
+  payload: unknown;
+  /** Datagram size in bytes (for PMTU-debug). */
+  bytes?: number;
+  /** Send-error string if the socket reported one. */
+  error?: string;
+}
+
+/**
+ * Snapshot of the adapter's process-wide runtime state captured at
+ * generate-time. Provided by an optional provider callback wired in main.ts
+ * so the DiagnosticsCollector itself stays decoupled from the adapter class.
+ */
+export interface RuntimeStateSnapshot {
+  /** DeviceManager.lastErrorCategory (Cloud-Device-List path). */
+  deviceManagerLastErrorCategory?: string | null;
+  /** DeviceManager.lastAppApiErrorCategory (App-API poll path). */
+  appApiLastErrorCategory?: string | null;
+  /** DeviceManager.lastGroupMembersErrorCategory (App-API groups path). */
+  groupMembersLastErrorCategory?: string | null;
+  /** GoveeCloudClient.getFailureReason() — user-facing reason for "Cloud not connected". */
+  cloudFailureReason?: string | null;
+  /** GoveeMqttClient.getFailureReason() — user-facing reason for "MQTT not connected". */
+  mqttFailureReason?: string | null;
+  /** Rate-limiter usage snapshot or null if no Cloud client. Shape mirrors RateLimiter.getUsageSnapshot(). */
+  rateLimiter?: {
+    usedToday: number;
+    usedThisMinute: number;
+    dailyLimit: number;
+    perMinuteLimit: number;
+    queueLength: number;
+  } | null;
+  /** Live wizard session if any — captured for "wizard ran during diag-click" forensics. */
+  wizardSession?: unknown;
+  /** LAN client's `seenDeviceIps` set as `["sku-id:ip", ...]` — discovery trace. */
+  lanSeenDeviceIps?: string[];
 }
 
 /** Per-device ring buffers. */
@@ -45,13 +99,46 @@ interface DeviceBuffers {
    * call returned Y" cases — the single-slot design lost that timeline.
    */
   responses: Map<string, ApiResponseEntry[]>;
+  /** Outgoing LAN datagrams — bounded ring buffer, see {@link MAX_LAN_SENDS}. */
+  lanSends: LanSendEntry[];
 }
 
-const MAX_LOGS = 20;
-const MAX_PACKETS = 10;
-const MAX_RESPONSE_ENDPOINTS = 12;
-const MAX_RESPONSES_PER_ENDPOINT = 3;
-const MAX_BODY_BYTES = 8192;
+/**
+ * Buffer sizes — raised in v2.9.1 so debug captures actually survive longer
+ * Govee outages and Multi-Segment-Echo (~5 AA-A5-Pakete pro Status-Push).
+ * Old sizes (20/10/3/12) were tuned for sparse Cloud-only debugging; the v2.9.1
+ * Coverage-Welle adds LAN sends + MQTT raw envelopes + per-fetch raw bodies
+ * → previous caps would evict the first interesting frames before a user could
+ * trigger the diag.export button.
+ */
+const MAX_LOGS = 100;
+const MAX_PACKETS = 50;
+const MAX_RESPONSE_ENDPOINTS = 24;
+const MAX_RESPONSES_PER_ENDPOINT = 6;
+const MAX_LAN_SENDS = 30;
+const MAX_BODY_BYTES = 65_536;
+
+/**
+ * Provider callback shape — see {@link RuntimeStateSnapshot}. Returning
+ * `undefined` is fine, generate() just omits the field then.
+ */
+export type RuntimeStateProvider = () => RuntimeStateSnapshot;
+
+/**
+ * Cache-snapshot provider — returns the persisted-on-disk view of a single
+ * device's cache file so the diag-reader can compare runtime state to what
+ * would be reloaded on a restart. Provider returns null when no cache entry
+ * exists for the device. Body shape is provider-specific (CachedDeviceData
+ * from SkuCache or similar) — DiagnosticsCollector clones-and-caps it.
+ */
+export type CacheSnapshotProvider = (sku: string, deviceId: string) => unknown;
+
+/**
+ * Local-snapshot list provider — returns the on-disk LocalSnapshot entries
+ * (incl. per-segment colour data) for a single device. Body shape stays
+ * provider-specific so the LocalSnapshotStore file format can evolve.
+ */
+export type LocalSnapshotsProvider = (sku: string, deviceId: string) => unknown[];
 
 /**
  * Collects diagnostic context per device and produces the
@@ -64,6 +151,42 @@ const MAX_BODY_BYTES = 8192;
  */
 export class DiagnosticsCollector {
   private readonly buffers = new Map<string, DeviceBuffers>();
+  private runtimeStateProvider: RuntimeStateProvider | null = null;
+  private cacheSnapshotProvider: CacheSnapshotProvider | null = null;
+  private localSnapshotsProvider: LocalSnapshotsProvider | null = null;
+
+  /**
+   * Register the runtime-state provider. main.ts wires it after all
+   * sub-clients (Cloud, MQTT, Rate-limiter, LAN, Wizard) are instantiated
+   * so the snapshot can pull from any of them.
+   *
+   * @param provider Callback returning a runtime-state snapshot (or partial)
+   */
+  setRuntimeStateProvider(provider: RuntimeStateProvider | null): void {
+    this.runtimeStateProvider = provider;
+  }
+
+  /**
+   * Register the cache-snapshot provider. main.ts wires SkuCache.loadOne
+   * so generate() can render the on-disk view of the cache without giving
+   * the DiagnosticsCollector a direct dependency on SkuCache.
+   *
+   * @param provider Callback returning the cached entry (or null) for one device
+   */
+  setCacheSnapshotProvider(provider: CacheSnapshotProvider | null): void {
+    this.cacheSnapshotProvider = provider;
+  }
+
+  /**
+   * Register the local-snapshot provider. Wired to LocalSnapshotStore so
+   * the diag includes user-saved snapshot definitions (per-segment colours
+   * are useful for "user-saved snapshot looks wrong after restore" reports).
+   *
+   * @param provider Callback returning local snapshot entries for one device
+   */
+  setLocalSnapshotsProvider(provider: LocalSnapshotsProvider | null): void {
+    this.localSnapshotsProvider = provider;
+  }
 
   /**
    * Lazily initialise the ring buffers for a device id.
@@ -73,7 +196,7 @@ export class DiagnosticsCollector {
   private get(deviceId: string): DeviceBuffers {
     let b = this.buffers.get(deviceId);
     if (!b) {
-      b = { logs: [], packets: [], responses: new Map() };
+      b = { logs: [], packets: [], responses: new Map(), lanSends: [] };
       this.buffers.set(deviceId, b);
     }
     return b;
@@ -103,22 +226,77 @@ export class DiagnosticsCollector {
 
   /**
    * Append an MQTT packet for a device. Bounded to MAX_PACKETS most-recent.
+   * `hex` (BLE-payload) and `rawJson` (envelope) are optional and stored as
+   * provided — callers may pass one or both. v2.9.1: AWS-IoT path now passes
+   * rawJson so state-only pushes are also captured.
    *
    * @param deviceId Govee device id
    * @param topic Source topic (account or device)
-   * @param hex Hex-encoded packet bytes
+   * @param payload Either a hex string (op.command BLE bytes) or `{hex?, rawJson?}`
    */
-  addMqttPacket(deviceId: string, topic: string, hex: string): void {
+  addMqttPacket(deviceId: string, topic: string, payload: string | { hex?: string; rawJson?: string }): void {
     if (typeof deviceId !== "string" || !deviceId) {
       return;
     }
-    if (typeof hex !== "string" || !hex) {
+    const entry: MqttPacketEntry = { ts: new Date().toISOString(), topic: String(topic) };
+    if (typeof payload === "string") {
+      if (!payload) {
+        return;
+      }
+      entry.hex = payload;
+    } else if (payload && typeof payload === "object") {
+      if (typeof payload.hex === "string" && payload.hex) {
+        entry.hex = payload.hex;
+      }
+      if (typeof payload.rawJson === "string" && payload.rawJson) {
+        entry.rawJson = payload.rawJson;
+      }
+      if (!entry.hex && !entry.rawJson) {
+        return;
+      }
+    } else {
       return;
     }
     const b = this.get(deviceId);
-    b.packets.push({ ts: new Date().toISOString(), topic: String(topic), hex });
+    b.packets.push(entry);
     if (b.packets.length > MAX_PACKETS) {
       b.packets.splice(0, b.packets.length - MAX_PACKETS);
+    }
+  }
+
+  /**
+   * Record an outgoing LAN UDP datagram (per-device). Captures the data the
+   * adapter actually put on the wire so a "I clicked snapshot and nothing
+   * happened" report has the verbatim packet payload — which the v2.8.x
+   * diag couldn't show even though `lastCommandSentMs` was kept in memory.
+   *
+   * @param deviceId Govee device id
+   * @param ip Destination IP
+   * @param cmd Command type ("ptReal", "turn", …)
+   * @param payload Outgoing data — Base64 strings for ptReal, JSON-payload otherwise
+   * @param bytes Datagram size in bytes (optional)
+   * @param error Send-error string if the socket reported one (optional)
+   */
+  addLanSend(deviceId: string, ip: string, cmd: string, payload: unknown, bytes?: number, error?: string): void {
+    if (typeof deviceId !== "string" || !deviceId) {
+      return;
+    }
+    const entry: LanSendEntry = {
+      ts: new Date().toISOString(),
+      ip: String(ip),
+      cmd: String(cmd),
+      payload: this.cloneAndCap(payload),
+    };
+    if (typeof bytes === "number" && Number.isFinite(bytes)) {
+      entry.bytes = bytes;
+    }
+    if (typeof error === "string" && error) {
+      entry.error = error;
+    }
+    const b = this.get(deviceId);
+    b.lanSends.push(entry);
+    if (b.lanSends.length > MAX_LAN_SENDS) {
+      b.lanSends.splice(0, b.lanSends.length - MAX_LAN_SENDS);
     }
   }
 
@@ -156,10 +334,10 @@ export class DiagnosticsCollector {
 
   /**
    * Record a FAILED API call. Captures the error message + HTTP status
-   * (if extractable) so the diag JSON shows "endpoint attempted, returned
-   * 403 Forbidden" instead of silent gaps. Without this, the user can't
-   * tell "endpoint never called" from "endpoint returned []" from
-   * "endpoint rejected with 403".
+   * (if extractable) plus the raw response body when the error is an
+   * {@link HttpError} so the diag JSON shows "endpoint attempted, returned
+   * 403 with body 'API key invalid'" instead of just "HTTP 403". Without
+   * the body, 4xx/5xx triage stays one round-trip away.
    *
    * @param deviceId Govee device id
    * @param endpoint Endpoint identifier
@@ -174,12 +352,18 @@ export class DiagnosticsCollector {
       return;
     }
     const errMsg = error instanceof Error ? error.message : String(error);
+    const responseBody = error instanceof HttpError ? error.responseBody : undefined;
+    const body: Record<string, unknown> = { error: errMsg, status: statusCode };
+    if (typeof responseBody === "string" && responseBody.length > 0) {
+      body.responseBody =
+        responseBody.length > MAX_BODY_BYTES ? `${responseBody.slice(0, MAX_BODY_BYTES)}…` : responseBody;
+    }
     this.appendResponse(this.get(deviceId), {
       ts: new Date().toISOString(),
       endpoint,
       ok: false,
       statusCode,
-      body: { error: errMsg, status: statusCode },
+      body,
     });
   }
 
@@ -266,9 +450,9 @@ export class DiagnosticsCollector {
    * device data + capabilities + scenes/libraries with the captured
    * ring-buffer context (logs, MQTT packets, API responses).
    *
-   * Shape stays backwards-compatible with the v1.x format — the new
-   * fields are added top-level so existing tooling that consumed the
-   * old shape keeps working.
+   * v2.9.1: extended to surface raw BLE/scene/snapshot bytes, runtime
+   * adapter state, persisted-cache view, local-snapshots and LAN-send
+   * history. See `feedback_diag_system_self_service.md` for the brief.
    *
    * @param device Target device
    * @param adapterVersion Adapter version string (e.g. "2.0.0")
@@ -276,6 +460,15 @@ export class DiagnosticsCollector {
   generate(device: GoveeDevice, adapterVersion: string): Record<string, unknown> {
     const quirks = getDeviceQuirks(device.sku);
     const b = this.buffers.get(device.deviceId);
+
+    const runtimeState = this.runtimeStateProvider ? this.runtimeStateProvider() : null;
+    const cacheSnapshot = this.cacheSnapshotProvider
+      ? this.cloneAndCap(this.cacheSnapshotProvider(device.sku, device.deviceId))
+      : null;
+    const localSnapshots = this.localSnapshotsProvider
+      ? this.cloneAndCap(this.localSnapshotsProvider(device.sku, device.deviceId))
+      : [];
+
     return {
       adapter: "iobroker.govee-smart",
       version: adapterVersion,
@@ -288,27 +481,53 @@ export class DiagnosticsCollector {
         segmentCount: device.segmentCount ?? null,
         channels: { ...device.channels },
         lanIp: device.lanIp ?? null,
+        // v2.9.1 — runtime flags / timestamps that were previously invisible
+        manualMode: device.manualMode ?? false,
+        manualSegments: device.manualSegments ?? null,
+        sceneSpeed: device.sceneSpeed ?? null,
+        scenesChecked: device.scenesChecked ?? false,
+        lastSeenOnNetwork: device.lastSeenOnNetwork ?? null,
+        lastLanReplyAt: device.lastLanReplyAt ?? null,
+        groupMembers: device.groupMembers ?? null,
       },
       capabilities: device.capabilities,
       scenes: {
         count: device.scenes.length,
         names: device.scenes.map(s => s.name),
+        // Cloud-side `value` payload — needed when the dropdown index can't
+        // be replayed from name alone (snapshots especially have integer IDs).
+        entries: device.scenes.map(s => ({ name: s.name, value: s.value })),
       },
       diyScenes: {
         count: device.diyScenes.length,
         names: device.diyScenes.map(s => s.name),
+        entries: device.diyScenes.map(s => ({ name: s.name, value: s.value })),
       },
       snapshots: {
         count: device.snapshots.length,
         names: device.snapshots.map(s => s.name),
+        entries: device.snapshots.map(s => ({ name: s.name, value: s.value })),
+        // v2.9.1 — raw BLE packets per snapshot. THE field for byte-level
+        // snapshot debugging (Issue #13, H61A8 tukey42). Previously the only
+        // way to get this was to ask the user for the cache file.
+        bleCmds: device.snapshotBleCmds
+          ? device.snapshots.map((s, idx) => ({
+              name: s.name,
+              packets: device.snapshotBleCmds?.[idx] ?? [],
+            }))
+          : [],
       },
       sceneLibrary: {
         count: device.sceneLibrary.length,
+        // v2.9.1 — full entries with `scenceParam` Base64 + `speedInfo.config`
+        // JSON. Old shape (name + sceneCode + hasParam + speedSupported only)
+        // hid the very bytes needed to compare working vs broken scene
+        // activation between SKUs.
         entries: device.sceneLibrary.map(s => ({
           name: s.name,
           sceneCode: s.sceneCode,
-          hasParam: !!s.scenceParam,
-          speedSupported: s.speedInfo?.supSpeed ?? false,
+          scenceParam: s.scenceParam,
+          speedInfo: s.speedInfo,
         })),
       },
       musicLibrary: {
@@ -317,6 +536,7 @@ export class DiagnosticsCollector {
           name: m.name,
           musicCode: m.musicCode,
           mode: m.mode ?? null,
+          scenceParam: m.scenceParam,
         })),
       },
       diyLibrary: {
@@ -324,6 +544,7 @@ export class DiagnosticsCollector {
         entries: device.diyLibrary.map(d => ({
           name: d.name,
           diyCode: d.diyCode,
+          scenceParam: d.scenceParam,
         })),
       },
       quirks: quirks ?? null,
@@ -333,8 +554,22 @@ export class DiagnosticsCollector {
       lastMqttPackets: b?.packets.slice() ?? [],
       // History per endpoint (most-recent at the end). Each entry has
       // {ts, ok, statusCode, body}. body holds either the success
-      // response or `{error, status}` for failed calls.
+      // response or `{error, status, responseBody?}` for failed calls.
       apiHistory: b ? Object.fromEntries(Array.from(b.responses.entries()).map(([k, v]) => [k, v.slice()])) : {},
+      // v2.9.1 — outgoing LAN UDP datagrams. Closes the "did the adapter
+      // even send anything?" diag blind spot for ptReal-driven scene /
+      // snapshot / segment commands.
+      lanSends: b?.lanSends.slice() ?? [],
+      // v2.9.1 — persisted-on-disk view of the SkuCache for this device.
+      // Used to compare runtime state to the cache that would be reloaded
+      // on next restart. Empty when no cache entry exists yet.
+      cache: cacheSnapshot,
+      // v2.9.1 — user-saved local snapshots for this device.
+      localSnapshots,
+      // v2.9.1 — process-wide adapter runtime state: last-error categories
+      // per subsystem, rate-limiter usage, live wizard session, LAN-discovery
+      // peers. Each field optional (provider may know fewer than all of them).
+      runtimeState,
     };
   }
 }

@@ -1103,18 +1103,21 @@ describe("CapabilityMapper", () => {
       expect(ids).to.include("colorTemperature");
     });
 
-    it("should not include snapshots or diagnostics for groups", () => {
+    it("should not include local snapshots for groups but DOES include diag states (v2.9.1)", () => {
       const group = createGroup();
       const m1 = createMember();
       const result = buildAllStateDefsForTest(group, undefined, [m1]);
       const ids = result.map(d => d.id);
+      // No snapshots for groups — group-fan-out for snapshots wasn't built.
       expect(ids).to.not.include("snapshot_local");
       expect(ids).to.not.include("snapshot_save");
       expect(ids).to.not.include("snapshot_delete");
       expect(ids).to.not.include("snapshot");
-      expect(ids).to.not.include("export");
-      expect(ids).to.not.include("result");
-      expect(ids).to.not.include("tier");
+      // v2.9.1 — BaseGroups now get diag.export/result/tier so users can
+      // export group-specific issues ("fan-out doesn't reach member X").
+      expect(ids).to.include("export");
+      expect(ids).to.include("result");
+      expect(ids).to.include("tier");
     });
 
     it("should compute scene intersection across members", () => {

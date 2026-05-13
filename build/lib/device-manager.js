@@ -83,6 +83,9 @@ class DeviceManager {
     this.log = log;
     this.commandRouter = new import_command_router.CommandRouter(log, timers);
     this.diagnostics = new import_diagnostics.DiagnosticsCollector();
+    this.commandRouter.onDiagLog = (deviceId, level, msg) => {
+      this.diagnostics.addLog(deviceId, level, msg);
+    };
   }
   /**
    * Expose the diagnostics collector so adapter-side hooks (MQTT,
@@ -90,6 +93,21 @@ class DeviceManager {
    */
   getDiagnostics() {
     return this.diagnostics;
+  }
+  /**
+   * Snapshot of the per-source `lastErrorCategory` trackers — used by the
+   * diag runtime-state provider to surface "Cloud-Device-List path keeps
+   * failing with TIMEOUT" / "App-API hit RATE_LIMIT last poll" etc.
+   *
+   * Each entry is a category string or null when the source has never seen
+   * a failure (or the last attempt succeeded).
+   */
+  getErrorCategorySnapshot() {
+    return {
+      deviceManager: this.lastErrorCategory,
+      appApi: this.lastAppApiErrorCategory,
+      groupMembers: this.lastGroupMembersErrorCategory
+    };
   }
   /**
    * Pull the HTTP status code out of any error shape we know about
@@ -540,7 +558,7 @@ class DeviceManager {
         const ep = `/light-effect-libraries?sku=${sku}`;
         try {
           const lib = await this.apiClient.fetchSceneLibrary(sku);
-          this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map((s) => s.name) });
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, lib);
           this.log.debug(
             `Scene library for ${sku}: ${lib.length} scene(s)${lib.length === 0 ? " \u2014 empty (Govee returned no data for this SKU)" : ""}`
           );
@@ -559,7 +577,7 @@ class DeviceManager {
         const ep = `/light-effect-libraries-music?sku=${sku}`;
         try {
           const lib = await this.apiClient.fetchMusicLibrary(sku);
-          this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map((m) => m.name) });
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, lib);
           this.log.debug(
             `Music library for ${sku}: ${lib.length} mode(s)${lib.length === 0 ? " \u2014 empty (Govee returned no data for this SKU)" : ""}`
           );
@@ -578,7 +596,7 @@ class DeviceManager {
         const ep = `/diy-effect-libraries?sku=${sku}`;
         try {
           const lib = await this.apiClient.fetchDiyLibrary(sku);
-          this.diagnostics.recordApiSuccess(device.deviceId, ep, { count: lib.length, names: lib.map((d) => d.name) });
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, lib);
           this.log.debug(
             `DIY library for ${sku}: ${lib.length} effect(s)${lib.length === 0 ? " \u2014 empty (Govee returned no data for this SKU)" : ""}`
           );
@@ -613,8 +631,10 @@ class DeviceManager {
     }
     if ((force || !device.snapshotBleCmds) && device.snapshots.length > 0) {
       await runLimited(async () => {
+        const ep = `/bff-app/v1/devices/snapshots?sku=${sku}`;
         try {
           const snaps = await this.apiClient.fetchSnapshots(sku, device.deviceId);
+          this.diagnostics.recordApiSuccess(device.deviceId, ep, snaps);
           this.log.debug(
             `Snapshot BLE for ${sku}: ${snaps.length} snapshot(s) with local data${snaps.length === 0 ? " \u2014 Govee returned no BLE-cmds for this SKU/device" : ""}`
           );
@@ -627,7 +647,8 @@ class DeviceManager {
             changed = true;
           }
         } catch (e) {
-          this.log.debug(`Could not load snapshot BLE for ${sku}: ${(0, import_types.errMessage)(e)}`);
+          this.diagnostics.recordApiFailure(device.deviceId, ep, e, this.extractStatus(e));
+          this.logUndocApiFailure(sku, "snapshot BLE", ep, hasBearer, e);
         }
       });
     }
@@ -648,8 +669,19 @@ class DeviceManager {
       this.log.debug("Group membership requires Email+Password \u2014 skipping member resolution");
       return false;
     }
+    const ep = "/bff-app/v1/exec-plat/home";
     try {
       const apiGroups = await this.apiClient.fetchGroupMembers();
+      for (const group of this.devices.values()) {
+        if (group.sku === "BaseGroup") {
+          const apiGroup = apiGroups.find((g) => String(g.groupId) === group.deviceId);
+          this.diagnostics.recordApiSuccess(
+            group.deviceId,
+            ep,
+            apiGroup != null ? apiGroup : { resolved: false, groupId: group.deviceId }
+          );
+        }
+      }
       if (apiGroups.length === 0) {
         this.log.debug("No group membership data from API");
         return false;
@@ -687,6 +719,12 @@ class DeviceManager {
       this.lastGroupMembersErrorCategory = null;
       return changed;
     } catch (e) {
+      const status = this.extractStatus(e);
+      for (const group of this.devices.values()) {
+        if (group.sku === "BaseGroup") {
+          this.diagnostics.recordApiFailure(group.deviceId, ep, e, status);
+        }
+      }
       this.lastGroupMembersErrorCategory = (0, import_types.logDedup)(
         this.log,
         this.lastGroupMembersErrorCategory,
@@ -1139,6 +1177,15 @@ class DeviceManager {
     if (!device) {
       return;
     }
+    const capSummary = event.capabilities.map((c) => {
+      var _a2, _b, _c;
+      return `${(_b = (_a2 = c.type) == null ? void 0 : _a2.replace("devices.capabilities.", "")) != null ? _b : "?"}/${(_c = c.instance) != null ? _c : "?"}`;
+    }).join(", ");
+    this.diagnostics.addLog(
+      device.deviceId,
+      "debug",
+      `OpenAPI-MQTT event for ${device.sku}: ${event.capabilities.length} cap(s) [${capSummary}]`
+    );
     (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, event.capabilities);
     if (device.type !== "devices.types.light") {
       this.applyOnlineCap(device, event.capabilities);

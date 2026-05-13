@@ -224,6 +224,29 @@ class GoveeAdapter extends utils.Adapter {
     this.groupFanout = new import_group_fanout.GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
     this.messageRouter = new import_message_router.MessageRouter(this.buildMessageRouterHost());
     this.deviceManager.setSkuCache(this.skuCache);
+    const diag = this.deviceManager.getDiagnostics();
+    diag.setCacheSnapshotProvider((sku, deviceId) => {
+      var _a2, _b2;
+      return (_b2 = (_a2 = this.skuCache) == null ? void 0 : _a2.loadOne(sku, deviceId)) != null ? _b2 : null;
+    });
+    diag.setLocalSnapshotsProvider((sku, deviceId) => {
+      var _a2, _b2;
+      return (_b2 = (_a2 = this.localSnapshots) == null ? void 0 : _a2.getSnapshots(sku, deviceId)) != null ? _b2 : [];
+    });
+    diag.setRuntimeStateProvider(() => {
+      var _a2, _b2, _c2, _d2, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+      const errorCats = (_a2 = this.deviceManager) == null ? void 0 : _a2.getErrorCategorySnapshot();
+      return {
+        deviceManagerLastErrorCategory: (_b2 = errorCats == null ? void 0 : errorCats.deviceManager) != null ? _b2 : null,
+        appApiLastErrorCategory: (_c2 = errorCats == null ? void 0 : errorCats.appApi) != null ? _c2 : null,
+        groupMembersLastErrorCategory: (_d2 = errorCats == null ? void 0 : errorCats.groupMembers) != null ? _d2 : null,
+        cloudFailureReason: (_f = (_e = this.cloudClient) == null ? void 0 : _e.getFailureReason()) != null ? _f : null,
+        mqttFailureReason: (_h = (_g = this.mqttClient) == null ? void 0 : _g.getFailureReason()) != null ? _h : null,
+        rateLimiter: (_j = (_i = this.rateLimiter) == null ? void 0 : _i.getUsageSnapshot()) != null ? _j : null,
+        wizardSession: (_l = (_k = this.segmentWizard) == null ? void 0 : _k.getSessionSnapshot()) != null ? _l : null,
+        lanSeenDeviceIps: (_n = (_m = this.lanClient) == null ? void 0 : _m.getDiagSnapshot().seenDeviceIps) != null ? _n : []
+      };
+    });
     const apiClient = new import_govee_api_client.GoveeApiClient(this.log);
     apiClient.setEmail(config.goveeEmail);
     this.deviceManager.setApiClient(apiClient);
@@ -301,6 +324,26 @@ class GoveeAdapter extends utils.Adapter {
     );
     this.lanClient = new import_govee_lan_client.GoveeLanClient(this.log, this);
     this.deviceManager.setLanClient(this.lanClient);
+    this.lanClient.setSendHook((ip, cmd, payload, bytes, error) => {
+      var _a2;
+      const dev = (_a2 = this.deviceManager) == null ? void 0 : _a2.getDevices().find((d) => d.lanIp === ip);
+      if (!dev) {
+        return;
+      }
+      this.deviceManager.getDiagnostics().addLanSend(dev.deviceId, ip, cmd, payload, bytes, error);
+    });
+    this.lanClient.setStatusRecordHook((ip, status) => {
+      var _a2;
+      const dev = (_a2 = this.deviceManager) == null ? void 0 : _a2.getDevices().find((d) => d.lanIp === ip);
+      if (!dev) {
+        return;
+      }
+      this.deviceManager.getDiagnostics().recordApiSuccess(dev.deviceId, "lan://devStatus", status);
+    });
+    this.lanClient.setScanRecordHook((lanDevice) => {
+      var _a2;
+      (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addLog(lanDevice.device, "debug", `LAN scan reply: ip=${lanDevice.ip} sku=${lanDevice.sku}`);
+    });
     this.lanClient.start(
       (lanDevice) => {
         var _a2;
@@ -321,9 +364,9 @@ class GoveeAdapter extends utils.Adapter {
     }, 3e3);
     if (config.goveeEmail && config.goveePassword) {
       this.mqttClient = new import_govee_mqtt_client.GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
-      this.mqttClient.setPacketHook((deviceId, topic, hex) => {
+      this.mqttClient.setPacketHook((deviceId, topic, payload) => {
         var _a2;
-        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addMqttPacket(deviceId, topic, hex);
+        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addMqttPacket(deviceId, topic, payload);
       });
       this.mqttClient.setVerificationCode((_b = config.mqttVerificationCode) != null ? _b : "");
       this.mqttClient.setOnVerificationConsumed(() => {
@@ -391,6 +434,23 @@ class GoveeAdapter extends utils.Adapter {
             ack: true
           }).catch(() => {
           });
+        },
+        // v2.9.1 — raw payload hook. Cloud-events MQTT topic is account-wide
+        // (`GA/<apiKey>`), payload carries `sku`/`device`. Parse here so the
+        // raw envelope lands per-device in the diag (same model as AWS-IoT).
+        // Account-level bucket would have meant a new diag struct; per-device
+        // keeps shape consistent with all other capture paths.
+        (rawJson) => {
+          if (!this.deviceManager) {
+            return;
+          }
+          try {
+            const parsed = JSON.parse(rawJson);
+            if (typeof (parsed == null ? void 0 : parsed.device) === "string" && parsed.device) {
+              this.deviceManager.getDiagnostics().addMqttPacket(parsed.device, "openapi-events", { rawJson });
+            }
+          } catch {
+          }
         }
       );
       const triggerAppApiPoll = () => {

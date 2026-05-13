@@ -128,6 +128,13 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable directly from the export.
+- Diagnostics now also captures outgoing LAN commands, raw cloud-events messages and live error/rate-limit state, so "the adapter went silent" reports are traceable end-to-end.
+- Groups now have their own diagnostics export button just like regular devices, so group-specific fan-out problems can be reported the same way.
+- Appliance and sensor values are now reflected in the runtime state shown in the export, not only in the state tree.
+
 ### 2.9.0 (2026-05-13)
 
 - `info.online` for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive `true` during real outages.

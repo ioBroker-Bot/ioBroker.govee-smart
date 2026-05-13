@@ -87,10 +87,14 @@ export class GoveeMqttClient {
   private onToken: MqttTokenCallback | null = null;
   /**
    * Diagnostics hook — called for each parsed message with the device id,
-   * source topic and any op.command hex strings. The hook is responsible
-   * for forwarding to a DiagnosticsCollector if one is set up.
+   * source topic and either an op.command hex string (BLE bytes) or the
+   * raw JSON envelope. The hook is responsible for forwarding to a
+   * DiagnosticsCollector if one is set up. v2.9.1: rawJson is always
+   * forwarded so state-only pushes (no op.command) are captured too —
+   * old shape only fired on op.command BLE strings.
    */
-  private onPacket: ((deviceId: string, topic: string, hex: string) => void) | null = null;
+  private onPacket: ((deviceId: string, topic: string, payload: { hex?: string; rawJson?: string }) => void) | null =
+    null;
 
   /**
    * Set true in disconnect(); refreshBearerSilently bails as first step
@@ -477,8 +481,9 @@ export class GoveeMqttClient {
    * @param topic   AWS-IoT topic the message arrived on
    */
   private handleMessage(payload: Buffer, topic: string): void {
+    const rawText = payload.toString();
     try {
-      const raw = JSON.parse(payload.toString()) as Record<string, unknown>;
+      const raw = JSON.parse(rawText) as Record<string, unknown>;
 
       // Defensive — blind casts would crash downstream if Govee pushes
       // unexpected types. Validate each field before constructing the update.
@@ -489,27 +494,37 @@ export class GoveeMqttClient {
 
       if (sku || device) {
         this.onStatus?.({ sku, device, state, op });
-        if (this.onPacket && device && Array.isArray(op?.command)) {
-          for (const cmd of op.command) {
-            if (typeof cmd === "string" && cmd) {
-              this.onPacket(device, topic, cmd);
+        if (this.onPacket && device) {
+          // v2.9.1 — always forward the raw envelope so state-only pushes
+          // (state with no op.command) are visible in diag. Previously the
+          // hook only fired on op.command BLE bytes — state changes from
+          // the Govee app / physical remote went uncaptured.
+          if (Array.isArray(op?.command)) {
+            for (const cmd of op.command) {
+              if (typeof cmd === "string" && cmd) {
+                this.onPacket(device, topic, { hex: cmd, rawJson: rawText });
+              }
             }
+          } else {
+            this.onPacket(device, topic, { rawJson: rawText });
           }
         }
       }
     } catch {
-      this.log.debug(`MQTT: Failed to parse message: ${payload.toString().slice(0, 200)}`);
+      this.log.debug(`MQTT: Failed to parse message: ${rawText.slice(0, 200)}`);
     }
   }
 
   /**
    * Register a hook called for every parsed MQTT packet. Used by the
-   * adapter to forward op.command hex strings into the DiagnosticsCollector
-   * for `diag.export`.
+   * adapter to forward op.command hex strings + the raw JSON envelope into
+   * the DiagnosticsCollector for `diag.export`.
    *
-   * @param cb Callback receiving (deviceId, topic, hex)
+   * @param cb Callback receiving (deviceId, topic, {hex?, rawJson?})
    */
-  setPacketHook(cb: ((deviceId: string, topic: string, hex: string) => void) | null): void {
+  setPacketHook(
+    cb: ((deviceId: string, topic: string, payload: { hex?: string; rawJson?: string }) => void) | null,
+  ): void {
     this.onPacket = cb;
   }
 

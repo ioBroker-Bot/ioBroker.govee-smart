@@ -37,6 +37,14 @@ export class CommandRouter {
   ) => void;
 
   /**
+   * Optional diag-log hook fired once per `sendCommand` call so the per-device
+   * diag ring buffer carries the channel-routing decision ("LAN took it",
+   * "Cloud fallback", "no channel available"). Without this, the diag JSON
+   * couldn't show why a user's state-write didn't reach the device.
+   */
+  onDiagLog?: (deviceId: string, level: "debug" | "info" | "warn", msg: string) => void;
+
+  /**
    * @param log ioBroker logger
    * @param timers Adapter timer wrapper — routed through `this.setTimeout` so
    *   pending color-mode delays get cleared on onUnload.
@@ -123,6 +131,21 @@ export class CommandRouter {
    * @param value Command value
    */
   async sendCommand(device: GoveeDevice, command: string, value: unknown): Promise<void> {
+    // v2.9.1 — channel-routing trace into the per-device diag. Single line at
+    // entry shows what the user asked for; the LAN-send hook captures the
+    // actual UDP bytes that left the wire (if any). JSON.stringify handles
+    // every primitive + object branch consistently; `[object Object]`-default
+    // stringification is what eslint warns about with bare String(value).
+    const summary = `${command}=${JSON.stringify(value)}`;
+    const channel = device.lanIp
+      ? "LAN"
+      : device.channels.cloud && this.cloudClient
+        ? "Cloud"
+        : device.channels.cloud
+          ? "Cloud (not ready)"
+          : "none";
+    this.onDiagLog?.(device.deviceId, "debug", `sendCommand ${summary} → ${channel}`);
+
     // Segment color: LAN ptReal first, Cloud fallback
     if (command.startsWith("segmentColor:")) {
       const segIdx = parseInt(command.split(":")[1], 10);

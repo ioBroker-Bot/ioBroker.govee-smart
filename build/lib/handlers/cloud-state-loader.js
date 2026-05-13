@@ -50,7 +50,11 @@ async function loadCloudStates(adapter) {
       }
       await Promise.all(writes);
       loaded++;
-    } catch {
+    } catch (e) {
+      if (adapter.deviceManager) {
+        const status = e && typeof e === "object" && "statusCode" in e ? e.statusCode : void 0;
+        adapter.deviceManager.getDiagnostics().recordApiFailure(device.deviceId, "/router/api/v1/device/state", e, status);
+      }
       adapter.log.debug(`Could not load Cloud state for ${device.name} (${device.sku})`);
     }
   }
@@ -66,6 +70,9 @@ async function applyCloudCapabilities(adapter, device, caps) {
   const planned = (0, import_capability_mapper.planCloudCapabilityWrites)(caps, Boolean(device.lanIp), import_capability_mapper.LAN_STATE_IDS);
   for (const mapped of planned) {
     await adapter.stateManager.ensureSyntheticStateObject(prefix, mapped.stateId);
+    if (mapped.value !== null && mapped.value !== void 0) {
+      device.state[mapped.stateId] = mapped.value;
+    }
   }
   const writes = planned.map((mapped) => {
     const statePath = adapter.stateManager.resolveStatePath(prefix, mapped.stateId);

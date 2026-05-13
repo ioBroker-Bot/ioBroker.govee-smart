@@ -107,6 +107,19 @@ export class GoveeCloudClient {
     const resp = await this.request<CloudDeviceListResponse>("GET", "/router/api/v1/user/devices");
     // Defensive — API can drift. Guard for non-array to protect downstream iteration.
     const devices = Array.isArray(resp?.data) ? resp.data : [];
+    // v2.9.1 — fire onResponse per-device so every device sees the canonical
+    // capability data Govee Cloud has for it in its own apiHistory. Without
+    // this, the user-devices endpoint never appeared in diag — even though
+    // it's the authoritative source of truth for what Govee thinks each
+    // device can do. Per-device is the right grain because callers want to
+    // see "what Cloud said about MY device" without scanning a global list.
+    if (this.onResponse) {
+      for (const cd of devices) {
+        if (cd && typeof cd.device === "string" && cd.device) {
+          this.onResponse(cd.device, "/router/api/v1/user/devices", cd);
+        }
+      }
+    }
     if (devices.length === 0 && !this.warnedEmptyDeviceList) {
       this.warnedEmptyDeviceList = true;
       // First empty response is worth surfacing — common cause is "API key
