@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.9.0",
+    "version": "2.9.1",
     "news": {
-      "NEXT": {
+      "2.9.1": {
         "en": "Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable from the export alone. Groups now have their own diagnostics button.",
         "de": "Issue-Berichte enthalten jetzt die gespeicherten Szenen-, Snapshot- und Effekt-Daten. Probleme aus dem Export analysierbar. Gruppen haben jetzt einen eigenen Diagnose-Button.",
         "ru": "Отчёты об ошибках теперь содержат сохранённые данные сцен, снимков и эффектов устройства. Проблемы анализируются прямо из экспорта. У групп — своя кнопка диагностики.",

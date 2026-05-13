@@ -1,4 +1,8 @@
 # Older Changes
+## 2.8.1 (2026-05-11)
+
+- Info, warn and error logs are back to their normal short form. The channel-status prefix from 2.8.0 stays only in debug logs.
+
 ## 2.8.0 (2026-05-11)
 
 - Restart no longer briefly removes and re-creates scene, music and snapshot datapoints.
