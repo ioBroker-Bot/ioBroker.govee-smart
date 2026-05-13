@@ -371,6 +371,14 @@ export interface GoveeDevice {
    * Used for cache pruning — stale entries without recent network sighting get removed.
    */
   lastSeenOnNetwork?: number;
+  /**
+   * Timestamp (ms) when device last replied to a LAN-direct probe (multicast
+   * discovery or unicast devStatus). Only set by the LAN-Discovery / LAN-Status
+   * paths — NOT by MQTT-push (broker buffering risk) and NOT by Cloud caps.
+   * Used as the sole truth-source for `info.online` of Lights via the
+   * StateManager.syncInfoOnline resolver (90s freshness window).
+   */
+  lastLanReplyAt?: number;
   /** Which channels are available */
   channels: {
     /** LAN UDP reachable */

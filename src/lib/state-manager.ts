@@ -451,10 +451,10 @@ export class StateManager {
         undefined,
         false,
       );
-      await this.adapter.setStateAsync(`${prefix}.info.online`, {
-        val: device.state.online ?? false,
-        ack: true,
-      });
+      // info.online is written via syncInfoOnline (resolver-based, no
+      // ts-rewrite-spam). The initial sync happens right after this method
+      // returns — see syncInfoOnline. Direct write here was the source of
+      // periodic false→true bounces (captured 2026-05-13).
       await this.ensureState(`${prefix}.info.model`, "Model", "string", "text", false, undefined, "");
       await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false, undefined, "");
       await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false, undefined, "");
@@ -478,6 +478,11 @@ export class StateManager {
         val: shortenGoveeType(device.type),
         ack: true,
       });
+      // Initial info.online sync — see syncInfoOnline for the resolver.
+      // Subsequent updates come from the periodic sync timer in main.ts
+      // and from direct calls in onDeviceStateUpdate when state.online
+      // arrives via the existing event paths.
+      await this.syncInfoOnline(device);
     } else {
       // Group members: comma-separated device prefix IDs
       const memberIds = (device.groupMembers ?? [])
@@ -865,7 +870,12 @@ export class StateManager {
       writes.push(this.adapter.setStateAsync(id, { val, ack: true }).catch(() => undefined));
     };
 
-    if (state.online !== undefined) {
+    // info.online for Lights is owned by syncInfoOnline — direct writes here
+    // would re-introduce the ts-rewrite-spam (every 2 min same value) and
+    // the false-positive `true` writes from Cloud/MQTT paths. For Sensors/
+    // Appliances the existing flow stays (applyOnlineCap → onDeviceUpdate →
+    // here → info.online).
+    if (state.online !== undefined && device.type !== "devices.types.light") {
       set(`${prefix}.info.online`, state.online);
     }
     if (state.power !== undefined) {
@@ -1193,5 +1203,62 @@ export class StateManager {
       native: {},
     });
     this.ensuredStates.add(id);
+  }
+
+  /**
+   * Resolver-based info.online sync.
+   *
+   * For LED Lights (`type === "devices.types.light"`) the truth-source is
+   * exclusively `device.lastLanReplyAt` — set when the device replies to a
+   * LAN-Discovery multicast or LAN-Unicast devStatus. The 90 s freshness
+   * window tolerates 3 missed 30 s scans against UDP packet loss but still
+   * flips offline reasonably fast on a real outage.
+   *
+   * For Sensors/Appliances (no LAN protocol) the existing flow is unchanged:
+   * `device.state.online` is set by `applyOnlineCap` from App-API / OpenAPI-
+   * MQTT and read straight through here.
+   *
+   * Writes `info.online` only when the resolved value differs from the
+   * current state — kills the 2-min ts-rewrite-spam captured 2026-05-13.
+   *
+   * For Lights: when the resolved online value changes, the internal
+   * `device.state.online` is also updated so downstream consumers
+   * (`updateGroupReachability`, `handleLanDiscovery` wasOffline check)
+   * stay in sync. Returns `true` in that case so the caller can fire
+   * the group-fanout reachability refresh.
+   *
+   * Skips BaseGroup devices — groups have a global `groups.info.online`
+   * managed elsewhere.
+   *
+   * @param device Govee device to sync
+   * @returns true if a Light's resolved online state changed (caller should
+   *          refresh group-reachability), false otherwise
+   */
+  async syncInfoOnline(device: GoveeDevice): Promise<boolean> {
+    if (device.sku === "BaseGroup") {
+      return false;
+    }
+    const prefix = this.devicePrefix(device);
+    const stateId = `${prefix}.info.online`;
+
+    let desiredOnline: boolean;
+    if (device.type === "devices.types.light") {
+      desiredOnline = !!(device.lastLanReplyAt && Date.now() - device.lastLanReplyAt < 90_000);
+    } else {
+      desiredOnline = device.state.online === true;
+    }
+
+    const current = await this.adapter.getStateAsync(stateId).catch(() => null);
+    if (!current || current.val !== desiredOnline) {
+      await this.adapter.setStateAsync(stateId, { val: desiredOnline, ack: true }).catch(() => undefined);
+    }
+
+    let lightOnlineChanged = false;
+    if (device.type === "devices.types.light" && device.state.online !== desiredOnline) {
+      device.state.online = desiredOnline;
+      lightOnlineChanged = true;
+    }
+
+    return lightOnlineChanged;
   }
 }

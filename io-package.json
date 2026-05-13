@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.8.4",
     "news": {
+      "NEXT": {
+        "en": "info.online for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive true during real outages.",
+        "de": "info.online für Lights spiegelt jetzt die echte LAN-Erreichbarkeit wider (90-s-Fenster). Cloud und MQTT-Push schreiben den State nicht mehr — sie haben bei echten Ausfällen fälschlich true geliefert.",
+        "ru": "info.online для светильников теперь отражает реальную LAN-доступность (окно 90 с). Cloud и MQTT-push больше не записывают этот state — раньше они выдавали ложные true во время реальных отключений.",
+        "pt": "info.online para luzes agora reflete a acessibilidade LAN real (janela de 90 s). Cloud e MQTT push já não escrevem o estado — anteriormente geravam true falsos durante falhas reais.",
+        "nl": "info.online voor lampen volgt nu de echte LAN-bereikbaarheid (90 s venster). Cloud en MQTT-push schrijven het niet meer — ze leverden eerder onterechte true tijdens echte storingen.",
+        "fr": "info.online pour les lumières reflète maintenant la véritable joignabilité LAN (fenêtre de 90 s). Cloud et MQTT push ne l'écrivent plus — ils produisaient des true erronés lors de vraies pannes.",
+        "it": "info.online per le luci ora rispecchia la reale raggiungibilità LAN (finestra di 90 s). Cloud e MQTT push non lo scrivono più — in passato producevano true erronei durante interruzioni reali.",
+        "es": "info.online para luces ahora refleja la accesibilidad LAN real (ventana de 90 s). Cloud y MQTT push ya no lo escriben — antes producían true falsos durante apagones reales.",
+        "pl": "info.online dla lamp odzwierciedla teraz rzeczywistą dostępność LAN (okno 90 s). Chmura i MQTT-push już go nie zapisują — wcześniej dawały fałszywe true podczas prawdziwych awarii.",
+        "uk": "info.online для світильників тепер відображає реальну LAN-доступність (вікно 90 с). Cloud та MQTT-push більше не записують стан — раніше вони видавали хибні true під час реальних відключень.",
+        "zh-cn": "灯具的 info.online 现在反映真实的 LAN 可达性（90 秒窗口）。Cloud 与 MQTT 推送不再写入该状态——它们曾在真实掉线时产生错误的 true。"
+      },
       "2.8.4": {
         "en": "The device trust tier state no longer carries a multi-language label object that would crash the admin with \"Error in GUI\" if rendered as a dropdown.",
         "de": "Der Trust-Tier-State pro Gerät trägt kein Mehrsprach-Label-Objekt mehr, das im Admin als Dropdown gerendert mit \"Error in GUI\" abstürzen würde.",
@@ -80,19 +93,6 @@
         "pl": "Czystszy log startowy: pierwsza linia teraz mówi, by czekać na komunikat „ready\", a jedna zbędna informacja o połączeniu została usunięta.",
         "uk": "Чистіший стартовий лог: перший рядок тепер каже дочекатися повідомлення «ready», а один зайвий рядок про підключення прибрано.",
         "zh-cn": "更干净的启动日志：第一行现在提示等待 \"ready\" 消息，一条多余的连接信息已移除。"
-      },
-      "2.7.0": {
-        "en": "Snapshots created in the Govee Home app now appear in the dropdown automatically — the cached list no longer hides them. The refresh button moved per-device under snapshots.refresh_cloud; the global info.refresh_cloud_data is removed.",
-        "de": "In der Govee Home App erstellte Snapshots erscheinen jetzt automatisch im Dropdown — die alte Cache-Logik hat sie versteckt. Der Refresh-Button liegt jetzt pro Gerät unter snapshots.refresh_cloud; der globale info.refresh_cloud_data ist entfernt.",
-        "ru": "Снапшоты из приложения Govee Home теперь автоматически появляются в выпадающем списке — кэш больше их не скрывает. Кнопка обновления переехала к каждому устройству под snapshots.refresh_cloud; глобальный info.refresh_cloud_data удалён.",
-        "pt": "Snapshots criados na app Govee Home aparecem agora automaticamente no dropdown — o cache antigo já não os esconde. O botão de refresh está agora por dispositivo em snapshots.refresh_cloud; o global info.refresh_cloud_data foi removido.",
-        "nl": "Snapshots uit de Govee Home-app verschijnen nu automatisch in de dropdown — de oude cache verbergt ze niet meer. De refresh-knop staat nu per apparaat onder snapshots.refresh_cloud; de globale info.refresh_cloud_data is verwijderd.",
-        "fr": "Les snapshots créés dans l'app Govee Home apparaissent maintenant automatiquement dans la liste — l'ancien cache ne les cache plus. Le bouton de rafraîchissement est maintenant par appareil sous snapshots.refresh_cloud ; l'info.refresh_cloud_data global est supprimé.",
-        "it": "Gli snapshot creati nell'app Govee Home appaiono ora automaticamente nel menu a tendina — la vecchia cache non li nasconde più. Il pulsante di refresh è ora per dispositivo sotto snapshots.refresh_cloud; il globale info.refresh_cloud_data è rimosso.",
-        "es": "Los snapshots creados en la app Govee Home aparecen ahora automáticamente en el desplegable — la caché antigua ya no los oculta. El botón de refresco está ahora por dispositivo en snapshots.refresh_cloud; el global info.refresh_cloud_data se eliminó.",
-        "pl": "Snapshoty utworzone w aplikacji Govee Home pojawiają się teraz automatycznie w liście rozwijanej — stary cache ich już nie ukrywa. Przycisk odświeżania jest teraz per urządzenie pod snapshots.refresh_cloud; globalny info.refresh_cloud_data został usunięty.",
-        "uk": "Знімки, створені в додатку Govee Home, тепер автоматично з'являються у випадному списку — старий кеш їх більше не приховує. Кнопка оновлення тепер на рівні пристрою в snapshots.refresh_cloud; глобальний info.refresh_cloud_data видалено.",
-        "zh-cn": "在 Govee Home 应用中创建的快照现在会自动出现在下拉列表中——旧的缓存逻辑不再隐藏它们。刷新按钮已移到每个设备的 snapshots.refresh_cloud；全局 info.refresh_cloud_data 已移除。"
       }
     },
     "titleLang": {

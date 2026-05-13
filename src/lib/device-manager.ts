@@ -895,6 +895,7 @@ export class DeviceManager {
       matched.lanIp = lanDevice.ip;
       matched.channels.lan = true;
       matched.lastSeenOnNetwork = Date.now();
+      matched.lastLanReplyAt = Date.now();
       if (ipChanged) {
         this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
         this.onLanIpChanged?.(matched, lanDevice.ip);
@@ -1007,7 +1008,16 @@ export class DeviceManager {
 
     device.channels.mqtt = true;
     device.lastSeenOnNetwork = Date.now();
-    const state: Partial<DeviceState> = { online: true };
+    // MQTT-push proves the device talked to the Govee broker — but the broker
+    // can replay last-will / retained messages and buffer reconnect events.
+    // For Lights, info.online comes ONLY from LAN-direct replies (see
+    // StateManager.syncInfoOnline). MQTT-push still updates power/brightness/
+    // color but does NOT flip online for Lights. For Sensors/Appliances (which
+    // never use this AWS-IoT MQTT path), the field stays as before.
+    const state: Partial<DeviceState> = {};
+    if (device.type !== "devices.types.light") {
+      state.online = true;
+    }
 
     if (update.state) {
       // API-Boundary: Govee schickt gelegentlich brightness/onOff/color als
@@ -1121,6 +1131,7 @@ export class DeviceManager {
     }
 
     device.lastSeenOnNetwork = Date.now();
+    device.lastLanReplyAt = Date.now();
     const { r, g, b } = status.color;
     const state: Partial<DeviceState> = {
       online: true,
@@ -1319,7 +1330,13 @@ export class DeviceManager {
           // pipeline. Pluck it out and apply it directly — otherwise sensor
           // SKUs like H5179 stay at info.online=false forever even while
           // their readings keep updating.
-          this.applyOnlineCap(device, caps);
+          // Lights are excluded: their info.online is driven exclusively by
+          // LAN-direct replies (StateManager.syncInfoOnline). Govee's Cloud
+          // cache lags real LAN reachability by minutes and produced 2×
+          // false-positive `true` writes during the 2026-05-13 outage capture.
+          if (device.type !== "devices.types.light") {
+            this.applyOnlineCap(device, caps);
+          }
           this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
           return true;
         }),
@@ -1400,6 +1417,11 @@ export class DeviceManager {
     // are the only signal we get for appliance state (heater on/off,
     // ice-bucket-full, …) — without this, info.online for those SKUs
     // never flips to true even while events stream in.
-    this.applyOnlineCap(device, event.capabilities);
+    // Lights are excluded (info.online comes only from LAN-direct replies via
+    // StateManager.syncInfoOnline). Defensive — OpenAPI-MQTT in practice only
+    // carries appliance events, but the guard prevents future regressions.
+    if (device.type !== "devices.types.light") {
+      this.applyOnlineCap(device, event.capabilities);
+    }
   }
 }

@@ -113,6 +113,10 @@ function createTestDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
     diyLibrary: [],
     skuFeatures: null,
     state: { online: true },
+    // Fresh LAN-reply timestamp so StateManager.syncInfoOnline resolves
+    // info.online to true for Light test devices (matches the
+    // pre-fix default which had a direct setStateAsync write).
+    lastLanReplyAt: Date.now(),
     channels: { lan: true, mqtt: false, cloud: false },
     ...overrides,
   };
@@ -998,14 +1002,37 @@ describe("StateManager", () => {
       expect(states.get("devices.h6160_0011.control.brightness")).to.deep.include({ val: 75 });
     });
 
-    it("should update online status", async () => {
+    it("should update online status for non-Light devices via updateDeviceState", async () => {
+      // For Lights, info.online is owned by syncInfoOnline (LAN-reply TTL).
+      // updateDeviceState writes online only for Sensors/Appliances where
+      // applyOnlineCap is still the truth-source.
       const { adapter, states } = createMockAdapter();
       const sm = new StateManager(adapter as never);
-      const dev = createTestDevice();
+      const dev = createTestDevice({ type: "devices.types.thermometer", sku: "H5179" });
       await createAllStatesForTest(sm, dev, []);
 
       await sm.updateDeviceState(dev, { online: false });
-      expect(states.get("devices.h6160_0011.info.online")).to.deep.include({ val: false });
+      expect(states.get("devices.h5179_0011.info.online")).to.deep.include({ val: false });
+    });
+
+    it("should NOT write info.online for Lights via updateDeviceState", async () => {
+      // Regression guard for the 2026-05-13 info.online fix — Lights must not
+      // get periodic ts-rewrites from this path. The 20 s sync-timer and
+      // direct call from onDeviceStateUpdate own the write.
+      const { adapter, states } = createMockAdapter();
+      const sm = new StateManager(adapter as never);
+      const dev = createTestDevice(); // default type = devices.types.light
+      await createAllStatesForTest(sm, dev, []);
+      // Capture the initial info.online written via syncInfoOnline from
+      // createInfoStates (= true because createTestDevice sets a fresh
+      // lastLanReplyAt). Then call updateDeviceState with online=false —
+      // it must NOT overwrite info.online for the Light.
+      const before = states.get("devices.h6160_0011.info.online");
+
+      await sm.updateDeviceState(dev, { online: false });
+
+      const after = states.get("devices.h6160_0011.info.online");
+      expect(after).to.deep.equal(before);
     });
 
     it("should not write anything when given an empty update", async () => {

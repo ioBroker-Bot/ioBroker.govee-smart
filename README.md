@@ -128,6 +128,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- `info.online` for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive `true` during real outages.
+
 ### 2.8.4 (2026-05-12)
 
 - The device trust tier state under each device no longer carries a multi-language label object that would crash the admin with "Error in GUI" if rendered as a dropdown.

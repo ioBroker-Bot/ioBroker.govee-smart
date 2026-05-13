@@ -52,6 +52,13 @@ export function onDeviceStateUpdate<
 
   if (state.online !== undefined) {
     groupFanoutHandler.updateGroupReachability(adapter);
+    // For Lights the updateDeviceState path no longer writes info.online —
+    // syncInfoOnline owns it. Trigger it here so a wasOffline → online
+    // transition from handleLanDiscovery reflects in info.online within
+    // milliseconds instead of waiting up to one sync-timer cycle (20 s).
+    if (device.type === "devices.types.light" && adapter.stateManager) {
+      adapter.stateManager.syncInfoOnline(device).catch(() => undefined);
+    }
   }
 
   // Mirror power-off to mode-dropdown reset. Covers MQTT/LAN-initiated

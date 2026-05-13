@@ -726,6 +726,7 @@ class DeviceManager {
       matched.lanIp = lanDevice.ip;
       matched.channels.lan = true;
       matched.lastSeenOnNetwork = Date.now();
+      matched.lastLanReplyAt = Date.now();
       if (ipChanged) {
         this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
         (_a = this.onLanIpChanged) == null ? void 0 : _a.call(this, matched, lanDevice.ip);
@@ -826,7 +827,10 @@ class DeviceManager {
     }
     device.channels.mqtt = true;
     device.lastSeenOnNetwork = Date.now();
-    const state = { online: true };
+    const state = {};
+    if (device.type !== "devices.types.light") {
+      state.online = true;
+    }
     if (update.state) {
       const onOff = (0, import_types.coerceFiniteNumber)(update.state.onOff);
       if (onOff !== null) {
@@ -904,6 +908,7 @@ class DeviceManager {
       return;
     }
     device.lastSeenOnNetwork = Date.now();
+    device.lastLanReplyAt = Date.now();
     const { r, g, b } = status.color;
     const state = {
       online: true,
@@ -1059,7 +1064,9 @@ class DeviceManager {
             return false;
           }
           (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, caps);
-          this.applyOnlineCap(device, caps);
+          if (device.type !== "devices.types.light") {
+            this.applyOnlineCap(device, caps);
+          }
           this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
           return true;
         })
@@ -1133,7 +1140,9 @@ class DeviceManager {
       return;
     }
     (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, event.capabilities);
-    this.applyOnlineCap(device, event.capabilities);
+    if (device.type !== "devices.types.light") {
+      this.applyOnlineCap(device, event.capabilities);
+    }
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

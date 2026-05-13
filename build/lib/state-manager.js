@@ -326,7 +326,7 @@ class StateManager {
    * @param device Govee device
    */
   async createInfoStates(device) {
-    var _a, _b, _c;
+    var _a, _b;
     const key = this.deviceKey(device);
     const newPrefix = this.devicePrefix(device);
     const oldPrefix = this.prefixMap.get(key);
@@ -377,10 +377,6 @@ class StateManager {
         void 0,
         false
       );
-      await this.adapter.setStateAsync(`${prefix}.info.online`, {
-        val: (_a = device.state.online) != null ? _a : false,
-        ack: true
-      });
       await this.ensureState(`${prefix}.info.model`, "Model", "string", "text", false, void 0, "");
       await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false, void 0, "");
       await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false, void 0, "");
@@ -394,15 +390,16 @@ class StateManager {
         ack: true
       });
       await this.adapter.setStateAsync(`${prefix}.info.ip`, {
-        val: (_b = device.lanIp) != null ? _b : "",
+        val: (_a = device.lanIp) != null ? _a : "",
         ack: true
       });
       await this.adapter.setStateAsync(`${prefix}.info.type`, {
         val: (0, import_device_icons.shortenGoveeType)(device.type),
         ack: true
       });
+      await this.syncInfoOnline(device);
     } else {
-      const memberIds = ((_c = device.groupMembers) != null ? _c : []).map((m) => {
+      const memberIds = ((_b = device.groupMembers) != null ? _b : []).map((m) => {
         const shortId = (0, import_types.normalizeDeviceId)(m.deviceId).slice(-4);
         return sanitize(`${m.sku}_${shortId}`);
       }).join(", ");
@@ -709,7 +706,7 @@ class StateManager {
     const set = (id, val) => {
       writes.push(this.adapter.setStateAsync(id, { val, ack: true }).catch(() => void 0));
     };
-    if (state.online !== void 0) {
+    if (state.online !== void 0 && device.type !== "devices.types.light") {
       set(`${prefix}.info.online`, state.online);
     }
     if (state.power !== void 0) {
@@ -992,6 +989,58 @@ class StateManager {
       native: {}
     });
     this.ensuredStates.add(id);
+  }
+  /**
+   * Resolver-based info.online sync.
+   *
+   * For LED Lights (`type === "devices.types.light"`) the truth-source is
+   * exclusively `device.lastLanReplyAt` — set when the device replies to a
+   * LAN-Discovery multicast or LAN-Unicast devStatus. The 90 s freshness
+   * window tolerates 3 missed 30 s scans against UDP packet loss but still
+   * flips offline reasonably fast on a real outage.
+   *
+   * For Sensors/Appliances (no LAN protocol) the existing flow is unchanged:
+   * `device.state.online` is set by `applyOnlineCap` from App-API / OpenAPI-
+   * MQTT and read straight through here.
+   *
+   * Writes `info.online` only when the resolved value differs from the
+   * current state — kills the 2-min ts-rewrite-spam captured 2026-05-13.
+   *
+   * For Lights: when the resolved online value changes, the internal
+   * `device.state.online` is also updated so downstream consumers
+   * (`updateGroupReachability`, `handleLanDiscovery` wasOffline check)
+   * stay in sync. Returns `true` in that case so the caller can fire
+   * the group-fanout reachability refresh.
+   *
+   * Skips BaseGroup devices — groups have a global `groups.info.online`
+   * managed elsewhere.
+   *
+   * @param device Govee device to sync
+   * @returns true if a Light's resolved online state changed (caller should
+   *          refresh group-reachability), false otherwise
+   */
+  async syncInfoOnline(device) {
+    if (device.sku === "BaseGroup") {
+      return false;
+    }
+    const prefix = this.devicePrefix(device);
+    const stateId = `${prefix}.info.online`;
+    let desiredOnline;
+    if (device.type === "devices.types.light") {
+      desiredOnline = !!(device.lastLanReplyAt && Date.now() - device.lastLanReplyAt < 9e4);
+    } else {
+      desiredOnline = device.state.online === true;
+    }
+    const current = await this.adapter.getStateAsync(stateId).catch(() => null);
+    if (!current || current.val !== desiredOnline) {
+      await this.adapter.setStateAsync(stateId, { val: desiredOnline, ack: true }).catch(() => void 0);
+    }
+    let lightOnlineChanged = false;
+    if (device.type === "devices.types.light" && device.state.online !== desiredOnline) {
+      device.state.online = desiredOnline;
+      lightOnlineChanged = true;
+    }
+    return lightOnlineChanged;
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

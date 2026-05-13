@@ -48,6 +48,9 @@ function onDeviceStateUpdate(adapter, device, state) {
   connectionState.updateConnectionState(adapter);
   if (state.online !== void 0) {
     groupFanoutHandler.updateGroupReachability(adapter);
+    if (device.type === "devices.types.light" && adapter.stateManager) {
+      adapter.stateManager.syncInfoOnline(device).catch(() => void 0);
+    }
   }
   const powerOff = state.power === false || state.power === 0;
   if (powerOff && adapter.stateManager) {

@@ -89,6 +89,13 @@ class GoveeAdapter extends utils.Adapter {
   public cloudWasConnected = false;
   /** Tägliches Interval für App-Version-Drift-Check gegen App-Store. */
   private appVersionCheckTimer: ioBroker.Interval | undefined;
+  /**
+   * 20 s Timer that re-evaluates `info.online` for every device via
+   * StateManager.syncInfoOnline. Drives the offline-transition for Lights
+   * (TTL-based on lastLanReplyAt) and the no-op write-suppression for all
+   * devices. Cleared synchronously in onUnload.
+   */
+  private onlineSyncTimer: ioBroker.Interval | undefined;
   // === Sub-Komponenten ===
   private skuCache: SkuCache | null = null;
   /** Public for handler modules. */
@@ -545,6 +552,30 @@ class GoveeAdapter extends utils.Adapter {
       connectionState.reapStaleDevices(this).catch(e => this.log.debug(`Device cleanup failed: ${errMessage(e)}`));
     }, 30_000);
 
+    // info.online sync — re-evaluates per-device online truth every 20 s.
+    // For Lights this drives the offline-transition (lastLanReplyAt TTL).
+    // For all devices it suppresses ts-rewrite-spam (no setStateAsync when
+    // value is unchanged). When a Light flips online/offline, also refreshes
+    // group-reachability since the original onDeviceUpdate path no longer
+    // sees those transitions for Lights.
+    this.onlineSyncTimer = this.setInterval(() => {
+      if (this.unloading || !this.stateManager || !this.deviceManager) {
+        return;
+      }
+      void (async (): Promise<void> => {
+        let anyLightChanged = false;
+        for (const device of this.deviceManager!.getDevices()) {
+          const changed = await this.stateManager!.syncInfoOnline(device).catch(() => false);
+          if (changed) {
+            anyLightChanged = true;
+          }
+        }
+        if (anyLightChanged) {
+          groupFanoutHandler.updateGroupReachability(this);
+        }
+      })();
+    }, 20_000);
+
     // App-Version-Drift-Monitor — daily check + initial nach 2 min wenn der
     // Adapter-Start ohne MQTT-Login durchgeschlagen ist (z.B. LAN-only).
     this.appVersionCheckTimer = this.setInterval(
@@ -606,6 +637,10 @@ class GoveeAdapter extends utils.Adapter {
       if (this.appApiPollTimer) {
         this.clearInterval(this.appApiPollTimer);
         this.appApiPollTimer = undefined;
+      }
+      if (this.onlineSyncTimer) {
+        this.clearInterval(this.onlineSyncTimer);
+        this.onlineSyncTimer = undefined;
       }
       if (this.appApiInitialTimer) {
         this.clearTimeout(this.appApiInitialTimer);

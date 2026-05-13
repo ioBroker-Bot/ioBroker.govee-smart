@@ -99,6 +99,13 @@ class GoveeAdapter extends utils.Adapter {
   cloudWasConnected = false;
   /** Tägliches Interval für App-Version-Drift-Check gegen App-Store. */
   appVersionCheckTimer;
+  /**
+   * 20 s Timer that re-evaluates `info.online` for every device via
+   * StateManager.syncInfoOnline. Drives the offline-transition for Lights
+   * (TTL-based on lastLanReplyAt) and the no-op write-suppression for all
+   * devices. Cleared synchronously in onUnload.
+   */
+  onlineSyncTimer;
   // === Sub-Komponenten ===
   skuCache = null;
   /** Public for handler modules. */
@@ -450,6 +457,23 @@ class GoveeAdapter extends utils.Adapter {
     this.cleanupTimer = this.setTimeout(() => {
       connectionState.reapStaleDevices(this).catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
     }, 3e4);
+    this.onlineSyncTimer = this.setInterval(() => {
+      if (this.unloading || !this.stateManager || !this.deviceManager) {
+        return;
+      }
+      void (async () => {
+        let anyLightChanged = false;
+        for (const device of this.deviceManager.getDevices()) {
+          const changed = await this.stateManager.syncInfoOnline(device).catch(() => false);
+          if (changed) {
+            anyLightChanged = true;
+          }
+        }
+        if (anyLightChanged) {
+          groupFanoutHandler.updateGroupReachability(this);
+        }
+      })();
+    }, 2e4);
     this.appVersionCheckTimer = this.setInterval(
       () => {
         connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
@@ -496,6 +520,10 @@ class GoveeAdapter extends utils.Adapter {
       if (this.appApiPollTimer) {
         this.clearInterval(this.appApiPollTimer);
         this.appApiPollTimer = void 0;
+      }
+      if (this.onlineSyncTimer) {
+        this.clearInterval(this.onlineSyncTimer);
+        this.onlineSyncTimer = void 0;
       }
       if (this.appApiInitialTimer) {
         this.clearTimeout(this.appApiInitialTimer);

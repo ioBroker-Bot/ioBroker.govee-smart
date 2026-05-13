@@ -1238,9 +1238,12 @@ describe("DeviceManager", () => {
         sku: "H6160",
         device: "AABBCCDDEEFF0011",
       });
-      // Should still get online: true
+      // For Lights, handleMqttStatus no longer carries online=true — MQTT-push
+      // is not a valid info.online source (broker buffering risk). The callback
+      // still fires (other state could be updated) but with an empty/sparse
+      // state object when nothing else came in.
       expect(updatedState).to.not.be.null;
-      expect(updatedState!.online).to.be.true;
+      expect(updatedState!.online).to.be.undefined;
     });
 
     it("should coerce string brightness from spoofed Govee push", () => {
@@ -1283,9 +1286,10 @@ describe("DeviceManager", () => {
         device: "AABBCCDDEEFF0011",
         state: { brightness: "NaN" as unknown as number, onOff: "garbage" as unknown as number },
       });
-      // Nur online: true sollte gesetzt sein, brightness/power nicht.
+      // Lights: MQTT-push does not write online (LAN-only resolver owns it).
+      // Garbage brightness/power are still rejected by coerce — both undefined.
       expect(updatedState).to.not.be.null;
-      expect(updatedState!.online).to.be.true;
+      expect(updatedState!.online).to.be.undefined;
       expect(updatedState!.brightness).to.be.undefined;
       expect(updatedState!.power).to.be.undefined;
     });
@@ -2439,6 +2443,11 @@ describe("DeviceManager — loadFromCache merge", () => {
       const dm2 = new DeviceManager(mockLog, mockTimers);
       dm2.handleLanDiscovery({ ip: "192.168.1.83", device: "AABBCCDDEEFF0083", sku: "H5179" } as LanDevice);
       const dev = dm2.getDevices()[0];
+      // H5179 is a thermometer — LAN-Discovery defaults type to Light because
+      // Cloud-data hasn't arrived yet. In the real flow mergeCloudDevices
+      // updates the type before pollAppApi/handleOpenApiEvent fire. Simulate
+      // that here so applyOnlineCap actually runs (it's gated to non-Lights).
+      dev.type = "devices.types.thermometer";
       dev.state.online = false;
 
       const updates: Array<Partial<DeviceState>> = [];
@@ -2466,6 +2475,8 @@ describe("DeviceManager — loadFromCache merge", () => {
       const dm2 = new DeviceManager(mockLog, mockTimers);
       dm2.handleLanDiscovery({ ip: "192.168.1.84", device: "AABBCCDDEEFF0084", sku: "H5179" } as LanDevice);
       const dev = dm2.getDevices()[0];
+      // Same as above — set non-Light type so applyOnlineCap is not skipped.
+      dev.type = "devices.types.thermometer";
       dev.state.online = false;
 
       const updates: Array<Partial<DeviceState>> = [];

@@ -22,21 +22,57 @@
 - `applyOnlineCap` (device-manager.ts:1490) macht Multi-Source-Online-Merge mit `lastSeenOnNetwork`-Tracking — robust gegen LAN/MQTT/Cloud-Widersprüche
 - Cloud ist NUR für: Capabilities, Szenen, Snapshots, Toggles, Segmente, Sensor-Capabilities
 
-## Kanal-Priorität pro Gerätetyp
+## Kanal-Priorität pro Operation
 
-| Feature                            | LAN UDP                    | AWS IoT MQTT (Status) | OpenAPI-MQTT (Events) | Cloud REST v2      | App-API           |
-| ---------------------------------- | -------------------------- | --------------------- | --------------------- | ------------------ | ----------------- |
-| Lights: Steuern                    | **primär**                 | —                     | —                     | Fallback           | —                 |
-| Lights: Status anfragen            | **primär**                 | —                     | —                     | Fallback           | —                 |
-| Lights: Status-Push                | —                          | **einzige Quelle**    | —                     | —                  | —                 |
-| Lights: Szenen + Snapshots         | **ptReal** (BLE-Pakete)    | —                     | —                     | Fallback           | —                 |
-| Lights: Segmente                   | **ptReal** (`33 05 15`)    | AA-A5 Status-Echo     | —                     | Fallback           | —                 |
-| Geräteliste + Capabilities         | —                          | —                     | —                     | **einzige Quelle** | —                 |
-| Sensor-Werte (Temp, Humidity)      | —                          | —                     | —                     | —                  | **einzige Quelle**|
-| Appliance-Events (lackWater etc.)  | —                          | —                     | **einzige Quelle**    | —                  | —                 |
+### Lights — Steuerung
 
-> **MQTT ist nur Status-Push.** Commands werden über LAN oder Cloud gesendet, nie über MQTT.
-> **Sensoren/Appliances haben kein LAN-Protokoll** — Werte über App-API (alle 2 min) + OpenAPI-MQTT-Events.
+| Operation                | LAN UDP   | AWS-IoT MQTT | OpenAPI-MQTT | Cloud REST | App-API |
+| ------------------------ | --------- | ------------ | ------------ | ---------- | ------- |
+| power on/off             | primär    | —            | —            | —          | —       |
+| brightness               | primär    | —            | —            | —          | —       |
+| colorRgb                 | primär    | —            | —            | —          | —       |
+| colorTemperature         | primär    | —            | —            | —          | —       |
+| Segment-Color            | primär    | —            | —            | —          | —       |
+| Segment-Brightness       | primär    | —            | —            | —          | —       |
+| Segment-Batch            | primär    | —            | —            | —          | —       |
+| Music-Mode               | primär    | —            | —            | —          | —       |
+| Scene-Speed              | primär    | —            | —            | —          | —       |
+| Scene-Aktivierung        | primär    | —            | —            | backup     | —       |
+| DIY-Scene-Aktivierung    | primär    | —            | —            | backup     | —       |
+| Snapshot-Aktivierung     | primär    | —            | —            | backup     | —       |
+| Gradient-Toggle          | —         | —            | —            | primär     | —       |
+| Generic Capability       | —         | —            | —            | primär     | —       |
+
+### Lights — Status
+
+| Operation                | LAN UDP   | AWS-IoT MQTT | OpenAPI-MQTT | Cloud REST | App-API |
+| ------------------------ | --------- | ------------ | ------------ | ---------- | ------- |
+| LAN-Discovery            | primär    | —            | —            | —          | —       |
+| devStatus (Unicast-Pull) | primär    | —            | —            | —          | —       |
+| Status-Push              | —         | primär       | —            | —          | —       |
+| Segment-State-Echo       | —         | primär       | —            | —          | —       |
+| info.online              | primär    | —            | —            | —          | —       |
+| info.ip                  | primär    | —            | —            | —          | —       |
+
+### Cloud-Setup-Daten (einmaliger Import)
+
+| Operation                | LAN UDP   | AWS-IoT MQTT | OpenAPI-MQTT | Cloud REST | App-API |
+| ------------------------ | --------- | ------------ | ------------ | ---------- | ------- |
+| Geräteliste + Capabilities | —       | —            | —            | primär     | —       |
+| Scene-Library            | —         | —            | —            | primär     | —       |
+| Snapshot-BLE-Pakete      | —         | —            | —            | primär     | —       |
+| Cloud-Snapshot-Liste     | —         | —            | —            | primär     | —       |
+| Group-Members            | —         | —            | —            | —          | primär  |
+
+### Appliances + Sensoren
+
+| Operation                | LAN UDP   | AWS-IoT MQTT | OpenAPI-MQTT | Cloud REST | App-API |
+| ------------------------ | --------- | ------------ | ------------ | ---------- | ------- |
+| Sensor-Werte (Temp/Hum)  | —         | —            | —            | —          | primär  |
+| Battery                  | —         | —            | —            | —          | primär  |
+| Appliance-Events         | —         | —            | primär       | —          | —       |
+| Appliance-Steuerung      | —         | —            | —            | primär     | —       |
+| info.online              | —         | —            | backup       | —          | primär  |
 
 ## govee-appliances ist DEPRECATED
 
