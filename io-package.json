@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.8.4",
+    "version": "2.9.0",
     "news": {
-      "NEXT": {
+      "2.9.0": {
         "en": "info.online for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive true during real outages.",
         "de": "info.online für Lights spiegelt jetzt die echte LAN-Erreichbarkeit wider (90-s-Fenster). Cloud und MQTT-Push schreiben den State nicht mehr — sie haben bei echten Ausfällen fälschlich true geliefert.",
         "ru": "info.online для светильников теперь отражает реальную LAN-доступность (окно 90 с). Cloud и MQTT-push больше не записывают этот state — раньше они выдавали ложные true во время реальных отключений.",

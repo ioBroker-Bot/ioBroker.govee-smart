@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.9.0 (2026-05-13)
 
 - `info.online` for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive `true` during real outages.
 
@@ -150,11 +150,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.8.1 (2026-05-11)
 
 - Info, warn and error logs are back to their normal short form. The channel-status prefix from 2.8.0 stays only in debug logs.
-
-### 2.8.0 (2026-05-11)
-
-- Restart no longer briefly removes and re-creates scene, music and snapshot datapoints.
-- Lights without API key no longer have empty scene/snapshot dropdowns left over from earlier versions.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

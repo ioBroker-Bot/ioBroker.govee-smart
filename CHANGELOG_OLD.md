@@ -1,4 +1,9 @@
 # Older Changes
+## 2.8.0 (2026-05-11)
+
+- Restart no longer briefly removes and re-creates scene, music and snapshot datapoints.
+- Lights without API key no longer have empty scene/snapshot dropdowns left over from earlier versions.
+
 ## 2.7.1 (2026-05-10)
 
 - Cleaner startup log: the first line now tells you to wait for the "ready" message, and one redundant connection-info line is gone.
