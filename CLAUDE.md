@@ -258,7 +258,23 @@ Single Page, drei Sektionen:
 27. **Ready-Message Ordering** — `checkAllReady()` prüft MQTT+Cloud bevor Ready geloggt wird; Safety-Timeout **60s** (seit v1.6.0, war 30s) mit ehrlicher "noch im Aufbau"-Meldung für nicht-bereite Channels
 28. **SKU Cache** — `sku-cache.ts` persistiert Device-Daten + Libraries lokal; nach erstem Start null Cloud-Calls nötig. `loadFromCache()` mergt in bereits vorhandene LAN-Geräte (Name, Capabilities, Szenen). **Seit v1.6.0:** `scenesChecked`-Flag verhindert Endlos-Refetch bei legitim leeren Scenes; `lastSeenOnNetwork`-Timestamp + `pruneStale(14)` entfernt stale Einträge; Hard-Filter bei Cloud-Load überspringt Einträge ohne capabilities
 29. **Local Snapshots** — `local-snapshots.ts` speichert Gerätezustand per LAN als JSON inkl. Per-Segment Color+Brightness; Restore replayed einzelne LAN-Commands (power, brightness, color, colorTemp, segmentColor:N, segmentBrightness:N)
-30. **Device Quirks** — `device-registry.ts` lädt `devices.json` und korrigiert falsche API-Daten (`colorTempRange`, `brokenPlatformApi`). Status-aware: `seed`-Quirks greifen nur mit dem Adapter-Toggle „experimentalQuirks"
+30. **Device Quirks (v2.10.0 „fertig")** — `device-registry.ts` lädt `devices.json` und korrigiert per-SKU. Status-aware: `seed`-Quirks greifen nur mit dem Adapter-Toggle „experimentalQuirks".
+
+    **Drei Pattern-Familien:**
+    - **Range-Override** (`colorTempRange`) — API liefert falsche Bereichs-Grenzen. Konsum: `capability-mapper.ts:applyColorTempQuirk`.
+    - **Boolean-Flag** (`brokenPlatformApi`) — Verhalten an/aus pro SKU. Konsum: `capability-mapper.ts:buildCloudStateDefs` skippt Cloud-Cap-Mapping + Scene-Dropdowns + refresh_cloud-Button, fällt auf LAN-Defaults zurück.
+    - **Map-Override** (`transportOverrides`) — Per-Operation-Routing-Zwang („cloud" / „lan"). Konsum: `command-router.ts:resolveTransport`. 9 base-Commands. Segment-Suffix-Commands (`segmentColor:N`/`segmentBrightness:N`) erben den `segmentBatch`-Override automatisch.
+
+    **Nicht-Quirks:** `manualMode`/`manualSegments` (runtime user-setting für Cut-Strips), `name`/`type`/`status`/`since` (Pflichtfelder Identität+Metadaten), Per-User-Defaults (IP, brightness) → jsonConfig.
+
+    **5-Schritt-Wiring für neue Quirks:**
+    1. `DeviceQuirks`-Interface erweitern (`device-registry.ts:16`)
+    2. JSON-Schema-Property in `devices.schema.json` + `additionalProperties: false` halten
+    3. Konsumstelle: `const q = getDeviceQuirks(device.sku); if (q?.<feld>) ...`
+    4. devices.json-Eintrag mit `since: "<version>"`
+    5. Test in `device-registry.test.ts` (Lookup) + Test in Konsumstelle (Behavior)
+
+    **Mögliche 4. Familie:** Number-Override (`forceColorModeDelayMs`, `appApiPollIntervalMs`) — hinzufügen wenn realer SKU-Bedarf auftaucht, nicht spekulativ. Architektur-Erweiterung ist additiv, kein Refactor.
 31. **Scene Speed** — `sceneLibrary` enthält `speedInfo` mit `moveIn[]`-Arrays; Speed-Byte steht an Position `pageLength - 5` im scenceParam; `applySceneSpeed()` ersetzt Speed-Bytes vor dem Senden; `scenes.scene_speed` State (0-N) wird auf nächste Scene-Aktivierung angewendet
 32. **Multi-Channel State Tree** — States aufgeteilt in 4 Channels: `control` (Basis), `scenes` (Szenen), `music` (Musik), `snapshots` (Aktionen); Routing über `def.channel` in StateDefinition, Pfad-Auflösung via `resolveStatePath()`
 33. **Groups Fan-Out** — BaseGroup fan-out: Capabilities = Intersection der Mitgliedsgeräte; Befehle → LAN/ptReal pro Mitglied; `info.members` + dynamisches `info.membersUnreachable`; keine Snapshots/Diagnostics

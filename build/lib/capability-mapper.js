@@ -739,11 +739,16 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || [], lang);
   }
-  const stateDefs = mapCapabilities(device.capabilities, log).filter((d) => !LAN_STATE_IDS.has(d.id));
+  const quirks = (0, import_device_registry.getDeviceQuirks)(device.sku);
+  const skipCapabilities = (quirks == null ? void 0 : quirks.brokenPlatformApi) === true;
+  const stateDefs = skipCapabilities ? [] : mapCapabilities(device.capabilities, log).filter((d) => !LAN_STATE_IDS.has(d.id));
+  if (skipCapabilities) {
+    log.debug(`${device.sku}: brokenPlatformApi quirk active \u2014 skipping capability-derived states + dropdowns`);
+  }
   applyQuirksToStates(device.sku, stateDefs, log);
   const isLight = device.type === "devices.types.light";
   for (const r of SCENE_DROPDOWN_RULES) {
-    if (!isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
+    if (skipCapabilities || !isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
       continue;
     }
     stateDefs.push({
@@ -796,7 +801,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
       channel: "scenes"
     });
   }
-  if (isLight && (hasDynamicSceneCapability(device.capabilities, "lightScene") || hasDynamicSceneCapability(device.capabilities, "diyScene") || hasDynamicSceneCapability(device.capabilities, "snapshot"))) {
+  if (!skipCapabilities && isLight && (hasDynamicSceneCapability(device.capabilities, "lightScene") || hasDynamicSceneCapability(device.capabilities, "diyScene") || hasDynamicSceneCapability(device.capabilities, "snapshot"))) {
     stateDefs.push({
       id: "refresh_cloud",
       name: (0, import_i18n_states.tName)("refreshCloud"),

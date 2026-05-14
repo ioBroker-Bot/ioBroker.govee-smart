@@ -128,6 +128,12 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8): snapshots and scenes now activate via Cloud — Govee's LAN bridge silently dropped the required frames.
+- Per-SKU routing quirks live in `devices.json` now; future device-specific fixes ship without an adapter update.
+- The `brokenPlatformApi` flag is wired up: marked SKUs fall back to LAN-only defaults instead of broken Cloud capabilities.
+
 ### 2.9.1 (2026-05-13)
 
 - Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable directly from the export.

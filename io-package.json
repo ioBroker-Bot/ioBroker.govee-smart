@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.9.1",
     "news": {
+      "NEXT": {
+        "en": "Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8): snapshots and scenes now activate via Cloud — Govee's LAN bridge silently dropped the required frames.",
+        "de": "Curtain Lights (H70B3), Christmas Strings (H70C5) und Outdoor Neon (H61A8): Snapshots und Lichtszenen aktivieren jetzt zuverlässig über Cloud — die LAN-Bridge ließ Frames stumm fallen.",
+        "ru": "Curtain Lights (H70B3), Christmas Strings (H70C5) и Outdoor Neon (H61A8): снимки и сцены теперь активируются через облако — LAN-мост Govee тихо терял нужные кадры.",
+        "pt": "Curtain Lights (H70B3), Christmas Strings (H70C5) e Outdoor Neon (H61A8): snapshots e cenas ativam-se agora via Cloud — a ponte LAN da Govee descartava os frames em silêncio.",
+        "nl": "Curtain Lights (H70B3), Christmas Strings (H70C5) en Outdoor Neon (H61A8): snapshots en scènes activeren nu via Cloud — Govee's LAN-bridge liet de frames stilletjes vallen.",
+        "fr": "Curtain Lights (H70B3), Christmas Strings (H70C5) et Outdoor Neon (H61A8) : snapshots et scènes s'activent via le Cloud — le pont LAN de Govee laissait tomber les trames en silence.",
+        "it": "Curtain Lights (H70B3), Christmas Strings (H70C5) e Outdoor Neon (H61A8): snapshot e scene si attivano via Cloud — il bridge LAN di Govee scartava i frame in silenzio.",
+        "es": "Curtain Lights (H70B3), Christmas Strings (H70C5) y Outdoor Neon (H61A8): snapshots y escenas se activan vía Cloud — el puente LAN de Govee descartaba los frames en silencio.",
+        "pl": "Curtain Lights (H70B3), Christmas Strings (H70C5) i Outdoor Neon (H61A8): snapshoty i sceny włączają się przez chmurę — most LAN Govee po cichu pomijał potrzebne ramki.",
+        "uk": "Curtain Lights (H70B3), Christmas Strings (H70C5) і Outdoor Neon (H61A8): знімки та сцени тепер активуються через хмару — LAN-міст Govee мовчки відкидав кадри.",
+        "zh-cn": "Curtain Lights (H70B3)、Christmas Strings (H70C5) 和 Outdoor Neon (H61A8) 的快照与场景现在通过云端激活——Govee LAN 网桥会静默丢弃所需的帧。"
+      },
       "2.9.1": {
         "en": "Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable from the export alone. Groups now have their own diagnostics button.",
         "de": "Issue-Berichte enthalten jetzt die gespeicherten Szenen-, Snapshot- und Effekt-Daten. Probleme aus dem Export analysierbar. Gruppen haben jetzt einen eigenen Diagnose-Button.",
@@ -80,19 +93,6 @@
         "pl": "Logi info, warn i error wracają do krótkiej formy. Prefiks statusu kanałów z 2.8.0 pozostaje tylko w logach debug.",
         "uk": "Логи info, warn та error знову в короткій формі. Префікс статусу каналів з 2.8.0 залишається лише в debug-логах.",
         "zh-cn": "info、warn 和 error 日志回到简短格式。2.8.0 添加的通道状态前缀仅保留在 debug 日志中。"
-      },
-      "2.8.0": {
-        "en": "Restart no longer briefly removes and re-creates scene, music and snapshot datapoints. Lights without API key no longer have empty scene/snapshot dropdowns left over from earlier versions.",
-        "de": "Beim Neustart verschwinden Szenen-, Musik- und Snapshot-Datenpunkte nicht mehr kurz. Lichter ohne API-Key haben keine leeren Szenen-/Snapshot-Dropdowns mehr aus älteren Versionen.",
-        "ru": "При перезапуске точки сцен, музыки и снимков больше не пропадают на короткое время. Лампы без API-ключа не имеют пустых списков сцен/снимков, оставшихся от прошлых версий.",
-        "pt": "O reinício já não remove e volta a criar brevemente os pontos de cena, música e snapshot. Lâmpadas sem chave API já não têm listas vazias deixadas por versões anteriores.",
-        "nl": "Bij herstart verdwijnen scène-, muziek- en snapshot-datapoints niet meer kort. Lampen zonder API-key hebben geen lege scène-/snapshot-lijsten meer uit oudere versies.",
-        "fr": "Au redémarrage, les points de scène, musique et instantanés ne disparaissent plus brièvement. Les lampes sans clé API n'ont plus de listes vides héritées d'anciennes versions.",
-        "it": "Al riavvio i datapoint di scene, musica e snapshot non scompaiono più brevemente. Le luci senza chiave API non hanno più liste vuote rimaste da versioni precedenti.",
-        "es": "Al reiniciar, los puntos de escena, música y snapshot ya no desaparecen brevemente. Las luces sin clave API ya no tienen listas vacías heredadas de versiones anteriores.",
-        "pl": "Przy restarcie stany scen, muzyki i migawek nie znikają już na krótko. Lampy bez klucza API nie mają już pustych list pozostałych po starszych wersjach.",
-        "uk": "Під час перезапуску точки сцен, музики й знімків більше не зникають на короткий час. Лампи без API-ключа не мають порожніх списків зі старих версій.",
-        "zh-cn": "重启时场景、音乐和快照数据点不再短暂消失。没有 API key 的灯具不再有从旧版本遗留的空场景/快照下拉列表。"
       }
     },
     "titleLang": {

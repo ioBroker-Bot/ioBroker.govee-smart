@@ -9,16 +9,69 @@ import * as path from "node:path";
  * v2.x devices.json on a v2.0 adapter still works.
  *
  * Each field listed here MUST be wired up in code (capability-mapper,
- * device-manager, …). Documentation-only fields are not allowed —
- * SKU-specific notes go into the per-release issue tracker or the
- * Wiki Devices page, not into the schema.
+ * command-router, device-manager, …). Documentation-only fields are not
+ * allowed — SKU-specific notes go into the per-release issue tracker or
+ * the Wiki Devices page, not into the schema.
+ *
+ * Three pattern families cover all observed Govee quirks:
+ *  1. Range-Override: API reports a wrong numeric range (colorTempRange)
+ *  2. Boolean-Flag: per-SKU behaviour toggle (brokenPlatformApi)
+ *  3. Map-Override: per-operation routing/behaviour map (transportOverrides)
+ *
+ * A fourth family (Number-Override for timing constants) is identified as
+ * the next likely shape — add additively when a real SKU need shows up,
+ * no architecture refactor required.
  */
 export interface DeviceQuirks {
   /** Override color-temperature range (Govee API often claims a flat 2000-9000K, real range is narrower). */
   colorTempRange?: { min: number; max: number };
-  /** Cloud platform-API metadata is unreliable — adapter falls back to default LAN states. */
+  /** Cloud platform-API metadata is unreliable — adapter skips Cloud-cap mapping and falls back to LAN-default states. */
   brokenPlatformApi?: boolean;
+  /**
+   * Per-command transport override — forces a command through Cloud or LAN
+   * regardless of the default LAN-first heuristic. Use for SKUs where
+   * Govee's LAN bridge silently drops a specific protocol family (e.g. H70B3
+   * pixel-display snapshots: Loxforum-verified that A4-frames are filtered
+   * by the WiFi firmware before reaching the BLE side).
+   *
+   * Value "cloud" forces sendCloudCommand. Value "lan" is a no-op (identical
+   * to omitting the field) and exists for schema symmetry. Segment-suffix
+   * commands (segmentColor:N, segmentBrightness:N) inherit the segmentBatch
+   * override automatically.
+   */
+  transportOverrides?: Partial<Record<ConfigurableOverrideCommand, TransportTarget>>;
 }
+
+/**
+ * Every command the router accepts. Includes dynamic-suffix commands
+ * (segmentColor:N, segmentBrightness:N) which can't appear in devices.json
+ * literally — they inherit the segmentBatch override at lookup time.
+ */
+export type OverridableCommand =
+  | "power"
+  | "brightness"
+  | "colorRgb"
+  | "colorTemperature"
+  | "lightScene"
+  | "diyScene"
+  | "snapshot"
+  | "gradientToggle"
+  | "segmentBatch"
+  | `segmentColor:${number}`
+  | `segmentBrightness:${number}`;
+
+/**
+ * Subset of OverridableCommand that may appear as a key in devices.json.
+ * Dynamic-suffix commands are excluded — covering all segment ops through
+ * a single segmentBatch entry is both shorter and structurally correct.
+ */
+export type ConfigurableOverrideCommand = Exclude<
+  OverridableCommand,
+  `segmentColor:${number}` | `segmentBrightness:${number}`
+>;
+
+/** Target transport for a command override. */
+export type TransportTarget = "cloud" | "lan";
 
 /** Trust tiers used to decide whether a device's quirks are applied by default. */
 export type DeviceStatus = "verified" | "reported" | "seed";
@@ -253,22 +306,6 @@ export class DeviceRegistry {
   getKnownSkus(): string[] {
     return [...this.entries.keys()];
   }
-
-  /**
-   * Convenience helper preserving the old `applyColorTempQuirk` shape so
-   * call-sites in capability-mapper don't have to change.
-   *
-   * @param sku Govee SKU
-   * @param min API-reported minimum
-   * @param max API-reported maximum
-   */
-  applyColorTempQuirk(sku: string, min: number, max: number): { min: number; max: number } {
-    const q = this.getQuirks(sku);
-    if (q?.colorTempRange) {
-      return q.colorTempRange;
-    }
-    return { min, max };
-  }
 }
 
 /**
@@ -310,16 +347,20 @@ export function getDeviceQuirks(sku: string): DeviceQuirks | undefined {
 }
 
 /**
- * Stateless color-temp clamp — replacement for the old `applyColorTempQuirk`.
- * Falls back to the API-reported range if the registry hasn't been
- * initialised yet.
+ * Stateless color-temp clamp — applies a colorTempRange quirk if present,
+ * otherwise returns the API-reported range unchanged. Falls through to the
+ * input range if the registry hasn't been initialised yet (early startup).
  *
  * @param sku Govee SKU
  * @param min API-reported minimum
  * @param max API-reported maximum
  */
 export function applyColorTempQuirk(sku: string, min: number, max: number): { min: number; max: number } {
-  return singleton?.applyColorTempQuirk(sku, min, max) ?? { min, max };
+  const q = singleton?.getQuirks(sku);
+  if (q?.colorTempRange) {
+    return q.colorTempRange;
+  }
+  return { min, max };
 }
 
 /**

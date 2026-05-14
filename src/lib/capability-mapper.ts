@@ -5,7 +5,7 @@ import {
   type CloudStateCapability,
   type GoveeDevice,
 } from "./types";
-import { applyColorTempQuirk } from "./device-registry";
+import { applyColorTempQuirk, getDeviceQuirks } from "./device-registry";
 import { resolveLabel, tDesc, tName } from "./i18n-states";
 
 /** ioBroker state definition derived from a Govee capability */
@@ -1089,10 +1089,24 @@ export function buildCloudStateDefs(
     return buildGroupStateDefs(memberDevices || [], lang);
   }
 
+  // Per-SKU quirk: brokenPlatformApi → don't trust the platform-cap tree.
+  // Skip capability-derived defs AND the scene/snapshot dropdowns (they're
+  // gated by hasDynamicSceneCapability which reads device.capabilities, i.e.
+  // the same untrusted source). LAN-phase still creates power / brightness /
+  // colorRgb / colorTemperature defaults so the device stays controllable.
+  const quirks = getDeviceQuirks(device.sku);
+  const skipCapabilities = quirks?.brokenPlatformApi === true;
+
   // Capability-derived states with LAN-default IDs filtered out — the LAN
   // phase owns those, capability mapper duplicates would land in the same
   // channel and confuse cleanup. Single source of truth: LAN_STATE_IDS.
-  const stateDefs: StateDefinition[] = mapCapabilities(device.capabilities, log).filter(d => !LAN_STATE_IDS.has(d.id));
+  const stateDefs: StateDefinition[] = skipCapabilities
+    ? []
+    : mapCapabilities(device.capabilities, log).filter(d => !LAN_STATE_IDS.has(d.id));
+
+  if (skipCapabilities) {
+    log.debug(`${device.sku}: brokenPlatformApi quirk active — skipping capability-derived states + dropdowns`);
+  }
 
   applyQuirksToStates(device.sku, stateDefs, log);
 
@@ -1103,7 +1117,7 @@ export function buildCloudStateDefs(
 
   // Three structurally-identical Cloud dropdowns — collapsed into one loop.
   for (const r of SCENE_DROPDOWN_RULES) {
-    if (!isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
+    if (skipCapabilities || !isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
       continue;
     }
     stateDefs.push({
@@ -1164,7 +1178,11 @@ export function buildCloudStateDefs(
 
   // Per-device refresh button — gated on ANY dynamic-scene capability.
   // OR-gate over three caps doesn't fit a rules-table.
+  // brokenPlatformApi gate skips this too: the refresh action would post a
+  // user-facing button for a Cloud endpoint that wasn't trustable to begin
+  // with.
   if (
+    !skipCapabilities &&
     isLight &&
     (hasDynamicSceneCapability(device.capabilities, "lightScene") ||
       hasDynamicSceneCapability(device.capabilities, "diyScene") ||

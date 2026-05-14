@@ -883,6 +883,72 @@ describe("CapabilityMapper", () => {
     });
   });
 
+  describe("brokenPlatformApi quirk (v2.10.0 — Boolean-Flag pattern wired live)", () => {
+    // The catalog above marks H6141 as brokenPlatformApi:true with status:seed.
+    // We initialize the registry with experimental:true so the quirk activates,
+    // then verify buildCloudStateDefs returns an empty/minimal list for that
+    // SKU even when the device claims a full capability tree.
+    it("returns empty cloud-cap states when brokenPlatformApi is active", () => {
+      initDeviceRegistry({ data: TEST_REGISTRY as never, experimental: true });
+      const device: GoveeDevice = {
+        sku: "H6141",
+        deviceId: "AA:BB:CC:DD:EE:FF",
+        name: "Broken Strip",
+        type: "devices.types.light",
+        // Claims a full capability set — but the quirk says don't trust it
+        capabilities: [
+          { type: "devices.capabilities.on_off", instance: "powerSwitch" },
+          { type: "devices.capabilities.range", instance: "brightness" },
+          { type: "devices.capabilities.color_setting", instance: "colorRgb" },
+          { type: "devices.capabilities.dynamic_scene", instance: "lightScene" },
+        ],
+        scenes: [],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: true },
+        channels: { lan: false, mqtt: false, cloud: true },
+        segmentCount: 0,
+      };
+      const defs = buildCloudStateDefs(device);
+      // brokenPlatformApi gate also short-circuits SCENE_DROPDOWN_RULES
+      // because hasDynamicSceneCapability falls back on the platform-cap
+      // tree which the quirk says we shouldn't trust. State id is
+      // `light_scene` (snake_case) — the dropdown synthesizer's contract.
+      const lightSceneDropdown = defs.find(d => d.id === "light_scene");
+      expect(lightSceneDropdown, "light_scene dropdown should not appear when brokenPlatformApi is set").to.be.undefined;
+      const brightness = defs.find(d => d.id === "brightness");
+      expect(brightness, "capability-derived brightness should not come through buildCloudStateDefs").to.be.undefined;
+    });
+
+    it("normal SKU without brokenPlatformApi: scene dropdown appears as expected", () => {
+      initDeviceRegistry({ data: TEST_REGISTRY as never });
+      const device: GoveeDevice = {
+        sku: "H61BE", // verified, no quirks
+        deviceId: "AA:BB:CC:DD:EE:FF",
+        name: "Normal Strip",
+        type: "devices.types.light",
+        capabilities: [{ type: "devices.capabilities.dynamic_scene", instance: "lightScene" }],
+        scenes: [{ name: "Aurora", value: { paramId: 1 } }],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: true },
+        channels: { lan: false, mqtt: false, cloud: true },
+        segmentCount: 10,
+      };
+      const defs = buildCloudStateDefs(device);
+      const lightSceneDropdown = defs.find(d => d.id === "light_scene");
+      expect(lightSceneDropdown, "light_scene dropdown should appear for normal SKU").to.exist;
+    });
+  });
+
   describe("buildLanStateDefs + buildCloudStateDefs dropdown contract (Blockly dual-write)", () => {
     function makeDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
       return {

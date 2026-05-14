@@ -190,21 +190,6 @@ class DeviceRegistry {
   getKnownSkus() {
     return [...this.entries.keys()];
   }
-  /**
-   * Convenience helper preserving the old `applyColorTempQuirk` shape so
-   * call-sites in capability-mapper don't have to change.
-   *
-   * @param sku Govee SKU
-   * @param min API-reported minimum
-   * @param max API-reported maximum
-   */
-  applyColorTempQuirk(sku, min, max) {
-    const q = this.getQuirks(sku);
-    if (q == null ? void 0 : q.colorTempRange) {
-      return q.colorTempRange;
-    }
-    return { min, max };
-  }
 }
 let singleton;
 function initDeviceRegistry(config = {}) {
@@ -218,8 +203,11 @@ function getDeviceQuirks(sku) {
   return singleton == null ? void 0 : singleton.getQuirks(sku);
 }
 function applyColorTempQuirk(sku, min, max) {
-  var _a;
-  return (_a = singleton == null ? void 0 : singleton.applyColorTempQuirk(sku, min, max)) != null ? _a : { min, max };
+  const q = singleton == null ? void 0 : singleton.getQuirks(sku);
+  if (q == null ? void 0 : q.colorTempRange) {
+    return q.colorTempRange;
+  }
+  return { min, max };
 }
 function isSeedAndDormant(sku) {
   var _a;

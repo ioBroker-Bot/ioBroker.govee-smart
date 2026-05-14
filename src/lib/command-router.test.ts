@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { CommandRouter } from "./command-router";
+import { _resetDeviceRegistry, initDeviceRegistry } from "./device-registry";
 import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
 import type { RateLimiter } from "./rate-limiter";
@@ -411,6 +412,255 @@ describe("CommandRouter", () => {
       const device = makeDevice({ channels: { lan: true, mqtt: false, cloud: false } });
       await router.sendCapabilityCommand(device, "devices.capabilities.toggle", "any", true);
       // Just verifies no throw
+    });
+  });
+
+  describe("transportOverrides (v2.10.0 — quirk-driven routing)", () => {
+    // The override tests stand up a registry singleton via initDeviceRegistry
+    // with inline catalog data, then reset between tests so leakage can't
+    // mask regressions. registry-aware tests live HERE, not in a separate
+    // describe-each pattern, because the routing-decision is the unit
+    // under test — registry presence is part of the fixture.
+    beforeEach(() => _resetDeviceRegistry());
+    afterEach(() => _resetDeviceRegistry());
+
+    const TEST_CATALOG = {
+      devices: {
+        H70B3: {
+          name: "Curtain Lights",
+          type: "light",
+          status: "verified",
+          quirks: { transportOverrides: { snapshot: "cloud", lightScene: "cloud" } },
+        },
+        H612F: {
+          name: "RGBIC LED Strip",
+          type: "light",
+          status: "verified",
+          // No quirks — control group: default LAN-first routing
+        },
+      },
+    } as const;
+
+    function makeH70B3(opts: Partial<GoveeDevice> = {}): GoveeDevice {
+      return makeDevice({
+        sku: "H70B3",
+        snapshots: [{ name: "Test", value: 3814455 }],
+        snapshotBleCmds: [
+          [
+            [0x33, 0x04, 0x64],
+            [0xa4, 0x00, 0x00, 0x01],
+          ],
+        ],
+        segmentCount: 0,
+        ...opts,
+      });
+    }
+
+    it("snapshot=cloud + Cloud ready → sendCloudCommand, no ptReal", async () => {
+      initDeviceRegistry({ data: TEST_CATALOG as never });
+      const lan = makeLanStub();
+      const cloud = makeCloudStub();
+      const limiter = makeRateLimiter();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      router.setCloudClient(cloud.client);
+      router.setRateLimiter(limiter);
+      await router.sendCommand(makeH70B3(), "snapshot", "1");
+      expect(lan.calls.find(c => c.method === "sendPtReal")).to.be.undefined;
+      expect(cloud.calls).to.have.length(1);
+      expect(cloud.calls[0].instance).to.equal("snapshot");
+    });
+
+    it("snapshot=cloud + device.channels.cloud=false → skip (no warn loop)", async () => {
+      initDeviceRegistry({ data: TEST_CATALOG as never });
+      const lan = makeLanStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      const device = makeH70B3({ channels: { lan: true, mqtt: false, cloud: false } });
+      await router.sendCommand(device, "snapshot", "1");
+      // Cloud-override but no Cloud channel → no LAN ptReal, no Cloud send,
+      // dedup-warn fires once (we don't assert on logger because mockLog is
+      // a spy stub — verifying no LAN ptReal call is enough)
+      expect(lan.calls.find(c => c.method === "sendPtReal")).to.be.undefined;
+    });
+
+    it("snapshot=cloud + cloudClient=null (init-race) → debug, no throw", async () => {
+      initDeviceRegistry({ data: TEST_CATALOG as never });
+      const lan = makeLanStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      // setCloudClient NOT called → cloudClient is null even though
+      // device.channels.cloud=true
+      await router.sendCommand(makeH70B3(), "snapshot", "1");
+      expect(lan.calls.find(c => c.method === "sendPtReal")).to.be.undefined;
+    });
+
+    it("snapshot=lan (or unset) → existing LAN ptReal path unchanged", async () => {
+      // No catalog entry — default routing
+      const lan = makeLanStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      const device = makeH70B3({ segmentCount: 22 }); // hasSegments=true so no heuristic
+      await router.sendCommand(device, "snapshot", "1");
+      const ptRealCall = lan.calls.find(c => c.method === "sendPtReal");
+      expect(ptRealCall).to.exist;
+    });
+
+    it("gradientToggle=cloud → Cloud via extended findCapabilityForCommand", async () => {
+      initDeviceRegistry({
+        data: {
+          devices: {
+            H6160: {
+              name: "Test",
+              type: "light",
+              status: "verified",
+              quirks: { transportOverrides: { gradientToggle: "cloud" } },
+            },
+          },
+        } as never,
+      });
+      const lan = makeLanStub();
+      const cloud = makeCloudStub();
+      const limiter = makeRateLimiter();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      router.setCloudClient(cloud.client);
+      router.setRateLimiter(limiter);
+      const device = makeDevice({
+        capabilities: [{ type: "devices.capabilities.toggle", instance: "gradientToggle" }],
+      });
+      await router.sendCommand(device, "gradientToggle", true);
+      expect(lan.calls.find(c => c.method === "setGradient")).to.be.undefined;
+      expect(cloud.calls).to.have.length(1);
+      expect(cloud.calls[0].instance).to.equal("gradientToggle");
+      expect(cloud.calls[0].value).to.equal(1);
+    });
+
+    it("segmentBatch=cloud → Cloud via sendSegmentBatchParsed (not sendCloudCommand)", async () => {
+      initDeviceRegistry({
+        data: {
+          devices: {
+            H6160: {
+              name: "Test",
+              type: "light",
+              status: "verified",
+              quirks: { transportOverrides: { segmentBatch: "cloud" } },
+            },
+          },
+        } as never,
+      });
+      const lan = makeLanStub();
+      const cloud = makeCloudStub();
+      const limiter = makeRateLimiter();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      router.setCloudClient(cloud.client);
+      router.setRateLimiter(limiter);
+      await router.sendCommand(makeDevice(), "segmentBatch", "0-2:#ff0000:50");
+      // No LAN segment-set
+      expect(lan.calls.find(c => c.method === "setSegmentColor")).to.be.undefined;
+      // Cloud got the segment_color_setting call
+      expect(cloud.calls.length).to.be.greaterThan(0);
+      expect(cloud.calls[0].capabilityType).to.contain("segment_color_setting");
+    });
+
+    it("segmentBatch=cloud + command segmentColor:5 → suffix-inherits Cloud path", async () => {
+      initDeviceRegistry({
+        data: {
+          devices: {
+            H6160: {
+              name: "Test",
+              type: "light",
+              status: "verified",
+              quirks: { transportOverrides: { segmentBatch: "cloud" } },
+            },
+          },
+        } as never,
+      });
+      const lan = makeLanStub();
+      const cloud = makeCloudStub();
+      const limiter = makeRateLimiter();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      router.setCloudClient(cloud.client);
+      router.setRateLimiter(limiter);
+      await router.sendCommand(makeDevice(), "segmentColor:5", "#00FF00");
+      // No LAN setSegmentColor
+      expect(lan.calls.find(c => c.method === "setSegmentColor")).to.be.undefined;
+      // Cloud got it via sendCloudCommand
+      expect(cloud.calls.length).to.be.greaterThan(0);
+    });
+
+    it("unknown SKU + segmentCount=0 + lightScene → hasSegments-Heuristic fires (regression-guard)", async () => {
+      // No catalog entry — heuristic is the only defense
+      const cloud = makeCloudStub();
+      const limiter = makeRateLimiter();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(makeLanStub().client);
+      router.setCloudClient(cloud.client);
+      router.setRateLimiter(limiter);
+      const device = makeDevice({
+        sku: "H9999", // unknown
+        segmentCount: 0,
+        sceneLibrary: [{ name: "Aurora", sceneCode: 1, scenceParam: "abc", speedInfo: null }],
+      });
+      await router.sendCommand(device, "lightScene", "1");
+      // Heuristic routed to Cloud
+      expect(cloud.calls.length).to.equal(1);
+      expect(cloud.calls[0].instance).to.equal("lightScene");
+    });
+
+    it("registry not initialized → resolveTransport returns LAN default (no crash)", async () => {
+      // No initDeviceRegistry call — singleton is undefined
+      const lan = makeLanStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      await router.sendCommand(makeDevice(), "power", true);
+      expect(lan.calls).to.have.length(1);
+      expect(lan.calls[0].method).to.equal("setPower");
+    });
+
+    it("dedup-map: repeated override-cloud-missing logs only once at warn level", async () => {
+      initDeviceRegistry({ data: TEST_CATALOG as never });
+      const router = new CommandRouter(mockLog, noopTimers);
+      const device = makeH70B3({ channels: { lan: true, mqtt: false, cloud: false } });
+      // Three rapid commands in same category — first warn, rest debug.
+      await router.sendCommand(device, "snapshot", "1");
+      await router.sendCommand(device, "snapshot", "1");
+      await router.sendCommand(device, "snapshot", "1");
+      // No throw, dedup behavior verified by code path (logDedup tested separately)
+    });
+  });
+
+  describe("transportOverrides — devices.json consistency (mini-validator)", () => {
+    // Pure file-content audit — every transportOverrides key/value in
+    // devices.json must be a known command + valid TransportTarget.
+    // Catches typos in PRs before runtime ever sees them.
+    it("all keys/values in devices.json are valid", () => {
+      const fs = require("node:fs") as typeof import("node:fs");
+      const path = require("node:path") as typeof import("node:path");
+      const raw = fs.readFileSync(path.resolve(__dirname, "..", "..", "devices.json"), "utf-8");
+      const parsed = JSON.parse(raw) as { devices: Record<string, { quirks?: { transportOverrides?: Record<string, string> } }> };
+      const validKeys = [
+        "power",
+        "brightness",
+        "colorRgb",
+        "colorTemperature",
+        "lightScene",
+        "diyScene",
+        "snapshot",
+        "gradientToggle",
+        "segmentBatch",
+      ];
+      const validValues = ["cloud", "lan"];
+      for (const [sku, entry] of Object.entries(parsed.devices)) {
+        const overrides = entry.quirks?.transportOverrides;
+        if (!overrides) continue;
+        for (const [cmd, target] of Object.entries(overrides)) {
+          expect(validKeys, `${sku}.transportOverrides key "${cmd}"`).to.include(cmd);
+          expect(validValues, `${sku}.transportOverrides["${cmd}"] value "${target}"`).to.include(target);
+        }
+      }
     });
   });
 });

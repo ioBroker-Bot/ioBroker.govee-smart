@@ -3,6 +3,7 @@ import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
 import { applySceneSpeed } from "./govee-lan-client";
 import type { RateLimiter } from "./rate-limiter";
+import { getDeviceQuirks, type ConfigurableOverrideCommand, type TransportTarget } from "./device-registry";
 
 /**
  * Delay between switching the device into static-color mode and sending the
@@ -13,8 +14,22 @@ import type { RateLimiter } from "./rate-limiter";
 const FORCE_COLOR_MODE_SETTLE_MS = 150;
 
 /**
+ * Outcome of `resolveTransport` — decides which channel handles a command
+ * before any I/O happens. Carries the reason so diag-logs and tests can
+ * tell an override-routed cloud send apart from a default cloud fallback.
+ */
+export type TransportDecision =
+  | { kind: "lan"; reason: "default" }
+  | {
+      kind: "cloud";
+      reason: "override" | "no-lan" | "no-segments-heuristic";
+    }
+  | { kind: "skip"; reason: "no-channel" | "override-cloud-missing" };
+
+/**
  * Command router — routes device commands through the fastest available
- * channel: LAN → Cloud.
+ * channel: LAN → Cloud. Quirk-driven overrides (devices.json
+ * `transportOverrides`) take precedence over the LAN-first default.
  */
 export class CommandRouter {
   private readonly log: ioBroker.Logger;
@@ -23,12 +38,12 @@ export class CommandRouter {
   private cloudClient: GoveeCloudClient | null = null;
   private rateLimiter: RateLimiter | null = null;
   /**
-   * Letzte Fehler-Kategorie pro Cloud-Fallback-Fail — verhindert
-   *  log-Spam wenn das gleiche Symptom mehrfach kommt.
+   * Per-category dedup tracker. Replaces the older split between
+   * `lastCloudFallbackError` and `lastNoChannelCategory` — one map, one
+   * lookup, keyed by a short category string (`cloud-fallback`,
+   * `no-channel`, `override-missing-cloud`).
    */
-  private lastCloudFallbackError: ErrorCategory | null = null;
-  /** Dedup-Tracker für „kein Cloud-channel"-Warns (M20). */
-  private lastNoChannelCategory: ErrorCategory | null = null;
+  private lastErrorByCategory = new Map<string, ErrorCategory | null>();
 
   /** Callback for batch segment state sync */
   onSegmentBatchUpdate?: (
@@ -123,7 +138,141 @@ export class CommandRouter {
   }
 
   /**
-   * Send a command to a device — routes through LAN → Cloud.
+   * Look up the quirk-driven transport override for a (device, command) pair.
+   * Segment-suffix commands (segmentColor:N / segmentBrightness:N) inherit
+   * the segmentBatch override — devices.json carries one key for all segment
+   * ops, not one per index.
+   *
+   * @param device Target device
+   * @param command Command type
+   */
+  private lookupOverride(device: GoveeDevice, command: string): TransportTarget | undefined {
+    const overrides = getDeviceQuirks(device.sku)?.transportOverrides;
+    if (!overrides) {
+      return undefined;
+    }
+    if (command in overrides) {
+      return overrides[command as ConfigurableOverrideCommand];
+    }
+    if (command.startsWith("segmentColor:") || command.startsWith("segmentBrightness:")) {
+      return overrides.segmentBatch;
+    }
+    return undefined;
+  }
+
+  /**
+   * Catch for unkatalogisierte no-segment SKUs: when a lightScene activation
+   * with scenceParam data hits a device that doesn't have any segments, the
+   * A3-framed multi-packet ptReal protocol gets silently dropped by the
+   * firmware. Cloud activation is the safer default. SKUs known to need
+   * this go into devices.json `transportOverrides.lightScene = "cloud"` —
+   * the heuristic only fires for SKUs not (yet) in the catalog.
+   *
+   * @param device Target device
+   * @param command Command type
+   */
+  private shouldHeuristicallyUseCloud(device: GoveeDevice, command: string): boolean {
+    if (command !== "lightScene") {
+      return false;
+    }
+    const hasSegments = typeof device.segmentCount === "number" && device.segmentCount > 0;
+    return !hasSegments;
+  }
+
+  /**
+   * Single point of truth for channel routing. Quirk-driven `transportOverrides`
+   * take precedence over the LAN-first default. Returns a `TransportDecision`
+   * carrying both the chosen kind and a reason — caller emits the reason
+   * into the diag log so a cloud-override and a cloud-fallback aren't
+   * confused in user-submitted JSON.
+   *
+   * @param device Target device
+   * @param command Command type
+   */
+  resolveTransport(device: GoveeDevice, command: string): TransportDecision {
+    const overrideTarget = this.lookupOverride(device, command);
+    if (overrideTarget === "cloud") {
+      if (device.channels.cloud && this.cloudClient) {
+        return { kind: "cloud", reason: "override" };
+      }
+      return { kind: "skip", reason: "override-cloud-missing" };
+    }
+    // overrideTarget === "lan" is a no-op fall-through to default routing.
+
+    if (device.lanIp && this.lanClient) {
+      if (this.shouldHeuristicallyUseCloud(device, command)) {
+        return device.channels.cloud && this.cloudClient
+          ? { kind: "cloud", reason: "no-segments-heuristic" }
+          : { kind: "skip", reason: "no-channel" };
+      }
+      return { kind: "lan", reason: "default" };
+    }
+    if (device.channels.cloud && this.cloudClient) {
+      return { kind: "cloud", reason: "no-lan" };
+    }
+    return { kind: "skip", reason: "no-channel" };
+  }
+
+  /**
+   * Format a decision into a human-readable channel marker for the diag
+   * log. One line per `sendCommand` so user-submitted JSON shows what the
+   * router decided, not what it was nominally configured for.
+   *
+   * @param decision Output of resolveTransport
+   */
+  private decisionToChannelMarker(decision: TransportDecision): string {
+    switch (decision.kind) {
+      case "lan":
+        return "LAN";
+      case "cloud":
+        return decision.reason === "override"
+          ? "Cloud (override)"
+          : decision.reason === "no-segments-heuristic"
+            ? "Cloud (no-segments)"
+            : "Cloud";
+      case "skip":
+        return decision.reason === "override-cloud-missing" ? "skip (cloud-override, no cloud)" : "skip (no-channel)";
+    }
+  }
+
+  /**
+   * Skip-handler — emits the right log level depending on why we couldn't
+   * route. Override+no-cloud is a configurable mismatch (user's fault, but
+   * we tell them once); regular no-channel during init-race is debug.
+   *
+   * @param device Target device
+   * @param command Command type
+   * @param reason Skip reason from resolveTransport
+   */
+  private handleSkip(device: GoveeDevice, command: string, reason: "no-channel" | "override-cloud-missing"): void {
+    if (reason === "override-cloud-missing") {
+      const prev = this.lastErrorByCategory.get("override-missing-cloud") ?? null;
+      this.lastErrorByCategory.set(
+        "override-missing-cloud",
+        logDedup(
+          this.log,
+          prev,
+          `Cloud transport override for ${device.name}/${command} but no Cloud channel available`,
+          new Error("override-cloud-missing"),
+        ),
+      );
+      return;
+    }
+    // no-channel: init-race or genuinely orphan device
+    if (device.channels.cloud && !this.cloudClient) {
+      this.log.debug(`Command for ${device.name} dropped: Cloud client not ready yet`);
+      return;
+    }
+    this.log.warn(`No channel available for ${device.name} (${device.sku})`);
+  }
+
+  /**
+   * Send a command to a device. Routing is decided up-front by
+   * `resolveTransport`; segment-special-cases (segmentColor:N / segmentBatch /
+   * segmentBrightness:N) have their own Cloud-side handlers because cloud
+   * routing for batch segment ops goes through `sendSegmentBatchParsed`,
+   * not `sendCloudCommand`.
+   *
    * MQTT is status-push only and never used for commands.
    *
    * @param device Target device
@@ -131,110 +280,144 @@ export class CommandRouter {
    * @param value Command value
    */
   async sendCommand(device: GoveeDevice, command: string, value: unknown): Promise<void> {
-    // v2.9.1 — channel-routing trace into the per-device diag. Single line at
-    // entry shows what the user asked for; the LAN-send hook captures the
-    // actual UDP bytes that left the wire (if any). JSON.stringify handles
-    // every primitive + object branch consistently; `[object Object]`-default
-    // stringification is what eslint warns about with bare String(value).
+    const decision = this.resolveTransport(device, command);
+
+    // Diag-log: one line, marker derived from the actual decision (not the
+    // configured channel). JSON.stringify keeps `[object Object]` out of
+    // the trace for object-valued commands like segmentBatch.
     const summary = `${command}=${JSON.stringify(value)}`;
-    const channel = device.lanIp
-      ? "LAN"
-      : device.channels.cloud && this.cloudClient
-        ? "Cloud"
-        : device.channels.cloud
-          ? "Cloud (not ready)"
-          : "none";
-    this.onDiagLog?.(device.deviceId, "debug", `sendCommand ${summary} → ${channel}`);
+    this.onDiagLog?.(device.deviceId, "debug", `sendCommand ${summary} → ${this.decisionToChannelMarker(decision)}`);
 
-    // Segment color: LAN ptReal first, Cloud fallback
+    if (decision.kind === "skip") {
+      this.handleSkip(device, command, decision.reason);
+      return;
+    }
+
+    // Segment-special cases — they bypass sendCloudCommand for Cloud sends
+    // because the batch ops resolve their own capability set via
+    // sendSegmentBatchParsed.
     if (command.startsWith("segmentColor:")) {
-      const segIdx = parseInt(command.split(":")[1], 10);
-      if (isNaN(segIdx) || segIdx < 0) {
-        return;
-      }
-      if (device.lanIp && this.lanClient) {
-        await this.forceColorMode(device);
-        const { r, g, b } = hexToRgb(value as string);
-        this.lanClient.setSegmentColor(device.lanIp, r, g, b, [segIdx]);
-        return;
-      }
-      if (device.channels.cloud && this.cloudClient) {
-        await this.sendCloudCommand(device, command, value);
-        return;
-      }
+      await this.dispatchSegmentColor(device, command, value, decision);
       return;
     }
-
-    // Segment batch: LAN ptReal first (multi-segment bitmask), Cloud fallback.
-    // Accepts either a string in the user-batch syntax ("0-5:#ff0000:20") or a
-    // pre-parsed object { segments, color?, brightness? } from internal callers
-    // like the detection wizard (avoids a string→parse round-trip).
     if (command === "segmentBatch") {
-      const parsed = typeof value === "string" ? this.parseSegmentBatch(device, value) : this.coerceParsedBatch(value);
-      if (parsed) {
-        this.onSegmentBatchUpdate?.(device, parsed);
-      }
-      if (device.lanIp && this.lanClient && parsed) {
-        await this.forceColorMode(device);
-        if (parsed.color !== undefined) {
-          const r = (parsed.color >> 16) & 0xff;
-          const g = (parsed.color >> 8) & 0xff;
-          const b = parsed.color & 0xff;
-          this.lanClient.setSegmentColor(device.lanIp, r, g, b, parsed.segments);
-        }
-        if (parsed.brightness !== undefined) {
-          this.lanClient.setSegmentBrightness(device.lanIp, parsed.brightness, parsed.segments);
-        }
-        return;
-      }
-      if (device.channels.cloud && this.cloudClient && parsed) {
-        await this.sendSegmentBatchParsed(device, typeof value === "string" ? value : "", parsed);
-        return;
-      }
+      await this.dispatchSegmentBatch(device, value, decision);
       return;
     }
-
-    // Segment brightness: LAN ptReal first, Cloud fallback
     if (command.startsWith("segmentBrightness:")) {
-      const segIdx = parseInt(command.split(":")[1], 10);
-      if (isNaN(segIdx) || segIdx < 0) {
-        return;
-      }
-      if (device.lanIp && this.lanClient) {
-        await this.forceColorMode(device);
-        this.lanClient.setSegmentBrightness(device.lanIp, value as number, [segIdx]);
-        return;
-      }
-      if (device.channels.cloud && this.cloudClient) {
-        await this.sendCloudCommand(device, command, value);
-        return;
-      }
+      await this.dispatchSegmentBrightness(device, command, value, decision);
       return;
     }
 
-    // Priority 1: LAN
-    if (device.lanIp && this.lanClient) {
+    // Generic dispatch
+    if (decision.kind === "lan") {
       this.sendLanCommand(device, command, value);
       return;
     }
+    // decision.kind === "cloud"
+    await this.sendCloudCommand(device, command, value);
+  }
 
-    // Priority 2: Cloud (rate-limited)
-    if (device.channels.cloud && this.cloudClient) {
+  /**
+   * Segment-color dispatcher honouring the resolved transport decision.
+   *
+   * @param device Target device
+   * @param command Command type (segmentColor:N form)
+   * @param value Color value (hex string)
+   * @param decision Routing decision from resolveTransport
+   */
+  private async dispatchSegmentColor(
+    device: GoveeDevice,
+    command: string,
+    value: unknown,
+    decision: TransportDecision,
+  ): Promise<void> {
+    if (decision.kind === "skip") {
+      this.handleSkip(device, command, decision.reason);
+      return;
+    }
+    const segIdx = parseInt(command.split(":")[1], 10);
+    if (isNaN(segIdx) || segIdx < 0) {
+      return;
+    }
+    if (decision.kind === "lan" && device.lanIp && this.lanClient) {
+      await this.forceColorMode(device);
+      const { r, g, b } = hexToRgb(value as string);
+      this.lanClient.setSegmentColor(device.lanIp, r, g, b, [segIdx]);
+      return;
+    }
+    if (decision.kind === "cloud") {
       await this.sendCloudCommand(device, command, value);
+    }
+  }
+
+  /**
+   * Segment-batch dispatcher. LAN path issues one multi-segment ptReal
+   * burst; Cloud path goes through `sendSegmentBatchParsed` which resolves
+   * segment_color_setting + segment-brightness capabilities separately.
+   *
+   * @param device Target device
+   * @param value Either a batch-syntax string or a pre-parsed object
+   * @param decision Routing decision from resolveTransport
+   */
+  private async dispatchSegmentBatch(device: GoveeDevice, value: unknown, decision: TransportDecision): Promise<void> {
+    if (decision.kind === "skip") {
+      this.handleSkip(device, "segmentBatch", decision.reason);
       return;
     }
-
-    // Cloud-fähig aber Client noch nicht ready (Init-Phase nach Restart):
-    // typischer Race-Fall, wenn der User sofort einen Befehl schickt während
-    // der Adapter Cloud-Login + IoT-Key noch erledigt. Kein WARN, nur debug —
-    // der Befehl ist verloren, aber der User sieht eh wenige Sekunden später
-    // dass alles läuft. WARN war hier ein false alarm.
-    if (device.channels.cloud && !this.cloudClient) {
-      this.log.debug(`Command for ${device.name} dropped: Cloud client not ready yet`);
+    const parsed = typeof value === "string" ? this.parseSegmentBatch(device, value) : this.coerceParsedBatch(value);
+    if (!parsed) {
       return;
     }
+    this.onSegmentBatchUpdate?.(device, parsed);
+    if (decision.kind === "lan" && device.lanIp && this.lanClient) {
+      await this.forceColorMode(device);
+      if (parsed.color !== undefined) {
+        const r = (parsed.color >> 16) & 0xff;
+        const g = (parsed.color >> 8) & 0xff;
+        const b = parsed.color & 0xff;
+        this.lanClient.setSegmentColor(device.lanIp, r, g, b, parsed.segments);
+      }
+      if (parsed.brightness !== undefined) {
+        this.lanClient.setSegmentBrightness(device.lanIp, parsed.brightness, parsed.segments);
+      }
+      return;
+    }
+    if (decision.kind === "cloud") {
+      await this.sendSegmentBatchParsed(device, typeof value === "string" ? value : "", parsed);
+    }
+  }
 
-    this.log.warn(`No channel available for ${device.name} (${device.sku})`);
+  /**
+   * Segment-brightness dispatcher honouring the resolved transport decision.
+   *
+   * @param device Target device
+   * @param command Command type (segmentBrightness:N form)
+   * @param value Brightness value (0-100)
+   * @param decision Routing decision from resolveTransport
+   */
+  private async dispatchSegmentBrightness(
+    device: GoveeDevice,
+    command: string,
+    value: unknown,
+    decision: TransportDecision,
+  ): Promise<void> {
+    if (decision.kind === "skip") {
+      this.handleSkip(device, command, decision.reason);
+      return;
+    }
+    const segIdx = parseInt(command.split(":")[1], 10);
+    if (isNaN(segIdx) || segIdx < 0) {
+      return;
+    }
+    if (decision.kind === "lan" && device.lanIp && this.lanClient) {
+      await this.forceColorMode(device);
+      this.lanClient.setSegmentBrightness(device.lanIp, value as number, [segIdx]);
+      return;
+    }
+    if (decision.kind === "cloud") {
+      await this.sendCloudCommand(device, command, value);
+    }
   }
 
   /**
@@ -485,6 +668,9 @@ export class CommandRouter {
         return value;
       case "scene":
         return value;
+      case "gradientToggle":
+        // Govee toggle-cap expects 0/1, not boolean.
+        return value ? 1 : 0;
       case "lightScene": {
         // Value is the dropdown index (string) — resolve to scene activation payload
         const idx = parseInt(String(value), 10);
@@ -569,6 +755,9 @@ export class CommandRouter {
       if (command === "snapshot" && shortType === "dynamic_scene" && cap.instance === "snapshot") {
         return cap;
       }
+      if (command === "gradientToggle" && shortType === "toggle" && cap.instance === "gradientToggle") {
+        return cap;
+      }
       if (
         command.startsWith("segmentColor:") &&
         shortType === "segment_color_setting" &&
@@ -634,18 +823,16 @@ export class CommandRouter {
           }
         }
         // No library match — fall through to Cloud
-        this.sendCloudCommand(device, command, value).catch(e => {
-          this.lastCloudFallbackError = logDedup(
-            this.log,
-            this.lastCloudFallbackError,
-            `Cloud fallback for ${device.name}/${command}`,
-            e,
-          );
-        });
+        this.cloudFallbackForCase(device, command, value);
         break;
       }
       case "lightScene": {
-        // Try ptReal BLE-over-LAN if scene is in scene library
+        // Try ptReal BLE-over-LAN if scene is in scene library.
+        // The no-segments → Cloud heuristic now lives centrally in
+        // resolveTransport.shouldHeuristicallyUseCloud — if we get here,
+        // the device either has segments or is unknown to the catalog with
+        // a registered scene library. Either way the local ptReal path is
+        // worth trying.
         const idx = parseInt(String(value), 10);
         if (isNaN(idx) || idx < 1 || idx > device.scenes.length) {
           this.log.warn(`${device.sku}: invalid scene index ${String(value)}`);
@@ -659,30 +846,6 @@ export class CommandRouter {
             device.sceneLibrary.find(s => s.name === scene.name) ?? device.sceneLibrary.find(s => s.name === baseName);
           if (libEntry) {
             const baseParam = libEntry.scenceParam ?? "";
-            // Devices without segment hardware (e.g. H70B3 Curtain Lights)
-            // can't parse the A3-framed multi-packet ptReal protocol that
-            // `scenceParam` carries — those packets describe per-segment
-            // animation data. On such devices the packets are silently
-            // dropped: the scene activation never happens locally. Fall
-            // straight to Cloud activation for them so the scene still
-            // works. Simple scenes without scenceParam (older presets like
-            // "Valentine's Day") still take the ptReal path — the single
-            // activation packet is understood by every Govee light.
-            const hasSegments = typeof device.segmentCount === "number" && device.segmentCount > 0;
-            if (!hasSegments && baseParam.length > 0) {
-              this.log.debug(
-                `ptReal scene ${scene.name} skipped — ${device.sku} has no segments, falling through to Cloud`,
-              );
-              this.sendCloudCommand(device, command, value).catch(e => {
-                this.lastCloudFallbackError = logDedup(
-                  this.log,
-                  this.lastCloudFallbackError,
-                  `Cloud fallback for ${device.name}/${command}`,
-                  e,
-                );
-              });
-              return;
-            }
             let param = baseParam;
             if (
               device.sceneSpeed !== undefined &&
@@ -698,14 +861,7 @@ export class CommandRouter {
           }
         }
         // Scene not in library — fall through to Cloud
-        this.sendCloudCommand(device, command, value).catch(e => {
-          this.lastCloudFallbackError = logDedup(
-            this.log,
-            this.lastCloudFallbackError,
-            `Cloud fallback for ${device.name}/${command}`,
-            e,
-          );
-        });
+        this.cloudFallbackForCase(device, command, value);
         break;
       }
       case "snapshot": {
@@ -724,27 +880,32 @@ export class CommandRouter {
           }
         }
         // No BLE data — fall through to Cloud
-        this.sendCloudCommand(device, command, value).catch(e => {
-          this.lastCloudFallbackError = logDedup(
-            this.log,
-            this.lastCloudFallbackError,
-            `Cloud fallback for ${device.name}/${command}`,
-            e,
-          );
-        });
+        this.cloudFallbackForCase(device, command, value);
         break;
       }
       default:
         // LAN doesn't support this command — fall through to Cloud
-        this.sendCloudCommand(device, command, value).catch(e => {
-          this.lastCloudFallbackError = logDedup(
-            this.log,
-            this.lastCloudFallbackError,
-            `Cloud fallback for ${device.name}/${command}`,
-            e,
-          );
-        });
+        this.cloudFallbackForCase(device, command, value);
     }
+  }
+
+  /**
+   * Fire-and-forget Cloud fallback when a LAN-case can't service the
+   * command locally (library miss, no BLE data, unsupported). Dedup
+   * through the shared category map so log spam is bounded.
+   *
+   * @param device Target device
+   * @param command Command type
+   * @param value Command value
+   */
+  private cloudFallbackForCase(device: GoveeDevice, command: string, value: unknown): void {
+    this.sendCloudCommand(device, command, value).catch(e => {
+      const prev = this.lastErrorByCategory.get("cloud-fallback") ?? null;
+      this.lastErrorByCategory.set(
+        "cloud-fallback",
+        logDedup(this.log, prev, `Cloud fallback for ${device.name}/${command}`, e),
+      );
+    });
   }
 
   /**
@@ -768,11 +929,10 @@ export class CommandRouter {
     if (!cap) {
       // M20 — dedup-warn statt nur debug. User klickt einen State, kein
       // Channel-Match → Fehlersuche braucht das Erstauftreten als warn.
-      this.lastNoChannelCategory = logDedup(
-        this.log,
-        this.lastNoChannelCategory,
-        `No channel for ${device.name}/${command}`,
-        new Error("no matching capability"),
+      const prev = this.lastErrorByCategory.get("no-capability") ?? null;
+      this.lastErrorByCategory.set(
+        "no-capability",
+        logDedup(this.log, prev, `No channel for ${device.name}/${command}`, new Error("no matching capability")),
       );
       return;
     }

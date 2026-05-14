@@ -158,7 +158,12 @@
       "name": "Outdoor Neon LED Strip 10m",
       "type": "light",
       "status": "verified",
-      "since": "2.5.2"
+      "since": "2.5.2",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud"
+        }
+      }
     },
     "H61BE": {
       "name": "Glide Wall Light Wide",
@@ -176,13 +181,25 @@
       "name": "Curtain Lights",
       "type": "light",
       "status": "verified",
-      "since": "1.0.0"
+      "since": "1.0.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
     },
     "H70C5": {
       "name": "Christmas String Lights",
       "type": "light",
       "status": "verified",
-      "since": "1.0.0"
+      "since": "1.0.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
     },
     "H70D1": {
       "name": "Icicle Lights",

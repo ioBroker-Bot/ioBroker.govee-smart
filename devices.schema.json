@@ -79,7 +79,23 @@
         },
         "brokenPlatformApi": {
           "type": "boolean",
-          "description": "Cloud platform-API metadata is unreliable — adapter falls back to default LAN states."
+          "description": "Cloud platform-API metadata is unreliable — adapter skips Cloud-cap mapping and falls back to LAN-default states."
+        },
+        "transportOverrides": {
+          "type": "object",
+          "description": "Per-command transport override — forces a command through Cloud or LAN regardless of the default LAN-first heuristic. Value 'lan' is a no-op (default routing).",
+          "properties": {
+            "power":            { "enum": ["cloud", "lan"] },
+            "brightness":       { "enum": ["cloud", "lan"] },
+            "colorRgb":         { "enum": ["cloud", "lan"] },
+            "colorTemperature": { "enum": ["cloud", "lan"] },
+            "lightScene":       { "enum": ["cloud", "lan"] },
+            "diyScene":         { "enum": ["cloud", "lan"] },
+            "snapshot":         { "enum": ["cloud", "lan"] },
+            "gradientToggle":   { "enum": ["cloud", "lan"] },
+            "segmentBatch":     { "enum": ["cloud", "lan"] }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

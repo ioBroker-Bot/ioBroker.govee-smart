@@ -196,34 +196,10 @@ describe("DeviceRegistry", () => {
     });
   });
 
-  describe("applyColorTempQuirk (instance method)", () => {
-    it("clamps to quirk range when seed is active", () => {
-      const reg = new DeviceRegistry({
-        data: SAMPLE as never,
-        experimental: true,
-      });
-      expect(reg.applyColorTempQuirk("H60A1", 2000, 9000)).to.deep.equal({
-        min: 2200,
-        max: 6500,
-      });
-    });
-
-    it("returns API-reported range when no quirk applies", () => {
-      const reg = new DeviceRegistry({ data: SAMPLE as never });
-      expect(reg.applyColorTempQuirk("H61BE", 2000, 9000)).to.deep.equal({
-        min: 2000,
-        max: 9000,
-      });
-    });
-
-    it("returns API-reported range for unknown SKU", () => {
-      const reg = new DeviceRegistry({ data: SAMPLE as never });
-      expect(reg.applyColorTempQuirk("H9999", 2000, 9000)).to.deep.equal({
-        min: 2000,
-        max: 9000,
-      });
-    });
-  });
+  // applyColorTempQuirk is now only exposed as a module-level function — the
+  // class-method form was removed in v2.10.0 since it duplicated the
+  // stateless variant. See "Module-level singleton" suite below for the
+  // remaining colorTempRange coverage.
 
   describe("Module-level singleton", () => {
     beforeEach(() => _resetDeviceRegistry());
@@ -278,6 +254,44 @@ describe("DeviceRegistry", () => {
       initDeviceRegistry({ data: SAMPLE as never });
       expect(getDeviceTier("h60a1")).to.equal("seed");
       expect(getDeviceTier("H60A1")).to.equal("seed");
+    });
+  });
+
+  describe("devices.json — transportOverrides consistency (mini-validator)", () => {
+    // Read the real devices.json and assert every transportOverrides key/value
+    // is well-formed. Catches PR typos before runtime ever loads the file.
+    // No AJV dependency — manual check is bordmittel and runs as a normal
+    // unit test.
+    it("all transportOverrides entries use known command names and valid targets", () => {
+      const realDevices = JSON.parse(
+        fs.readFileSync(path.resolve(__dirname, "..", "..", "devices.json"), "utf-8"),
+      ) as {
+        devices: Record<string, { quirks?: { transportOverrides?: Record<string, string> } }>;
+      };
+      const validCommands = [
+        "power",
+        "brightness",
+        "colorRgb",
+        "colorTemperature",
+        "lightScene",
+        "diyScene",
+        "snapshot",
+        "gradientToggle",
+        "segmentBatch",
+      ];
+      const validTargets = ["cloud", "lan"];
+      let checked = 0;
+      for (const [sku, entry] of Object.entries(realDevices.devices)) {
+        const overrides = entry.quirks?.transportOverrides;
+        if (!overrides) continue;
+        for (const [cmd, target] of Object.entries(overrides)) {
+          expect(validCommands, `${sku}.transportOverrides key "${cmd}" unknown`).to.include(cmd);
+          expect(validTargets, `${sku}.transportOverrides["${cmd}"] value "${target}" invalid`).to.include(target);
+          checked++;
+        }
+      }
+      // Sanity: v2.10.0 ships with H70B3+H70C5 (2 keys each) + H61A8 (1 key) = 5 entries
+      expect(checked, "expected at least 5 transportOverrides entries in v2.10.0").to.be.at.least(5);
     });
   });
 });
