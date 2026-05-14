@@ -1,4 +1,9 @@
 # Older Changes
+## 2.8.3 (2026-05-12)
+
+- Debug log now covers every adapter path: App and Cloud API calls (with body snippets on null), cache load/save with age, state-writes, capability mapping, LAN command timing, MQTT login server reply.
+- Bug reports can be triaged from a debug log alone — no more "the adapter did nothing and didn't say why".
+
 ## 2.8.2 (2026-05-11)
 
 - Snapshot refresh per device now also reloads the activation data — when you re-record a snapshot in the Govee app it takes effect right away, no manual cache reset.

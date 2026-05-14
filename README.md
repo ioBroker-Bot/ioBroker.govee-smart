@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.10.1 (2026-05-14)
 
 - Cleaner adapter log: each connected channel now shows ✓ or ✗ status. Cloud and network errors come as readable user-messages with a retry hint instead of raw Node internals.
 
@@ -151,11 +151,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.8.4 (2026-05-12)
 
 - The device trust tier state under each device no longer carries a multi-language label object that would crash the admin with "Error in GUI" if rendered as a dropdown.
-
-### 2.8.3 (2026-05-12)
-
-- Debug log now covers every adapter path: App and Cloud API calls (with body snippets on null), cache load/save with age, state-writes, capability mapping, LAN command timing, MQTT login server reply.
-- Bug reports can be triaged from a debug log alone — no more "the adapter did nothing and didn't say why".
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

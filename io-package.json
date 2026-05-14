@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.10.0",
+    "version": "2.10.1",
     "news": {
-      "NEXT": {
+      "2.10.1": {
         "en": "Cleaner adapter log: each connected channel now shows ✓ or ✗ status. Cloud and network errors come as readable user-messages with a retry hint instead of raw Node internals.",
         "de": "Klarere Adapter-Logs: jeder verbundene Channel wird mit ✓ oder ✗ angezeigt. Cloud- und Netzwerk-Fehler kommen als lesbare User-Meldungen mit Retry-Hinweis statt roher Node-Interna.",
         "ru": "Понятнее лог адаптера: каждый подключённый канал показан как ✓ или ✗. Ошибки cloud/сети — читаемые сообщения с подсказкой повтора вместо внутренностей Node.",
