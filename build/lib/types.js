@@ -24,6 +24,7 @@ __export(types_exports, {
   coerceFiniteNumber: () => coerceFiniteNumber,
   disambiguateLabels: () => disambiguateLabels,
   errMessage: () => errMessage,
+  errStack: () => errStack,
   hexToRgb: () => hexToRgb,
   logDedup: () => logDedup,
   normalizeDeviceId: () => normalizeDeviceId,
@@ -72,6 +73,12 @@ function classifyError(err) {
   return "UNKNOWN";
 }
 function errMessage(e) {
+  if (e instanceof Error) {
+    return e.message;
+  }
+  return String(e);
+}
+function errStack(e) {
   var _a;
   if (e instanceof Error) {
     return (_a = e.stack) != null ? _a : e.message;
@@ -263,6 +270,7 @@ function resolveStatesValue(input, statesMap) {
   coerceFiniteNumber,
   disambiguateLabels,
   errMessage,
+  errStack,
   hexToRgb,
   logDedup,
   normalizeDeviceId,

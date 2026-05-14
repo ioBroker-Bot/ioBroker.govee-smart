@@ -41,6 +41,7 @@ var import_capability_mapper = require("./capability-mapper");
 var import_command_router = require("./command-router");
 var import_device_registry = require("./device-registry");
 var import_diagnostics = require("./diagnostics");
+var import_log_channel_fail = require("./log-channel-fail");
 var import_lookups = require("./device-manager/lookups");
 var import_mapping = require("./device-manager/mapping");
 var cacheHelpers = __toESM(require("./device-manager/cache"));
@@ -71,6 +72,13 @@ class DeviceManager {
   onCloudCapabilities = null;
   /** Per-source dedup so a Cloud NETWORK error doesn't shadow an App-API one. */
   lastErrorCategory = null;
+  /**
+   * Dedup state for Cloud REST device-list calls — used by `logChannelFail`
+   * so the user-zentrierte warn message fires once per category and drops
+   * to debug on repeats. Separate from `lastErrorCategory` (which lives in
+   * `logDedup` for group-members + other non-channel errors).
+   */
+  cloudListDedup = { lastCategory: null };
   lastAppApiErrorCategory = null;
   /** Dedup tracker for `loadGroupMembers` errors — first warn per category, rest debug. */
   lastGroupMembersErrorCategory = null;
@@ -363,9 +371,16 @@ class DeviceManager {
         }
       }
       this.lastErrorCategory = null;
+      this.cloudListDedup.lastCategory = null;
       return { ok: true };
     } catch (err) {
-      this.logDedup("Cloud device list failed", err);
+      (0, import_log_channel_fail.logChannelFail)(this.log, {
+        channel: "Cloud REST",
+        err,
+        context: "loading device list",
+        retryHint: "retrying every 5 min",
+        dedup: this.cloudListDedup
+      });
       if (err instanceof import_http_client.HttpError && err.statusCode === 429) {
         const retryAfterRaw = err.headers["retry-after"];
         const retryAfterSec = typeof retryAfterRaw === "string" && /^\d+$/.test(retryAfterRaw) ? parseInt(retryAfterRaw, 10) : 60;
@@ -1020,18 +1035,24 @@ class DeviceManager {
   }
   /**
    * Log error with dedup — only warn on category change, debug on repeat.
+   * v2.10.1: stack-trace stays on debug-level only. warn carries err.message
+   * (clean one-liner) so admin-logs don't drown in Node-internal frames.
    *
    * @param context Error context description
    * @param err Error to log
    */
   logDedup(context, err) {
     const category = (0, import_types.classifyError)(err);
-    const msg = `${context}: ${(0, import_types.errMessage)(err)}`;
+    const cleanMsg = err instanceof Error ? err.message : String(err);
+    const headline = `${context}: ${cleanMsg}`;
     if (category !== this.lastErrorCategory) {
       this.lastErrorCategory = category;
-      this.log.warn(msg);
+      this.log.warn(headline);
+      if (err instanceof Error && err.stack) {
+        this.log.debug(`${context} stack: ${err.stack}`);
+      }
     } else {
-      this.log.debug(`${msg} (repeated)`);
+      this.log.debug(`${headline} (repeated)`);
     }
   }
   /**

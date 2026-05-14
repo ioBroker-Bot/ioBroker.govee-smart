@@ -498,6 +498,21 @@ export function classifyError(err: unknown): ErrorCategory {
  */
 export function errMessage(e: unknown): string {
   if (e instanceof Error) {
+    return e.message;
+  }
+  return String(e);
+}
+
+/**
+ * Get the stack trace of an error if available, otherwise its message.
+ * Use this in `log.debug()` calls where you explicitly want the Node-internal
+ * stack frames for diagnosis. `errMessage` stays the user-clean single-liner
+ * for `log.warn()` / `log.error()` calls.
+ *
+ * @param e Error or error-like value
+ */
+export function errStack(e: unknown): string {
+  if (e instanceof Error) {
     return e.stack ?? e.message;
   }
   return String(e);

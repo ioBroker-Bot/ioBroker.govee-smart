@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.10.0",
     "news": {
+      "NEXT": {
+        "en": "Cleaner adapter log: each connected channel now shows ✓ or ✗ status. Cloud and network errors come as readable user-messages with a retry hint instead of raw Node internals.",
+        "de": "Klarere Adapter-Logs: jeder verbundene Channel wird mit ✓ oder ✗ angezeigt. Cloud- und Netzwerk-Fehler kommen als lesbare User-Meldungen mit Retry-Hinweis statt roher Node-Interna.",
+        "ru": "Понятнее лог адаптера: каждый подключённый канал показан как ✓ или ✗. Ошибки cloud/сети — читаемые сообщения с подсказкой повтора вместо внутренностей Node.",
+        "pt": "Log do adaptador mais claro: cada canal conectado mostra ✓ ou ✗. Erros de cloud e rede vêm como mensagens legíveis com dica de retry, sem internals do Node.",
+        "nl": "Helderder adapter-log: elk verbonden kanaal toont ✓ of ✗. Cloud- en netwerkfouten als leesbare meldingen met retry-hint, geen Node-internals meer.",
+        "fr": "Log adapter plus clair : chaque canal connecté affiche ✓ ou ✗. Erreurs cloud et réseau en messages lisibles avec retry, plus d'internals Node.",
+        "it": "Log adapter più chiaro: ogni canale connesso mostra ✓ o ✗. Errori cloud e rete come messaggi leggibili con retry, niente internals Node.",
+        "es": "Log del adaptador más claro: cada canal conectado muestra ✓ o ✗. Errores cloud y red como mensajes legibles con retry, sin internals de Node.",
+        "pl": "Czytelniejszy log adaptera: każdy podłączony kanał pokazuje ✓ lub ✗. Błędy cloud i sieci jako czytelne wiadomości z podpowiedzią retry, bez wnętrza Node.",
+        "uk": "Зрозуміліший лог адаптера: кожен підключений канал показано як ✓ або ✗. Помилки cloud/мережі — читаємі повідомлення з підказкою retry, без внутрішніх деталей Node.",
+        "zh-cn": "更清晰的适配器日志：每个已连接通道显示 ✓ 或 ✗。云端和网络错误以可读消息显示，带重试提示，不再有 Node 内部细节。"
+      },
       "2.10.0": {
         "en": "Snapshots on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8) now work; matrix-light scenes too. New quirks system: device-fixes ship via catalog, no release needed.",
         "de": "Snapshots auf Curtain Lights (H70B3), Christmas Strings (H70C5) und Outdoor Neon (H61A8) funktionieren; Matrix-Light-Szenen auch. Neues Quirks-System: Geräte-Fixes via Katalog statt Release.",
@@ -80,19 +93,6 @@
         "pl": "Odświeżanie migawki na urządzeniu odświeża też dane aktywacji — ponownie nagrane migawki działają od razu. Czysty debug-log. Nieudane lokalne polecenia jako ostrzeżenie.",
         "uk": "Оновлення снепшоту на пристрої перезавантажує і дані активації — перезаписані снепшоти діють одразу. Чистий debug-лог. Невдалі локальні команди як warning.",
         "zh-cn": "每个设备的快照刷新现在也会重载激活数据——重新录制的快照立刻生效。debug 日志更干净。本地命令失败时以警告级别记录。"
-      },
-      "2.8.1": {
-        "en": "Info, warn and error logs are back to their normal short form. The channel-status prefix from 2.8.0 stays only in debug logs.",
-        "de": "Info-, Warn- und Error-Logs sind wieder kurz und übersichtlich. Der Channel-Status-Prefix aus 2.8.0 bleibt nur in Debug-Logs.",
-        "ru": "Логи info, warn и error снова в коротком виде. Префикс статуса каналов из 2.8.0 остаётся только в debug-логах.",
-        "pt": "Os logs info, warn e error voltam ao formato curto. O prefixo de estado dos canais da 2.8.0 permanece só nos logs de debug.",
-        "nl": "Info-, warn- en error-logs zijn weer kort en overzichtelijk. De kanaalstatus-prefix uit 2.8.0 blijft alleen in debug-logs.",
-        "fr": "Les logs info, warn et error redeviennent courts. Le préfixe d'état des canaux de 2.8.0 ne reste que dans les logs debug.",
-        "it": "I log info, warn ed error tornano alla forma breve. Il prefisso di stato dei canali della 2.8.0 resta solo nei log debug.",
-        "es": "Los logs info, warn y error vuelven al formato corto. El prefijo de estado de canales de 2.8.0 permanece solo en los logs de debug.",
-        "pl": "Logi info, warn i error wracają do krótkiej formy. Prefiks statusu kanałów z 2.8.0 pozostaje tylko w logach debug.",
-        "uk": "Логи info, warn та error знову в короткій формі. Префікс статусу каналів з 2.8.0 залишається лише в debug-логах.",
-        "zh-cn": "info、warn 和 error 日志回到简短格式。2.8.0 添加的通道状态前缀仅保留在 debug 日志中。"
       }
     },
     "titleLang": {

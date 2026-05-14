@@ -1134,19 +1134,20 @@ describe("DeviceManager", () => {
 
       const dedupDm = new DeviceManager(dedupLog, mockTimers);
 
-      // First call — new category, should warn
+      // First call — new category: 1 warn + 1 debug (stack on debug, v2.10.1)
       (dedupDm as any).logDedup("Cloud failed", new Error("ECONNREFUSED"));
       expect(warnings).to.have.lengthOf(1);
-      expect(debugs).to.have.lengthOf(0);
+      expect(debugs).to.have.lengthOf(1); // stack-trace went to debug
 
-      // Same category — should debug (repeated)
+      // Same category — should debug (repeated), no new warn
       (dedupDm as any).logDedup("Cloud failed", new Error("ENOTFOUND"));
       expect(warnings).to.have.lengthOf(1); // no new warning
-      expect(debugs).to.have.lengthOf(1);
+      expect(debugs).to.have.lengthOf(2); // +1 repeated
 
-      // Different category — should warn again
+      // Different category — should warn again + new stack debug
       (dedupDm as any).logDedup("Cloud failed", new Error("HTTP 401"));
       expect(warnings).to.have.lengthOf(2);
+      expect(debugs).to.have.lengthOf(3); // +1 stack for new category
     });
   });
 

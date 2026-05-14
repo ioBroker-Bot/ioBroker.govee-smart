@@ -98,7 +98,12 @@ function httpsRequest(options) {
       cleanupAbort();
       reject(err);
     });
-    req.on("timeout", () => req.destroy(new Error("Timeout")));
+    req.on("timeout", () => {
+      var _a2, _b;
+      const ms = (_a2 = reqOptions.timeout) != null ? _a2 : 15e3;
+      const method = (_b = options.method) != null ? _b : "GET";
+      req.destroy(new Error(`Timeout after ${ms}ms for ${method} ${reqOptions.hostname}${reqOptions.path}`));
+    });
     if (options.signal) {
       if (options.signal.aborted) {
         req.destroy(new Error("Aborted"));

@@ -194,24 +194,31 @@ export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
   // "X online, Y offline" summary often shows lights as offline that
   // come up moments later. The user-visible online state lives in the
   // state tree where it stays accurate.
-  const channels: string[] = ["LAN"];
-  if (adapter.cloudWasConnected) {
-    channels.push("Cloud");
+  //
+  // Channel-Status (v2.10.1): nur konfigurierte channels werden gezeigt, mit
+  // ✓ (ready) oder ✗ (init-Versuch gescheitert). Pro ✗ folgt eine WARN-Zeile
+  // mit konkretem Grund + Retry-Verhalten. Channel-Namen sind so umbenannt
+  // dass User sie auseinanderhalten kann (Cloud REST vs Lights Push vs
+  // Sensor Push — vorher hieß alles uneinheitlich „Cloud", „MQTT",
+  // „Cloud-events").
+  const parts: string[] = ["LAN ✓"];
+  if (adapter.cloudClient) {
+    parts.push(adapter.cloudWasConnected ? "Cloud REST ✓" : "Cloud REST ✗");
   }
-  if (adapter.mqttClient?.connected) {
-    channels.push("MQTT");
+  if (adapter.mqttClient) {
+    parts.push(adapter.mqttClient.connected ? "Lights Push ✓" : "Lights Push ✗");
   }
-  if (adapter.openapiMqttClient?.connected) {
-    channels.push("Cloud-events");
+  if (adapter.openapiMqttClient) {
+    parts.push(adapter.openapiMqttClient.connected ? "Sensor Push ✓" : "Sensor Push ✗");
   }
-  adapter.log.info(`Govee adapter ready — channels: ${channels.join("+")}`);
+  adapter.log.info(`Govee adapter ready — ${parts.join("  ")}`);
 
   if (adapter.cloudClient && !adapter.cloudWasConnected) {
     const reason = adapter.cloudClient.getFailureReason();
-    adapter.log.warn(reason ? `Cloud not connected — ${reason}` : `Cloud not connected — see earlier errors`);
+    adapter.log.warn(reason ? `Cloud REST: ${reason}` : `Cloud REST: not connected — see earlier errors`);
   }
   if (adapter.mqttClient && !adapter.mqttClient.connected) {
     const reason = adapter.mqttClient.getFailureReason();
-    adapter.log.warn(reason ? `MQTT not connected — ${reason}` : `MQTT not connected — see earlier errors`);
+    adapter.log.warn(reason ? `Lights Push: ${reason}` : `Lights Push: not connected — see earlier errors`);
   }
 }

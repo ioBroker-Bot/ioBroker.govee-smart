@@ -134,25 +134,24 @@ function checkAllReady(adapter) {
   (_b = adapter.deviceManager) == null ? void 0 : _b.saveDevicesToCache();
 }
 function logDeviceSummary(adapter) {
-  var _a, _b;
-  const channels = ["LAN"];
-  if (adapter.cloudWasConnected) {
-    channels.push("Cloud");
+  const parts = ["LAN \u2713"];
+  if (adapter.cloudClient) {
+    parts.push(adapter.cloudWasConnected ? "Cloud REST \u2713" : "Cloud REST \u2717");
   }
-  if ((_a = adapter.mqttClient) == null ? void 0 : _a.connected) {
-    channels.push("MQTT");
+  if (adapter.mqttClient) {
+    parts.push(adapter.mqttClient.connected ? "Lights Push \u2713" : "Lights Push \u2717");
   }
-  if ((_b = adapter.openapiMqttClient) == null ? void 0 : _b.connected) {
-    channels.push("Cloud-events");
+  if (adapter.openapiMqttClient) {
+    parts.push(adapter.openapiMqttClient.connected ? "Sensor Push \u2713" : "Sensor Push \u2717");
   }
-  adapter.log.info(`Govee adapter ready \u2014 channels: ${channels.join("+")}`);
+  adapter.log.info(`Govee adapter ready \u2014 ${parts.join("  ")}`);
   if (adapter.cloudClient && !adapter.cloudWasConnected) {
     const reason = adapter.cloudClient.getFailureReason();
-    adapter.log.warn(reason ? `Cloud not connected \u2014 ${reason}` : `Cloud not connected \u2014 see earlier errors`);
+    adapter.log.warn(reason ? `Cloud REST: ${reason}` : `Cloud REST: not connected \u2014 see earlier errors`);
   }
   if (adapter.mqttClient && !adapter.mqttClient.connected) {
     const reason = adapter.mqttClient.getFailureReason();
-    adapter.log.warn(reason ? `MQTT not connected \u2014 ${reason}` : `MQTT not connected \u2014 see earlier errors`);
+    adapter.log.warn(reason ? `Lights Push: ${reason}` : `Lights Push: not connected \u2014 see earlier errors`);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

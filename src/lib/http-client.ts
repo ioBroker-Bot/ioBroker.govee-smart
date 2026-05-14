@@ -167,7 +167,15 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<HttpResult
       cleanupAbort();
       reject(err);
     });
-    req.on("timeout", () => req.destroy(new Error("Timeout")));
+    // M5 — Timeout-Error trägt Endpoint + Wait-Dauer im Text, damit der
+    // warn-Log dem User sagt WO und WIE LANGE gewartet wurde. Vorher nur
+    // „Timeout" ohne Kontext → Stack-Trace war die einzige Info-Quelle und
+    // die ist Dev-Speak.
+    req.on("timeout", () => {
+      const ms = reqOptions.timeout ?? 15_000;
+      const method = options.method ?? "GET";
+      req.destroy(new Error(`Timeout after ${ms}ms for ${method} ${reqOptions.hostname}${reqOptions.path}`));
+    });
 
     // M3 — AbortSignal-Support. Wer den Request macht kann ihn abbrechen
     // (z.B. Adapter-onUnload via AbortController) damit der Stop nicht
