@@ -4,17 +4,17 @@
     "version": "2.10.0",
     "news": {
       "2.10.0": {
-        "en": "Snapshots now work on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8); on the matrix-lights, scenes too — Govee's LAN bridge silently dropped the required frames.",
-        "de": "Snapshots funktionieren jetzt auf Curtain Lights (H70B3), Christmas Strings (H70C5) und Outdoor Neon (H61A8); auf den Matrix-Lichtern auch Szenen — die LAN-Bridge ließ Frames stumm fallen.",
-        "ru": "Снимки теперь работают на Curtain Lights (H70B3), Christmas Strings (H70C5) и Outdoor Neon (H61A8); на матричных моделях — и сцены. LAN-мост Govee молча терял нужные кадры.",
-        "pt": "Snapshots funcionam agora em Curtain Lights (H70B3), Christmas Strings (H70C5) e Outdoor Neon (H61A8); nas matrix-lights também as cenas — a ponte LAN da Govee descartava frames em silêncio.",
-        "nl": "Snapshots werken nu op Curtain Lights (H70B3), Christmas Strings (H70C5) en Outdoor Neon (H61A8); op de matrix-lichten ook scènes — Govee's LAN-bridge liet de frames stilletjes vallen.",
-        "fr": "Snapshots fonctionnent sur Curtain Lights (H70B3), Christmas Strings (H70C5) et Outdoor Neon (H61A8) ; sur les matrix-lights, les scènes aussi — le pont LAN laissait tomber les trames.",
-        "it": "Gli snapshot funzionano ora su Curtain Lights (H70B3), Christmas Strings (H70C5) e Outdoor Neon (H61A8); sulle matrix-light anche le scene — il bridge LAN scartava i frame in silenzio.",
-        "es": "Los snapshots funcionan ahora en Curtain Lights (H70B3), Christmas Strings (H70C5) y Outdoor Neon (H61A8); en las matrix-lights también las escenas — el puente LAN descartaba los frames en silencio.",
-        "pl": "Snapshoty działają teraz na Curtain Lights (H70B3), Christmas Strings (H70C5) i Outdoor Neon (H61A8); na matrix-lights także sceny — most LAN po cichu pomijał potrzebne ramki.",
-        "uk": "Знімки тепер працюють на Curtain Lights (H70B3), Christmas Strings (H70C5) і Outdoor Neon (H61A8); на матричних — і сцени. LAN-міст Govee мовчки відкидав кадри.",
-        "zh-cn": "Curtain Lights (H70B3)、Christmas Strings (H70C5) 和 Outdoor Neon (H61A8) 的快照现在正常工作；矩阵灯具的场景也是——Govee LAN 网桥曾静默丢弃所需的帧。"
+        "en": "Snapshots on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8) now work; matrix-light scenes too. New quirks system: device-fixes ship via catalog, no release needed.",
+        "de": "Snapshots auf Curtain Lights (H70B3), Christmas Strings (H70C5) und Outdoor Neon (H61A8) funktionieren; Matrix-Light-Szenen auch. Neues Quirks-System: Geräte-Fixes via Katalog statt Release.",
+        "ru": "Снимки на Curtain Lights (H70B3), Christmas Strings (H70C5) и Outdoor Neon (H61A8) работают; и сцены на матричных. Новая система квирков: правки по каталогу, без релиза.",
+        "pt": "Snapshots em Curtain Lights (H70B3), Christmas Strings (H70C5), Outdoor Neon (H61A8) funcionam; cenas matrix também. Novo sistema de quirks: correções via catálogo, sem release.",
+        "nl": "Snapshots op Curtain Lights (H70B3), Christmas Strings (H70C5) en Outdoor Neon (H61A8) werken; matrix-scènes ook. Nieuw quirks-systeem: device-fixes via catalogus, geen release.",
+        "fr": "Snapshots sur Curtain Lights (H70B3), Christmas Strings (H70C5) et Outdoor Neon (H61A8) fonctionnent ; scènes matrix aussi. Nouveau système quirks : fixes via catalogue, sans release.",
+        "it": "Snapshot su Curtain Lights (H70B3), Christmas Strings (H70C5) e Outdoor Neon (H61A8) ok; scene matrix anche. Nuovo sistema quirks: fix via catalogo, senza release.",
+        "es": "Snapshots en Curtain Lights (H70B3), Christmas Strings (H70C5) y Outdoor Neon (H61A8) funcionan; escenas matrix también. Nuevo sistema quirks: arreglos por catálogo, sin release.",
+        "pl": "Snapshoty na Curtain Lights (H70B3), Christmas Strings (H70C5) i Outdoor Neon (H61A8) działają; sceny matrix też. Nowy system quirks: poprawki przez katalog, bez releasu.",
+        "uk": "Знімки на Curtain Lights (H70B3), Christmas Strings (H70C5) і Outdoor Neon (H61A8) працюють; сцени матричних теж. Нова система квірків: правки через каталог, без релізу.",
+        "zh-cn": "Curtain Lights (H70B3)、Christmas Strings (H70C5) 和 Outdoor Neon (H61A8) 的快照可用；矩阵场景也是。新增 quirks 系统：设备修复通过目录，无需新版本。"
       },
       "2.9.1": {
         "en": "Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable from the export alone. Groups now have their own diagnostics button.",

@@ -130,7 +130,8 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 -->
 ### 2.10.0 (2026-05-14)
 
-- Snapshots now work on Curtain Lights (H70B3), Christmas Strings (H70C5) and the Outdoor Neon Strip (H61A8); on the matrix-lights, scenes activate via Cloud too — Govee's LAN bridge silently dropped the required frames.
+- Snapshots on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8) now work; matrix-light scenes too.
+- New per-SKU quirks system: device-specific fixes ship via a one-line catalog entry, no full adapter release needed.
 
 ### 2.9.1 (2026-05-13)
 
