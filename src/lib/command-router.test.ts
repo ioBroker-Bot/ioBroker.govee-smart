@@ -445,12 +445,8 @@ describe("CommandRouter", () => {
       return makeDevice({
         sku: "H70B3",
         snapshots: [{ name: "Test", value: 3814455 }],
-        snapshotBleCmds: [
-          [
-            [0x33, 0x04, 0x64],
-            [0xa4, 0x00, 0x00, 0x01],
-          ],
-        ],
+        // snapshotBleCmds is base64-encoded packet groups (string[][][])
+        snapshotBleCmds: [[["MwRk", "pAAAAQ"]]],
         segmentCount: 0,
         ...opts,
       });
@@ -602,7 +598,7 @@ describe("CommandRouter", () => {
       const device = makeDevice({
         sku: "H9999", // unknown
         segmentCount: 0,
-        sceneLibrary: [{ name: "Aurora", sceneCode: 1, scenceParam: "abc", speedInfo: null }],
+        sceneLibrary: [{ name: "Aurora", sceneCode: 1, scenceParam: "abc" }],
       });
       await router.sendCommand(device, "lightScene", "1");
       // Heuristic routed to Cloud
