@@ -1,4 +1,10 @@
 # Older Changes
+## 2.8.2 (2026-05-11)
+
+- Snapshot refresh per device now also reloads the activation data — when you re-record a snapshot in the Govee app it takes effect right away, no manual cache reset.
+- Three redundant messages around optional device features are gone from the debug log.
+- Commands that don't reach the device on the local network now appear as a warning instead of failing silently.
+
 ## 2.8.1 (2026-05-11)
 
 - Info, warn and error logs are back to their normal short form. The channel-status prefix from 2.8.0 stays only in debug logs.

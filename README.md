@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.10.0 (2026-05-14)
 
 - Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8): snapshots and scenes now activate via Cloud — Govee's LAN bridge silently dropped the required frames.
 - Per-SKU routing quirks live in `devices.json` now; future device-specific fixes ship without an adapter update.
@@ -153,12 +153,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Debug log now covers every adapter path: App and Cloud API calls (with body snippets on null), cache load/save with age, state-writes, capability mapping, LAN command timing, MQTT login server reply.
 - Bug reports can be triaged from a debug log alone — no more "the adapter did nothing and didn't say why".
-
-### 2.8.2 (2026-05-11)
-
-- Snapshot refresh per device now also reloads the activation data — when you re-record a snapshot in the Govee app it takes effect right away, no manual cache reset.
-- Three redundant messages around optional device features are gone from the debug log.
-- Commands that don't reach the device on the local network now appear as a warning instead of failing silently.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
