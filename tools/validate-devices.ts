@@ -29,7 +29,21 @@ const ALLOWED_TYPES = new Set([
 
 const ALLOWED_STATUS = new Set(["verified", "reported", "seed"]);
 
-const KNOWN_QUIRK_FIELDS = new Set(["colorTempRange", "brokenPlatformApi"]);
+const KNOWN_QUIRK_FIELDS = new Set(["colorTempRange", "brokenPlatformApi", "transportOverrides"]);
+
+const ALLOWED_OVERRIDE_COMMANDS = new Set([
+  "power",
+  "brightness",
+  "colorRgb",
+  "colorTemperature",
+  "lightScene",
+  "diyScene",
+  "snapshot",
+  "gradientToggle",
+  "segmentBatch",
+]);
+
+const ALLOWED_TRANSPORT_TARGETS = new Set(["cloud", "lan"]);
 
 const SKU_RE = /^H[0-9A-Z]{4}$/;
 const SEMVER_RE = /^[0-9]+\.[0-9]+\.[0-9]+$/;
@@ -124,6 +138,27 @@ function validate(devicesJsonPath: string): Issue[] {
         }
         if (q.brokenPlatformApi !== undefined && typeof q.brokenPlatformApi !== "boolean") {
           issues.push({ sku, msg: "'brokenPlatformApi' must be boolean" });
+        }
+        if (q.transportOverrides !== undefined) {
+          const t = q.transportOverrides;
+          if (typeof t !== "object" || t === null || Array.isArray(t)) {
+            issues.push({ sku, msg: "'transportOverrides' must be an object" });
+          } else {
+            for (const [cmd, target] of Object.entries(t as Record<string, unknown>)) {
+              if (!ALLOWED_OVERRIDE_COMMANDS.has(cmd)) {
+                issues.push({
+                  sku,
+                  msg: `transportOverrides: unknown command '${cmd}' (allowed: ${[...ALLOWED_OVERRIDE_COMMANDS].join(", ")})`,
+                });
+              }
+              if (typeof target !== "string" || !ALLOWED_TRANSPORT_TARGETS.has(target)) {
+                issues.push({
+                  sku,
+                  msg: `transportOverrides['${cmd}']: invalid target '${String(target)}' (allowed: cloud, lan)`,
+                });
+              }
+            }
+          }
         }
       }
     }
