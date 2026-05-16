@@ -11,7 +11,7 @@
 - **GitHub:** https://github.com/krobipd/ioBroker.govee-smart
 - **npm:** https://www.npmjs.com/package/iobroker.govee-smart
 - **Runtime-Deps:** `@iobroker/adapter-core`, `mqtt`, `node-forge`
-- **Tests:** 685 custom (src/lib/*.test.ts) + 57 package + integration, lint clean
+- **Tests:** 836 unit (vitest, src/lib/*.test.ts) + 57 package + integration, lint clean
 - **Wiki:** komplett auditiert + bilingual EN/DE (https://github.com/krobipd/ioBroker.govee-smart/wiki)
 
 ## KRITISCH: LAN-first für Lights ist unantastbar!
@@ -314,7 +314,7 @@ Single Page, drei Sektionen:
 55. **Per-Device Button > globaler Button (v2.7.0)** — Wenn ein Refresh-Vorgang pro Gerät Sinn macht, gehört der Trigger pro Gerät unter den jeweiligen Channel — NICHT auf Adapter-Ebene. API-Budget: 5 Calls statt N×5. Discoverability: User klickt im selben Pfad wo das Refresh-Resultat erscheint, nicht in `info/*`. Gating in `capability-mapper.ts` über die relevante Capability — Thermometer/Sensor/Heater bekommen den Button gar nicht erst.
 56. **HTTP 200 mit empty body ≠ Fehler (v2.7.0)** — Undokumentierte Govee-App-Endpoints liefern für unbekannte SKUs HTTP 200 mit komplett leerem Body. `httpsRequest` in `http-client.ts` resolvet das jetzt als `null` statt zu werfen. Caller mit `resp?.data?.…` optional chaining + `Array.isArray` Guards bekommen das transparent — kein Debug-Spam mehr. Nur non-empty non-JSON wird weiter als Parse-Error gemeldet.
 
-## Tests (685 custom + 57 package + integration)
+## Tests (836 unit + 57 package + integration)
 
 ```
 test/testCapabilityMapper.ts → Capability Mapping + Cloud State Value Mapping + Quirks + Groups + Drift (80)
@@ -425,8 +425,9 @@ test/testPackageFiles.ts     → @iobroker/testing (57)
 ## Befehle
 
 ```bash
-npm run build        # Production (esbuild)
-npm run build:test   # Test build (tsc)
-npm test             # Build + mocha
+npm run build        # Production (esbuild via @iobroker/adapter-dev)
+npm run check        # tsc --noEmit type-check
+npm test             # vitest run + mocha package tests
+npm run coverage     # vitest --coverage
 npm run lint         # ESLint + Prettier
 ```
