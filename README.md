@@ -128,6 +128,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 2.11.1 (2026-05-16)
+
+- Internal cleanup. No user-facing changes.
+
 ### 2.11.0 (2026-05-16)
 
 - Security: the 2FA verification code is now stored encrypted (API key and Govee password were already encrypted in previous versions). If you had a 2FA code set, re-enter it once in the adapter settings.
@@ -150,10 +154,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 - Diagnostics now also captures outgoing LAN commands, raw cloud-events messages and live error/rate-limit state, so "the adapter went silent" reports are traceable end-to-end.
 - Groups now have their own diagnostics export button just like regular devices, so group-specific fan-out problems can be reported the same way.
 - Appliance and sensor values are now reflected in the runtime state shown in the export, not only in the state tree.
-
-### 2.9.0 (2026-05-13)
-
-- `info.online` for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive `true` during real outages.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
