@@ -80,6 +80,10 @@ export class MessageRouter {
         this.host.sendResponse(obj, response);
         return;
       }
+      // Unknown command — must respond, otherwise the admin sendTo() call
+      // hangs in its 5s timeout (pattern from beszel v0.4.4 H4 fix).
+      this.host.log.debug(`onMessage: unknown command '${obj.command}'`);
+      this.host.sendResponse(obj, { error: `Unknown command '${obj.command}'` });
     } catch (e) {
       this.host.log.warn(`onMessage failed for ${obj.command}: ${errMessage(e)}`);
       this.host.sendResponse(obj, { error: e instanceof Error ? e.message : String(e) });

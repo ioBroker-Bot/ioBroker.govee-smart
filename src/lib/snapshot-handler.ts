@@ -88,7 +88,7 @@ export class SnapshotHandler {
       savedAt: Date.now(),
     };
 
-    this.host.store.saveSnapshot(device.sku, device.deviceId, snapshot);
+    await this.host.store.saveSnapshot(device.sku, device.deviceId, snapshot);
     this.host.log.info(`Local snapshot saved: "${name}" for ${device.name}`);
     // Targeted refresh — only this device's snapshot_local dropdown changed.
     this.host.refreshDeviceStates(device);
@@ -174,8 +174,8 @@ export class SnapshotHandler {
    * @param device Target device
    * @param name Snapshot name to delete
    */
-  delete(device: GoveeDevice, name: string): void {
-    if (this.host.store.deleteSnapshot(device.sku, device.deviceId, name)) {
+  async delete(device: GoveeDevice, name: string): Promise<void> {
+    if (await this.host.store.deleteSnapshot(device.sku, device.deviceId, name)) {
       this.host.log.info(`Local snapshot deleted: "${name}" for ${device.name}`);
       // Targeted refresh — only this device's snapshot_local dropdown changed.
       this.host.refreshDeviceStates(device);

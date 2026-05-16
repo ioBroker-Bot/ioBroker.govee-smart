@@ -37,6 +37,7 @@ __export(state_change_router_exports, {
 });
 module.exports = __toCommonJS(state_change_router_exports);
 var import_device_manager = require("../device-manager");
+var import_govee_constants = require("../govee-constants");
 var import_types = require("../types");
 var cloudRetryHandler = __toESM(require("./cloud-retry-handler"));
 var diagnosticsHandler = __toESM(require("./diagnostics-handler"));
@@ -104,12 +105,7 @@ async function sendMusicCommand(adapter, device, prefix, changedSuffix, newValue
     sensitivity,
     autoColor
   };
-  await adapter.deviceManager.sendCapabilityCommand(
-    device,
-    "devices.capabilities.music_setting",
-    "musicMode",
-    structValue
-  );
+  await adapter.deviceManager.sendCapabilityCommand(device, import_govee_constants.GOVEE_CAP_TYPE.MUSIC_SETTING, "musicMode", structValue);
 }
 async function handleManualSegmentsChange(adapter, device, suffix, newValue) {
   const modeVal = suffix === "segments.manual_mode" ? Boolean(newValue) : device.manualMode === true;
@@ -214,7 +210,7 @@ async function onStateChange(adapter, id, state) {
     return;
   }
   if (stateSuffix === "snapshots.snapshot_delete" && typeof val === "string" && val.trim()) {
-    adapter.snapshotHandler.delete(device, val.trim());
+    await adapter.snapshotHandler.delete(device, val.trim());
     await adapter.setStateAsync(id, { val: "", ack: true });
     return;
   }

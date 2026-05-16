@@ -22,6 +22,7 @@ __export(mapping_exports, {
   cloudDeviceToGoveeDevice: () => cloudDeviceToGoveeDevice
 });
 module.exports = __toCommonJS(mapping_exports);
+var import_govee_constants = require("../govee-constants");
 function cloudDeviceToGoveeDevice(cd) {
   return {
     sku: cd.sku,
@@ -48,34 +49,34 @@ function buildCapabilitiesFromAppEntry(entry) {
   }
   if (typeof last.online === "boolean") {
     caps.push({
-      type: "devices.capabilities.online",
+      type: import_govee_constants.GOVEE_CAP_TYPE.ONLINE,
       instance: "online",
       state: { value: last.online }
     });
   }
   if (typeof last.tem === "number" && Number.isFinite(last.tem)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: import_govee_constants.GOVEE_CAP_TYPE.PROPERTY,
       instance: "sensorTemperature",
       state: { value: last.tem / 100 }
     });
   }
   if (typeof last.hum === "number" && Number.isFinite(last.hum)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: import_govee_constants.GOVEE_CAP_TYPE.PROPERTY,
       instance: "sensorHumidity",
       state: { value: last.hum / 100 }
     });
   }
   if (typeof last.battery === "number" && Number.isFinite(last.battery)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: import_govee_constants.GOVEE_CAP_TYPE.PROPERTY,
       instance: "battery",
       state: { value: last.battery }
     });
   } else if (entry.settings && typeof entry.settings.battery === "number" && Number.isFinite(entry.settings.battery)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: import_govee_constants.GOVEE_CAP_TYPE.PROPERTY,
       instance: "battery",
       state: { value: entry.settings.battery }
     });

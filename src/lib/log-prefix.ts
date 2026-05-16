@@ -30,7 +30,7 @@ export interface ChannelStatusSnapshot {
  *
  * @param snap Current channel-status snapshot from main.ts
  */
-export function formatChannelPrefix(snap: ChannelStatusSnapshot): string {
+function formatChannelPrefix(snap: ChannelStatusSnapshot): string {
   return `[LAN=${snap.lan} Cloud=${snap.cloud} MQTT=${snap.mqtt} OpenAPI=${snap.openapi}]`;
 }
 

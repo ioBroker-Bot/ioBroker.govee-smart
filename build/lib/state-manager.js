@@ -24,6 +24,7 @@ module.exports = __toCommonJS(state_manager_exports);
 var import_capability_mapper = require("./capability-mapper");
 var import_device_icons = require("./device-icons");
 var import_device_manager = require("./device-manager");
+var import_govee_constants = require("./govee-constants");
 var import_i18n_states = require("./i18n-states");
 var import_types = require("./types");
 function sanitize(str) {
@@ -108,18 +109,18 @@ const SYNTHETIC_STATE_META = {
   online: { type: "boolean", role: "indicator.connected", name: (0, import_i18n_states.tName)("online") },
   lackwater: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: (0, import_i18n_states.tName)("lackOfWater")
   },
   lackwaterevent: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: (0, import_i18n_states.tName)("lackOfWater")
   },
-  icefull: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  icefullevent: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  bodyappeared: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("bodyDetected") },
-  dirtdetected: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("dirtDetected") },
+  icefull: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
+  icefullevent: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
+  bodyappeared: { type: "boolean", role: "sensor.motion", name: (0, import_i18n_states.tName)("bodyDetected") },
+  dirtdetected: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("dirtDetected") },
   // sanitizeId(instance) Aliases — gleiche Meta wie raw-Form, decoupled
   // damit der Adapter beim ersten Sensor-State-Write den richtigen Channel
   // (sensor/ bzw. events/) anlegt.
@@ -143,18 +144,18 @@ const SYNTHETIC_STATE_META = {
   },
   lack_water: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: (0, import_i18n_states.tName)("lackOfWater")
   },
   lack_water_event: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: (0, import_i18n_states.tName)("lackOfWater")
   },
-  ice_full: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  ice_full_event: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  body_appeared: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("bodyDetected") },
-  dirt_detected: { type: "boolean", role: "indicator", name: (0, import_i18n_states.tName)("dirtDetected") }
+  ice_full: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
+  ice_full_event: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
+  body_appeared: { type: "boolean", role: "sensor.motion", name: (0, import_i18n_states.tName)("bodyDetected") },
+  dirt_detected: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("dirtDetected") }
 };
 class StateManager {
   adapter;
@@ -210,7 +211,7 @@ class StateManager {
       return;
     }
     existing.common = { ...existing.common, states: fresh };
-    await this.adapter.setObjectAsync(id, existing).catch(() => void 0);
+    await this.adapter.setObject(id, existing).catch(() => void 0);
   }
   /**
    * @param id Voller State-Pfad (`devices.X.info.Y`)
@@ -706,7 +707,7 @@ class StateManager {
     const set = (id, val) => {
       writes.push(this.adapter.setStateAsync(id, { val, ack: true }).catch(() => void 0));
     };
-    if (state.online !== void 0 && device.type !== "devices.types.light") {
+    if (state.online !== void 0 && device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
       set(`${prefix}.info.online`, state.online);
     }
     if (state.power !== void 0) {
@@ -1026,7 +1027,7 @@ class StateManager {
     const prefix = this.devicePrefix(device);
     const stateId = `${prefix}.info.online`;
     let desiredOnline;
-    if (device.type === "devices.types.light") {
+    if (device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
       desiredOnline = !!(device.lastLanReplyAt && Date.now() - device.lastLanReplyAt < 9e4);
     } else {
       desiredOnline = device.state.online === true;
@@ -1036,7 +1037,7 @@ class StateManager {
       await this.adapter.setStateAsync(stateId, { val: desiredOnline, ack: true }).catch(() => void 0);
     }
     let lightOnlineChanged = false;
-    if (device.type === "devices.types.light" && device.state.online !== desiredOnline) {
+    if (device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && device.state.online !== desiredOnline) {
       device.state.online = desiredOnline;
       lightOnlineChanged = true;
     }

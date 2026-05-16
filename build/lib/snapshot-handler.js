@@ -71,7 +71,7 @@ class SnapshotHandler {
       segments,
       savedAt: Date.now()
     };
-    this.host.store.saveSnapshot(device.sku, device.deviceId, snapshot);
+    await this.host.store.saveSnapshot(device.sku, device.deviceId, snapshot);
     this.host.log.info(`Local snapshot saved: "${name}" for ${device.name}`);
     this.host.refreshDeviceStates(device);
   }
@@ -141,8 +141,8 @@ class SnapshotHandler {
    * @param device Target device
    * @param name Snapshot name to delete
    */
-  delete(device, name) {
-    if (this.host.store.deleteSnapshot(device.sku, device.deviceId, name)) {
+  async delete(device, name) {
+    if (await this.host.store.deleteSnapshot(device.sku, device.deviceId, name)) {
       this.host.log.info(`Local snapshot deleted: "${name}" for ${device.name}`);
       this.host.refreshDeviceStates(device);
     } else {

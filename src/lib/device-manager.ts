@@ -2,6 +2,7 @@ import { hasDynamicSceneCapability } from "./capability-mapper";
 import { CommandRouter } from "./command-router";
 import { getDeviceTier, isSeedAndDormant } from "./device-registry";
 import { DiagnosticsCollector } from "./diagnostics";
+import { GOVEE_CAP_TYPE, GOVEE_DEVICE_TYPE } from "./govee-constants";
 import { logChannelFail, type ChannelDedupState } from "./log-channel-fail";
 import {
   deviceKey as deviceKeyHelper,
@@ -17,7 +18,7 @@ import type { AppDeviceEntry, GoveeApiClient } from "./govee-api-client";
 import type { GoveeCloudClient } from "./govee-cloud-client";
 import type { GoveeLanClient } from "./govee-lan-client";
 import type { RateLimiter } from "./rate-limiter";
-import type { SkuCache } from "./sku-cache";
+import type { CachedDeviceData, SkuCache } from "./sku-cache";
 import {
   classifyError,
   coerceFiniteNumber,
@@ -287,67 +288,92 @@ export class DeviceManager {
     if (!this.skuCache) {
       return false;
     }
-
     const cached = this.skuCache.loadAll();
     if (cached.length === 0) {
       return false;
     }
 
-    let changed = false;
     const nowMs = Date.now();
     for (const entry of cached) {
-      const key = this.deviceKey(entry.sku, entry.deviceId);
-      const existing = this.devices.get(key);
-      const ageDays =
-        typeof entry.lastSeenOnNetwork === "number" ? Math.round((nowMs - entry.lastSeenOnNetwork) / 86400000) : null;
-      const ageInfo = ageDays === null ? "no age data (legacy entry)" : `${ageDays}d since last seen`;
-      if (existing) {
-        // Merge cached data into LAN-discovered device. Segment-specific
-        // fields (segmentCount, manualMode, manualSegments) MUST be merged
-        // too — LAN discovery runs before the cache load on every start, so
-        // the existing-branch is the normal path. Missing these three meant
-        // every restart threw away the wizard/MQTT-learned segment state and
-        // fell back to Cloud's min-advertised count.
-        existing.name = entry.name || existing.name;
-        existing.type = entry.type || existing.type;
-        existing.capabilities = entry.capabilities;
-        existing.scenes = entry.scenes;
-        existing.diyScenes = entry.diyScenes;
-        existing.snapshots = entry.snapshots;
-        existing.sceneLibrary = entry.sceneLibrary;
-        existing.musicLibrary = entry.musicLibrary;
-        existing.diyLibrary = entry.diyLibrary;
-        existing.skuFeatures = entry.skuFeatures;
-        existing.snapshotBleCmds = entry.snapshotBleCmds;
-        existing.scenesChecked = entry.scenesChecked;
-        existing.lastSeenOnNetwork = entry.lastSeenOnNetwork;
-        existing.segmentCount = entry.segmentCount;
-        existing.manualMode = entry.manualMode;
-        existing.manualSegments = entry.manualSegments;
-        existing.channels.cloud = entry.capabilities.length > 0;
-        changed = true;
-        this.log.debug(
-          `Cache merged into LAN-discovered device ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`,
-        );
-      } else {
-        this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
-        changed = true;
-        this.log.debug(
-          `Cache restored (no LAN discovery yet) for ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`,
-        );
-      }
+      this.applyCachedEntry(entry, nowMs);
     }
+    this.log.info(`Loaded ${cached.length} device(s) from cache`);
 
-    if (changed) {
-      this.log.info(`Loaded ${cached.length} device(s) from cache`);
-    }
-
-    // Fire per-device phase callback right after merge. Devices with
-    // non-empty caps go into Cloud-phase immediately (cache counts as Cloud-
-    // data-ready); devices without caps stay in LAN-phase. The boot continues
-    // — Cloud-Load will refresh dropdowns/scenes/snapshots later via
-    // onCloudDataReady again (idempotent).
     const allDevices = this.getDevices();
+    this.firePostCachePhaseCallbacks(allDevices);
+
+    // Always refetch cloud data on startup if any light is present —
+    // snapshots are user-content (created dynamically in the Govee Home app)
+    // and would miss new entries if we relied solely on the cache. The
+    // refetch costs one call per light per startup, well within rate limits.
+    const hasLight = allDevices.some(d => d.type === GOVEE_DEVICE_TYPE.LIGHT);
+    if (hasLight) {
+      this.log.debug("Cache loaded — will refresh scenes/snapshots via Cloud");
+      return false;
+    }
+
+    // No lights — Cloud refetch not needed. Fill scenes from sceneLibrary
+    // for devices where Cloud scenes are missing.
+    for (const device of this.devices.values()) {
+      cacheHelpers.populateScenesFromLibrary(this, device);
+    }
+    return cached.length > 0;
+  }
+
+  /**
+   * Apply a single cached entry: merge into LAN-discovered device if present,
+   * otherwise create new from cache. Updates segment-specific fields too —
+   * LAN discovery runs before cache load on every start, so missing segment
+   * fields meant restart threw away wizard/MQTT-learned segment state.
+   *
+   * @param entry Cached entry from SkuCache
+   * @param nowMs Cached `Date.now()` for age calculation across the batch
+   */
+  private applyCachedEntry(entry: CachedDeviceData, nowMs: number): void {
+    const key = this.deviceKey(entry.sku, entry.deviceId);
+    const existing = this.devices.get(key);
+    const ageDays =
+      typeof entry.lastSeenOnNetwork === "number" ? Math.round((nowMs - entry.lastSeenOnNetwork) / 86400000) : null;
+    const ageInfo = ageDays === null ? "no age data (legacy entry)" : `${ageDays}d since last seen`;
+    if (existing) {
+      existing.name = entry.name || existing.name;
+      existing.type = entry.type || existing.type;
+      existing.capabilities = entry.capabilities;
+      existing.scenes = entry.scenes;
+      existing.diyScenes = entry.diyScenes;
+      existing.snapshots = entry.snapshots;
+      existing.sceneLibrary = entry.sceneLibrary;
+      existing.musicLibrary = entry.musicLibrary;
+      existing.diyLibrary = entry.diyLibrary;
+      existing.skuFeatures = entry.skuFeatures;
+      existing.snapshotBleCmds = entry.snapshotBleCmds;
+      existing.scenesChecked = entry.scenesChecked;
+      existing.lastSeenOnNetwork = entry.lastSeenOnNetwork;
+      existing.segmentCount = entry.segmentCount;
+      existing.manualMode = entry.manualMode;
+      existing.manualSegments = entry.manualSegments;
+      existing.channels.cloud = entry.capabilities.length > 0;
+      this.log.debug(
+        `Cache merged into LAN-discovered device ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`,
+      );
+    } else {
+      this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
+      this.log.debug(
+        `Cache restored (no LAN discovery yet) for ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`,
+      );
+    }
+  }
+
+  /**
+   * Fire per-device phase callback right after cache merge. Devices with
+   * non-empty caps go into Cloud-phase immediately (cache counts as Cloud-
+   * data-ready); devices without caps stay in LAN-phase. Cloud-Load later
+   * refreshes dropdowns/scenes/snapshots via onCloudDataReady again
+   * (idempotent).
+   *
+   * @param allDevices Snapshot from `getDevices()`, computed once by the caller
+   */
+  private firePostCachePhaseCallbacks(allDevices: GoveeDevice[]): void {
     for (const device of allDevices) {
       if (device.capabilities.length > 0) {
         this.onCloudDataReady?.(device, allDevices);
@@ -355,24 +381,6 @@ export class DeviceManager {
         this.onLanDeviceReady?.(device, allDevices);
       }
     }
-
-    // Always refetch cloud data on startup — scenesChecked is purely
-    // diagnostic now, not a gate. Snapshots are user-content (created
-    // dynamically in the Govee Home app) and would miss new entries if we
-    // relied solely on the cache. The refetch costs one call per light per
-    // startup, well within rate limits.
-    const hasLight = allDevices.some(d => d.type === "devices.types.light");
-    if (hasLight) {
-      this.log.debug("Cache loaded — will refresh scenes/snapshots via Cloud");
-      return false;
-    }
-
-    // Fill scenes from sceneLibrary for devices where Cloud scenes are missing
-    for (const device of this.devices.values()) {
-      cacheHelpers.populateScenesFromLibrary(this, device);
-    }
-
-    return cached.length > 0;
   }
 
   /**
@@ -422,7 +430,7 @@ export class DeviceManager {
           hasDynamicSceneCapability(caps, "lightScene") ||
           hasDynamicSceneCapability(caps, "diyScene") ||
           hasDynamicSceneCapability(caps, "snapshot");
-        const isLight = cd.type === "devices.types.light" || hasSceneCap;
+        const isLight = cd.type === GOVEE_DEVICE_TYPE.LIGHT || hasSceneCap;
         if (isLight) {
           const device = this.devices.get(this.deviceKey(cd.sku, cd.device));
           if (device) {
@@ -666,7 +674,7 @@ export class DeviceManager {
       const snapCap = caps.find(
         c =>
           c &&
-          c.type === "devices.capabilities.dynamic_scene" &&
+          c.type === GOVEE_CAP_TYPE.DYNAMIC_SCENE &&
           c.instance === "snapshot" &&
           Array.isArray(c.parameters?.options),
       );
@@ -945,77 +953,95 @@ export class DeviceManager {
    * @param lanDevice Discovered LAN device
    */
   handleLanDiscovery(lanDevice: LanDevice): void {
-    // Primärer Match — exakte Geräte-ID (colon-separated in Cloud, varies in LAN)
-    let matched: GoveeDevice | undefined;
+    const matched = this.findDeviceForLanDiscovery(lanDevice);
+    if (matched) {
+      this.applyLanDiscoveryToExisting(matched, lanDevice);
+    } else {
+      this.createLanOnlyDevice(lanDevice);
+    }
+  }
+
+  /**
+   * Locate the in-memory device that matches an incoming LAN-discovery
+   * frame. Primary key is the normalized deviceId; falls back to SKU only
+   * when EXACTLY ONE same-SKU device without lanIp exists — otherwise the
+   * wrong same-SKU device would get bound (`feedback_doppel_audit_pattern`).
+   *
+   * @param lanDevice Discovery frame from the LAN client
+   */
+  private findDeviceForLanDiscovery(lanDevice: LanDevice): GoveeDevice | undefined {
     for (const dev of this.devices.values()) {
       if (normalizeDeviceId(dev.deviceId) === normalizeDeviceId(lanDevice.device)) {
-        matched = dev;
-        break;
+        return dev;
       }
     }
-    // SKU-Fallback nur wenn EXACTLY ONE matchender Eintrag existiert.
-    // Bei mehreren same-SKU-devices ohne lanIp könnte sonst das falsche
-    // Gerät gebunden werden (Memory `feedback_doppel_audit_pattern`).
-    if (!matched) {
-      const skuMatches = Array.from(this.devices.values()).filter(dev => dev.sku === lanDevice.sku && !dev.lanIp);
-      if (skuMatches.length === 1) {
-        matched = skuMatches[0];
-      }
-    }
+    const skuMatches = Array.from(this.devices.values()).filter(dev => dev.sku === lanDevice.sku && !dev.lanIp);
+    return skuMatches.length === 1 ? skuMatches[0] : undefined;
+  }
 
-    if (matched) {
-      const ipChanged = matched.lanIp !== lanDevice.ip;
-      const wasOffline = matched.state.online !== true;
-      matched.lanIp = lanDevice.ip;
-      matched.channels.lan = true;
-      matched.lastSeenOnNetwork = Date.now();
-      matched.lastLanReplyAt = Date.now();
-      if (ipChanged) {
-        this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
-        this.onLanIpChanged?.(matched, lanDevice.ip);
-      }
-      // Discovery-Antwort beweist dass das Gerät am Netz ist. main.ts skipped
-      // den expliziten devStatus-Poll wenn MQTT connected ist, und MQTT pushed
-      // nur bei tatsächlichen Zustandswechseln — d.h. ohne diesen Pfad bleibt
-      // info.online für gecachte Lichter forever false.
-      if (wasOffline) {
-        matched.state.online = true;
-        this.onDeviceUpdate?.(matched, { online: true });
-      }
-    } else {
-      // LAN-only device (no Cloud data yet)
-      // Include short device ID suffix for uniqueness (multiple devices can share same SKU)
-      const shortId = normalizeDeviceId(lanDevice.device).slice(-4);
-      const device: GoveeDevice = {
-        sku: lanDevice.sku,
-        deviceId: lanDevice.device,
-        name: `${lanDevice.sku}_${shortId}`,
-        type: "devices.types.light",
-        lanIp: lanDevice.ip,
-        capabilities: [],
-        scenes: [],
-        diyScenes: [],
-        snapshots: [],
-        sceneLibrary: [],
-        musicLibrary: [],
-        diyLibrary: [],
-        skuFeatures: null,
-        lastSeenOnNetwork: Date.now(),
-        state: { online: true },
-        channels: { lan: true, mqtt: false, cloud: false },
-      };
-      this.devices.set(this.deviceKey(lanDevice.sku, lanDevice.device), device);
-      this.diagnostics.addLog(lanDevice.device, "info", `LAN-discovered at ${lanDevice.ip}`);
-      this.log.debug(
-        `LAN: new device sku=${lanDevice.sku} deviceId=${lanDevice.device} ip=${lanDevice.ip} reachable=yes`,
-      );
-      this.maybeNudgeSeedSku(lanDevice.sku, device.name);
-      // LAN-phase only — capabilities are empty at this point. Cloud-phase
-      // will fire later from cache-merge or loadFromCloud once caps arrive.
-      // Before v2.8.0 this fired a bulk onDeviceListChanged that triggered
-      // the wipe-and-recreate bug. (Issue #13)
-      this.onLanDeviceReady?.(device, this.getDevices());
+  /**
+   * Apply LAN-discovery data (IP, reachability, freshness) to an existing
+   * device. Marks it online and fires `onDeviceUpdate` if it was offline —
+   * Discovery-Antwort beweist dass das Gerät am Netz ist; ohne diesen Pfad
+   * bleibt info.online für gecachte Lichter forever false (MQTT pusht nur
+   * bei Zustandswechseln, main.ts skipped devStatus-Poll wenn MQTT up).
+   *
+   * @param matched The existing device to update
+   * @param lanDevice Discovery frame
+   */
+  private applyLanDiscoveryToExisting(matched: GoveeDevice, lanDevice: LanDevice): void {
+    const ipChanged = matched.lanIp !== lanDevice.ip;
+    const wasOffline = matched.state.online !== true;
+    matched.lanIp = lanDevice.ip;
+    matched.channels.lan = true;
+    matched.lastSeenOnNetwork = Date.now();
+    matched.lastLanReplyAt = Date.now();
+    if (ipChanged) {
+      this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
+      this.onLanIpChanged?.(matched, lanDevice.ip);
     }
+    if (wasOffline) {
+      matched.state.online = true;
+      this.onDeviceUpdate?.(matched, { online: true });
+    }
+  }
+
+  /**
+   * Create a new device record from a LAN discovery frame for a device that
+   * has no Cloud data yet. Capabilities stay empty; Cloud-phase fires later
+   * from cache-merge or loadFromCloud once caps arrive. Before v2.8.0 this
+   * fired a bulk onDeviceListChanged that triggered a wipe-and-recreate bug
+   * (Issue #13).
+   *
+   * @param lanDevice Discovery frame
+   */
+  private createLanOnlyDevice(lanDevice: LanDevice): void {
+    const shortId = normalizeDeviceId(lanDevice.device).slice(-4);
+    const device: GoveeDevice = {
+      sku: lanDevice.sku,
+      deviceId: lanDevice.device,
+      name: `${lanDevice.sku}_${shortId}`,
+      type: GOVEE_DEVICE_TYPE.LIGHT,
+      lanIp: lanDevice.ip,
+      capabilities: [],
+      scenes: [],
+      diyScenes: [],
+      snapshots: [],
+      sceneLibrary: [],
+      musicLibrary: [],
+      diyLibrary: [],
+      skuFeatures: null,
+      lastSeenOnNetwork: Date.now(),
+      state: { online: true },
+      channels: { lan: true, mqtt: false, cloud: false },
+    };
+    this.devices.set(this.deviceKey(lanDevice.sku, lanDevice.device), device);
+    this.diagnostics.addLog(lanDevice.device, "info", `LAN-discovered at ${lanDevice.ip}`);
+    this.log.debug(
+      `LAN: new device sku=${lanDevice.sku} deviceId=${lanDevice.device} ip=${lanDevice.ip} reachable=yes`,
+    );
+    this.maybeNudgeSeedSku(lanDevice.sku, device.name);
+    this.onLanDeviceReady?.(device, this.getDevices());
   }
 
   /**
@@ -1079,94 +1105,106 @@ export class DeviceManager {
       this.log.debug(`MQTT: Unknown device ${update.sku} ${update.device}`);
       return;
     }
-
     device.channels.mqtt = true;
     device.lastSeenOnNetwork = Date.now();
-    // MQTT-push proves the device talked to the Govee broker — but the broker
-    // can replay last-will / retained messages and buffer reconnect events.
-    // For Lights, info.online comes ONLY from LAN-direct replies (see
-    // StateManager.syncInfoOnline). MQTT-push still updates power/brightness/
-    // color but does NOT flip online for Lights. For Sensors/Appliances (which
-    // never use this AWS-IoT MQTT path), the field stays as before.
-    const state: Partial<DeviceState> = {};
-    if (device.type !== "devices.types.light") {
-      state.online = true;
-    }
-
-    if (update.state) {
-      // API-Boundary: Govee schickt gelegentlich brightness/onOff/color als
-      // String oder mit unerwarteten Typen. coerceFiniteNumber/coerceBool
-      // returnt null bei Drift → Feld bleibt unverändert (vorhandener Wert
-      // bleibt stehen, kein State-Schreibung mit kaputtem Wert).
-      const onOff = coerceFiniteNumber(update.state.onOff);
-      if (onOff !== null) {
-        state.power = onOff === 1;
-      }
-      const brightness = coerceFiniteNumber(update.state.brightness);
-      if (brightness !== null) {
-        state.brightness = brightness;
-      }
-      if (update.state.color && typeof update.state.color === "object") {
-        const r = coerceFiniteNumber((update.state.color as { r?: unknown }).r);
-        const g = coerceFiniteNumber((update.state.color as { g?: unknown }).g);
-        const b = coerceFiniteNumber((update.state.color as { b?: unknown }).b);
-        if (r !== null && g !== null && b !== null) {
-          state.colorRgb = rgbToHex(r, g, b);
-        }
-      }
-      // 0 = "not in colortemp mode" — drop intentionally (Govee-Konvention).
-      const ctk = coerceFiniteNumber(update.state.colorTemInKelvin);
-      if (ctk !== null && ctk > 0) {
-        state.colorTemperature = ctk;
-      }
-    }
-
-    // Merge into device state
+    const state = this.parseMqttStateUpdate(device, update);
     Object.assign(device.state, state);
     this.onDeviceUpdate?.(device, state);
-
-    // Parse per-segment data from BLE notification packets (AA A5).
-    // MQTT is authoritative for segment count — the device tells us what it
-    // actually has. Cloud only gives an initial best-guess from capabilities.
     if (update.op?.command) {
-      const segData = parseMqttSegmentData(update.op.command);
+      this.processMqttSegmentPacket(device, update.op.command);
+    }
+  }
 
-      if (segData.length > 0) {
-        const maxSeen = Math.max(...segData.map(s => s.index)) + 1;
-        const current = device.segmentCount ?? 0;
-        // L6 — Plausibilitäts-Cap: SEGMENT_HARD_MAX (55) ist die Govee-
-        // Protokoll-Obergrenze. Werte darüber kommen nur aus broken oder
-        // spoofed Paketen — niemals persistieren.
-        if (maxSeen > SEGMENT_HARD_MAX) {
-          this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${SEGMENT_HARD_MAX})`);
-          return;
-        }
-        if (maxSeen > current) {
-          this.log.info(
-            `${device.name}: detected ${maxSeen} segments via MQTT (was ${current}) — rebuilding state tree`,
-          );
-          device.segmentCount = maxSeen;
-          // Persist now so a restart starts from the real value instead of
-          // falling back to Cloud capabilities and deleting the extra slots.
-          if (this.skuCache) {
-            this.skuCache.save(cacheHelpers.goveeDeviceToCached(device));
-          }
-          // Skip per-segment sync for this push — the new datapoints don't
-          // exist yet. The next AA A5 push hits the fully-built tree.
-          this.onSegmentCountGrown?.(device);
-          return;
-        }
+  /**
+   * Translate an MQTT status payload into a `DeviceState` patch. API-Boundary
+   * defense: Govee schickt gelegentlich brightness/onOff/color als String —
+   * `coerceFiniteNumber` returnt null bei Drift, das Feld bleibt unverändert
+   * statt mit kaputtem Wert geschrieben zu werden.
+   *
+   * MQTT-push proves the device talked to the Govee broker — but the broker
+   * can replay last-will/retained messages. For Lights, info.online comes
+   * ONLY from LAN-direct replies (`StateManager.syncInfoOnline`). MQTT-push
+   * still updates power/brightness/color but does NOT flip online for Lights.
+   *
+   * @param device Target device (for type-check on online-flip)
+   * @param update MQTT status update from the AWS-IoT subscription
+   */
+  private parseMqttStateUpdate(device: GoveeDevice, update: MqttStatusUpdate): Partial<DeviceState> {
+    const state: Partial<DeviceState> = {};
+    if (device.type !== GOVEE_DEVICE_TYPE.LIGHT) {
+      state.online = true;
+    }
+    if (!update.state) {
+      return state;
+    }
+    const onOff = coerceFiniteNumber(update.state.onOff);
+    if (onOff !== null) {
+      state.power = onOff === 1;
+    }
+    const brightness = coerceFiniteNumber(update.state.brightness);
+    if (brightness !== null) {
+      state.brightness = brightness;
+    }
+    if (update.state.color && typeof update.state.color === "object") {
+      const r = coerceFiniteNumber((update.state.color as { r?: unknown }).r);
+      const g = coerceFiniteNumber((update.state.color as { g?: unknown }).g);
+      const b = coerceFiniteNumber((update.state.color as { b?: unknown }).b);
+      if (r !== null && g !== null && b !== null) {
+        state.colorRgb = rgbToHex(r, g, b);
       }
+    }
+    // 0 = "not in colortemp mode" — drop intentionally (Govee-Konvention).
+    const ctk = coerceFiniteNumber(update.state.colorTemInKelvin);
+    if (ctk !== null && ctk > 0) {
+      state.colorTemperature = ctk;
+    }
+    return state;
+  }
 
-      // Filter by manual-segments override if active — ignore indices the
-      // user has declared as "not physically present" (cut strip).
-      const filtered =
-        device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0
-          ? segData.filter(s => device.manualSegments!.includes(s.index))
-          : segData;
-      if (filtered.length > 0) {
-        this.onMqttSegmentUpdate?.(device, filtered);
+  /**
+   * Parse per-segment data from a BLE notification packet (AA A5) and either
+   * grow the segment tree if the device just reported a higher index than
+   * known, or forward filtered per-segment updates to the state-tree.
+   * MQTT is authoritative for segment count — the device tells us what it
+   * actually has; Cloud only gives an initial best-guess from capabilities.
+   *
+   * @param device Target device (segmentCount + manualSegments owner)
+   * @param opCommand Raw `op.command` payload from the MQTT update (string[] when AA A5)
+   */
+  private processMqttSegmentPacket(device: GoveeDevice, opCommand: string[]): void {
+    const segData = parseMqttSegmentData(opCommand);
+    if (segData.length === 0) {
+      return;
+    }
+    const maxSeen = Math.max(...segData.map(s => s.index)) + 1;
+    const current = device.segmentCount ?? 0;
+    // L6 — Plausibilitäts-Cap: SEGMENT_HARD_MAX (55) ist die Govee-Protokoll-
+    // Obergrenze. Werte darüber kommen nur aus broken/spoofed Paketen.
+    if (maxSeen > SEGMENT_HARD_MAX) {
+      this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${SEGMENT_HARD_MAX})`);
+      return;
+    }
+    if (maxSeen > current) {
+      this.log.info(`${device.name}: detected ${maxSeen} segments via MQTT (was ${current}) — rebuilding state tree`);
+      device.segmentCount = maxSeen;
+      // Persist now so a restart starts from the real value instead of
+      // falling back to Cloud capabilities and deleting the extra slots.
+      if (this.skuCache) {
+        this.skuCache.save(cacheHelpers.goveeDeviceToCached(device));
       }
+      // Skip per-segment sync for this push — the new datapoints don't exist
+      // yet. The next AA A5 push hits the fully-built tree.
+      this.onSegmentCountGrown?.(device);
+      return;
+    }
+    // Filter by manual-segments override if active — ignore indices the user
+    // has declared as "not physically present" (cut strip).
+    const filtered =
+      device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0
+        ? segData.filter(s => device.manualSegments!.includes(s.index))
+        : segData;
+    if (filtered.length > 0) {
+      this.onMqttSegmentUpdate?.(device, filtered);
     }
   }
 
@@ -1415,10 +1453,10 @@ export class DeviceManager {
           // LAN-direct replies (StateManager.syncInfoOnline). Govee's Cloud
           // cache lags real LAN reachability by minutes and produced 2×
           // false-positive `true` writes during the 2026-05-13 outage capture.
-          if (device.type !== "devices.types.light") {
+          if (device.type !== GOVEE_DEVICE_TYPE.LIGHT) {
             this.applyOnlineCap(device, caps);
           }
-          this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
+          this.diagnostics.recordApiSuccess(device.deviceId, "/device/rest/devices/v1/list", entry);
           return true;
         }),
       ),
@@ -1465,7 +1503,7 @@ export class DeviceManager {
    */
   public hasDeviceNeedingAppApi(): boolean {
     for (const dev of this.devices.values()) {
-      if (dev.type !== "devices.types.light" && dev.sku !== "BaseGroup") {
+      if (dev.type !== GOVEE_DEVICE_TYPE.LIGHT && dev.sku !== "BaseGroup") {
         return true;
       }
     }
@@ -1512,7 +1550,7 @@ export class DeviceManager {
     // Lights are excluded (info.online comes only from LAN-direct replies via
     // StateManager.syncInfoOnline). Defensive — OpenAPI-MQTT in practice only
     // carries appliance events, but the guard prevents future regressions.
-    if (device.type !== "devices.types.light") {
+    if (device.type !== GOVEE_DEVICE_TYPE.LIGHT) {
       this.applyOnlineCap(device, event.capabilities);
     }
   }

@@ -23,6 +23,7 @@ __export(cloud_merge_exports, {
 });
 module.exports = __toCommonJS(cloud_merge_exports);
 var import_device_registry = require("../device-registry");
+var import_govee_constants = require("../govee-constants");
 var import_mapping = require("./mapping");
 var import_lookups = require("./lookups");
 function mergeCloudDevices(adapter, cloudDevices) {
@@ -58,7 +59,7 @@ function applyOnlineCap(adapter, device, caps) {
   var _a;
   let online;
   for (const c of caps) {
-    if (c && typeof c.type === "string" && (c.type === "devices.capabilities.online" || c.type === "online") && c.state && typeof c.state.value === "boolean") {
+    if (c && typeof c.type === "string" && (c.type === import_govee_constants.GOVEE_CAP_TYPE.ONLINE || c.type === "online") && c.state && typeof c.state.value === "boolean") {
       online = c.state.value;
       break;
     }

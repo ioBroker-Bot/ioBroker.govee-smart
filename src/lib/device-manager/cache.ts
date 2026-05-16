@@ -1,3 +1,4 @@
+import { GOVEE_DEVICE_TYPE } from "../govee-constants";
 import type { CachedDeviceData, SkuCache } from "../sku-cache";
 import type { GoveeDevice } from "../types";
 
@@ -137,7 +138,7 @@ export function saveDevicesToCache(adapter: DeviceCacheAdapter): void {
   let cachedCount = 0;
   let skippedCount = 0;
   for (const device of adapter.devices.values()) {
-    const isLight = device.type === "devices.types.light";
+    const isLight = device.type === GOVEE_DEVICE_TYPE.LIGHT;
     if (isLight && !device.scenesChecked) {
       skippedCount++;
       adapter.log.debug(`Not caching ${device.name} (${device.sku}) — scenes not yet checked`);

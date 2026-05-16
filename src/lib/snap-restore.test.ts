@@ -36,11 +36,11 @@ function makeHost(opts: {
 
   const store = {
     getSnapshots: () => snapshots.slice(),
-    saveSnapshot: (_sku: string, _id: string, snap: LocalSnapshot) => {
+    saveSnapshot: async (_sku: string, _id: string, snap: LocalSnapshot): Promise<void> => {
       saved.push(snap);
       snapshots = snapshots.filter(s => s.name !== snap.name).concat(snap);
     },
-    deleteSnapshot: (_sku: string, _id: string, name: string) => {
+    deleteSnapshot: async (_sku: string, _id: string, name: string): Promise<boolean> => {
       const before = snapshots.length;
       snapshots = snapshots.filter(s => s.name !== name);
       const removed = before !== snapshots.length;
@@ -284,7 +284,7 @@ describe("SnapshotHandler", () => {
   });
 
   describe("delete", () => {
-    it("removes the named snapshot and triggers a refresh", () => {
+    it("removes the named snapshot and triggers a refresh", async () => {
       const snap: LocalSnapshot = {
         name: "GoAway",
         power: true,
@@ -295,15 +295,15 @@ describe("SnapshotHandler", () => {
       };
       const { host, deletedNames, refreshes } = makeHost({ initialSnapshots: [snap] });
       const handler = new SnapshotHandler(host);
-      handler.delete(makeDevice(), "GoAway");
+      await handler.delete(makeDevice(), "GoAway");
       expect(deletedNames).to.deep.equal(["GoAway"]);
       expect(refreshes).to.have.length(1);
     });
 
-    it("warns when name not found, no refresh fired", () => {
+    it("warns when name not found, no refresh fired", async () => {
       const { host, deletedNames, refreshes } = makeHost({});
       const handler = new SnapshotHandler(host);
-      handler.delete(makeDevice(), "NonExistent");
+      await handler.delete(makeDevice(), "NonExistent");
       expect(deletedNames).to.have.length(0);
       expect(refreshes).to.have.length(0);
     });

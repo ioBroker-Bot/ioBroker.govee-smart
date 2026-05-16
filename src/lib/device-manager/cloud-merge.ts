@@ -1,4 +1,5 @@
 import { getDeviceQuirks } from "../device-registry";
+import { GOVEE_CAP_TYPE } from "../govee-constants";
 import type { CloudDevice, CloudStateCapability, DeviceState, GoveeDevice } from "../types";
 import { cloudDeviceToGoveeDevice } from "./mapping";
 import { deviceKey } from "./lookups";
@@ -71,7 +72,7 @@ export function applyOnlineCap(adapter: CloudMergeAdapter, device: GoveeDevice, 
     if (
       c &&
       typeof c.type === "string" &&
-      (c.type === "devices.capabilities.online" || c.type === "online") &&
+      (c.type === GOVEE_CAP_TYPE.ONLINE || c.type === "online") &&
       c.state &&
       typeof c.state.value === "boolean"
     ) {

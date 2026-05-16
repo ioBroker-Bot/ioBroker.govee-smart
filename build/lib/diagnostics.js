@@ -236,16 +236,6 @@ class DiagnosticsCollector {
       body
     });
   }
-  /**
-   * @deprecated Use {@link recordApiSuccess} instead. Kept as a shim so
-   *   in-flight callers don't break during the v2.1.0 → v2.1.1 refactor.
-   * @param deviceId Govee device id
-   * @param endpoint Endpoint identifier
-   * @param body Response body
-   */
-  setApiResponse(deviceId, endpoint, body) {
-    this.recordApiSuccess(deviceId, endpoint, body);
-  }
   /** @param body Body to clone-via-JSON and cap at MAX_BODY_BYTES. */
   cloneAndCap(body) {
     try {

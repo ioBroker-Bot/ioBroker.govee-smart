@@ -41,6 +41,7 @@ var import_capability_mapper = require("./capability-mapper");
 var import_command_router = require("./command-router");
 var import_device_registry = require("./device-registry");
 var import_diagnostics = require("./diagnostics");
+var import_govee_constants = require("./govee-constants");
 var import_log_channel_fail = require("./log-channel-fail");
 var import_lookups = require("./device-manager/lookups");
 var import_mapping = require("./device-manager/mapping");
@@ -251,7 +252,6 @@ class DeviceManager {
    * Returns true if any devices were loaded (= Cloud not needed).
    */
   loadFromCache() {
-    var _a, _b;
     if (!this.skuCache) {
       return false;
     }
@@ -259,55 +259,14 @@ class DeviceManager {
     if (cached.length === 0) {
       return false;
     }
-    let changed = false;
     const nowMs = Date.now();
     for (const entry of cached) {
-      const key = this.deviceKey(entry.sku, entry.deviceId);
-      const existing = this.devices.get(key);
-      const ageDays = typeof entry.lastSeenOnNetwork === "number" ? Math.round((nowMs - entry.lastSeenOnNetwork) / 864e5) : null;
-      const ageInfo = ageDays === null ? "no age data (legacy entry)" : `${ageDays}d since last seen`;
-      if (existing) {
-        existing.name = entry.name || existing.name;
-        existing.type = entry.type || existing.type;
-        existing.capabilities = entry.capabilities;
-        existing.scenes = entry.scenes;
-        existing.diyScenes = entry.diyScenes;
-        existing.snapshots = entry.snapshots;
-        existing.sceneLibrary = entry.sceneLibrary;
-        existing.musicLibrary = entry.musicLibrary;
-        existing.diyLibrary = entry.diyLibrary;
-        existing.skuFeatures = entry.skuFeatures;
-        existing.snapshotBleCmds = entry.snapshotBleCmds;
-        existing.scenesChecked = entry.scenesChecked;
-        existing.lastSeenOnNetwork = entry.lastSeenOnNetwork;
-        existing.segmentCount = entry.segmentCount;
-        existing.manualMode = entry.manualMode;
-        existing.manualSegments = entry.manualSegments;
-        existing.channels.cloud = entry.capabilities.length > 0;
-        changed = true;
-        this.log.debug(
-          `Cache merged into LAN-discovered device ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`
-        );
-      } else {
-        this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
-        changed = true;
-        this.log.debug(
-          `Cache restored (no LAN discovery yet) for ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`
-        );
-      }
+      this.applyCachedEntry(entry, nowMs);
     }
-    if (changed) {
-      this.log.info(`Loaded ${cached.length} device(s) from cache`);
-    }
+    this.log.info(`Loaded ${cached.length} device(s) from cache`);
     const allDevices = this.getDevices();
-    for (const device of allDevices) {
-      if (device.capabilities.length > 0) {
-        (_a = this.onCloudDataReady) == null ? void 0 : _a.call(this, device, allDevices);
-      } else if (device.lanIp) {
-        (_b = this.onLanDeviceReady) == null ? void 0 : _b.call(this, device, allDevices);
-      }
-    }
-    const hasLight = allDevices.some((d) => d.type === "devices.types.light");
+    this.firePostCachePhaseCallbacks(allDevices);
+    const hasLight = allDevices.some((d) => d.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT);
     if (hasLight) {
       this.log.debug("Cache loaded \u2014 will refresh scenes/snapshots via Cloud");
       return false;
@@ -316,6 +275,67 @@ class DeviceManager {
       cacheHelpers.populateScenesFromLibrary(this, device);
     }
     return cached.length > 0;
+  }
+  /**
+   * Apply a single cached entry: merge into LAN-discovered device if present,
+   * otherwise create new from cache. Updates segment-specific fields too —
+   * LAN discovery runs before cache load on every start, so missing segment
+   * fields meant restart threw away wizard/MQTT-learned segment state.
+   *
+   * @param entry Cached entry from SkuCache
+   * @param nowMs Cached `Date.now()` for age calculation across the batch
+   */
+  applyCachedEntry(entry, nowMs) {
+    const key = this.deviceKey(entry.sku, entry.deviceId);
+    const existing = this.devices.get(key);
+    const ageDays = typeof entry.lastSeenOnNetwork === "number" ? Math.round((nowMs - entry.lastSeenOnNetwork) / 864e5) : null;
+    const ageInfo = ageDays === null ? "no age data (legacy entry)" : `${ageDays}d since last seen`;
+    if (existing) {
+      existing.name = entry.name || existing.name;
+      existing.type = entry.type || existing.type;
+      existing.capabilities = entry.capabilities;
+      existing.scenes = entry.scenes;
+      existing.diyScenes = entry.diyScenes;
+      existing.snapshots = entry.snapshots;
+      existing.sceneLibrary = entry.sceneLibrary;
+      existing.musicLibrary = entry.musicLibrary;
+      existing.diyLibrary = entry.diyLibrary;
+      existing.skuFeatures = entry.skuFeatures;
+      existing.snapshotBleCmds = entry.snapshotBleCmds;
+      existing.scenesChecked = entry.scenesChecked;
+      existing.lastSeenOnNetwork = entry.lastSeenOnNetwork;
+      existing.segmentCount = entry.segmentCount;
+      existing.manualMode = entry.manualMode;
+      existing.manualSegments = entry.manualSegments;
+      existing.channels.cloud = entry.capabilities.length > 0;
+      this.log.debug(
+        `Cache merged into LAN-discovered device ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`
+      );
+    } else {
+      this.devices.set(key, cacheHelpers.cachedToGoveeDevice(entry));
+      this.log.debug(
+        `Cache restored (no LAN discovery yet) for ${entry.sku} ${entry.deviceId} (${ageInfo}, caps=${entry.capabilities.length})`
+      );
+    }
+  }
+  /**
+   * Fire per-device phase callback right after cache merge. Devices with
+   * non-empty caps go into Cloud-phase immediately (cache counts as Cloud-
+   * data-ready); devices without caps stay in LAN-phase. Cloud-Load later
+   * refreshes dropdowns/scenes/snapshots via onCloudDataReady again
+   * (idempotent).
+   *
+   * @param allDevices Snapshot from `getDevices()`, computed once by the caller
+   */
+  firePostCachePhaseCallbacks(allDevices) {
+    var _a, _b;
+    for (const device of allDevices) {
+      if (device.capabilities.length > 0) {
+        (_a = this.onCloudDataReady) == null ? void 0 : _a.call(this, device, allDevices);
+      } else if (device.lanIp) {
+        (_b = this.onLanDeviceReady) == null ? void 0 : _b.call(this, device, allDevices);
+      }
+    }
   }
   /**
    * Load devices from Cloud API and save to cache.
@@ -340,7 +360,7 @@ class DeviceManager {
       for (const cd of cloudDevices) {
         const caps = Array.isArray(cd.capabilities) ? cd.capabilities : [];
         const hasSceneCap = (0, import_capability_mapper.hasDynamicSceneCapability)(caps, "lightScene") || (0, import_capability_mapper.hasDynamicSceneCapability)(caps, "diyScene") || (0, import_capability_mapper.hasDynamicSceneCapability)(caps, "snapshot");
-        const isLight = cd.type === "devices.types.light" || hasSceneCap;
+        const isLight = cd.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT || hasSceneCap;
         if (isLight) {
           const device = this.devices.get(this.deviceKey(cd.sku, cd.device));
           if (device) {
@@ -530,7 +550,7 @@ class DeviceManager {
       const snapCap = caps.find(
         (c) => {
           var _a2;
-          return c && c.type === "devices.capabilities.dynamic_scene" && c.instance === "snapshot" && Array.isArray((_a2 = c.parameters) == null ? void 0 : _a2.options);
+          return c && c.type === import_govee_constants.GOVEE_CAP_TYPE.DYNAMIC_SCENE && c.instance === "snapshot" && Array.isArray((_a2 = c.parameters) == null ? void 0 : _a2.options);
         }
       );
       if ((_a = snapCap == null ? void 0 : snapCap.parameters) == null ? void 0 : _a.options) {
@@ -759,63 +779,94 @@ class DeviceManager {
    * @param lanDevice Discovered LAN device
    */
   handleLanDiscovery(lanDevice) {
-    var _a, _b, _c;
-    let matched;
+    const matched = this.findDeviceForLanDiscovery(lanDevice);
+    if (matched) {
+      this.applyLanDiscoveryToExisting(matched, lanDevice);
+    } else {
+      this.createLanOnlyDevice(lanDevice);
+    }
+  }
+  /**
+   * Locate the in-memory device that matches an incoming LAN-discovery
+   * frame. Primary key is the normalized deviceId; falls back to SKU only
+   * when EXACTLY ONE same-SKU device without lanIp exists — otherwise the
+   * wrong same-SKU device would get bound (`feedback_doppel_audit_pattern`).
+   *
+   * @param lanDevice Discovery frame from the LAN client
+   */
+  findDeviceForLanDiscovery(lanDevice) {
     for (const dev of this.devices.values()) {
       if ((0, import_types.normalizeDeviceId)(dev.deviceId) === (0, import_types.normalizeDeviceId)(lanDevice.device)) {
-        matched = dev;
-        break;
+        return dev;
       }
     }
-    if (!matched) {
-      const skuMatches = Array.from(this.devices.values()).filter((dev) => dev.sku === lanDevice.sku && !dev.lanIp);
-      if (skuMatches.length === 1) {
-        matched = skuMatches[0];
-      }
+    const skuMatches = Array.from(this.devices.values()).filter((dev) => dev.sku === lanDevice.sku && !dev.lanIp);
+    return skuMatches.length === 1 ? skuMatches[0] : void 0;
+  }
+  /**
+   * Apply LAN-discovery data (IP, reachability, freshness) to an existing
+   * device. Marks it online and fires `onDeviceUpdate` if it was offline —
+   * Discovery-Antwort beweist dass das Gerät am Netz ist; ohne diesen Pfad
+   * bleibt info.online für gecachte Lichter forever false (MQTT pusht nur
+   * bei Zustandswechseln, main.ts skipped devStatus-Poll wenn MQTT up).
+   *
+   * @param matched The existing device to update
+   * @param lanDevice Discovery frame
+   */
+  applyLanDiscoveryToExisting(matched, lanDevice) {
+    var _a, _b;
+    const ipChanged = matched.lanIp !== lanDevice.ip;
+    const wasOffline = matched.state.online !== true;
+    matched.lanIp = lanDevice.ip;
+    matched.channels.lan = true;
+    matched.lastSeenOnNetwork = Date.now();
+    matched.lastLanReplyAt = Date.now();
+    if (ipChanged) {
+      this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
+      (_a = this.onLanIpChanged) == null ? void 0 : _a.call(this, matched, lanDevice.ip);
     }
-    if (matched) {
-      const ipChanged = matched.lanIp !== lanDevice.ip;
-      const wasOffline = matched.state.online !== true;
-      matched.lanIp = lanDevice.ip;
-      matched.channels.lan = true;
-      matched.lastSeenOnNetwork = Date.now();
-      matched.lastLanReplyAt = Date.now();
-      if (ipChanged) {
-        this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
-        (_a = this.onLanIpChanged) == null ? void 0 : _a.call(this, matched, lanDevice.ip);
-      }
-      if (wasOffline) {
-        matched.state.online = true;
-        (_b = this.onDeviceUpdate) == null ? void 0 : _b.call(this, matched, { online: true });
-      }
-    } else {
-      const shortId = (0, import_types.normalizeDeviceId)(lanDevice.device).slice(-4);
-      const device = {
-        sku: lanDevice.sku,
-        deviceId: lanDevice.device,
-        name: `${lanDevice.sku}_${shortId}`,
-        type: "devices.types.light",
-        lanIp: lanDevice.ip,
-        capabilities: [],
-        scenes: [],
-        diyScenes: [],
-        snapshots: [],
-        sceneLibrary: [],
-        musicLibrary: [],
-        diyLibrary: [],
-        skuFeatures: null,
-        lastSeenOnNetwork: Date.now(),
-        state: { online: true },
-        channels: { lan: true, mqtt: false, cloud: false }
-      };
-      this.devices.set(this.deviceKey(lanDevice.sku, lanDevice.device), device);
-      this.diagnostics.addLog(lanDevice.device, "info", `LAN-discovered at ${lanDevice.ip}`);
-      this.log.debug(
-        `LAN: new device sku=${lanDevice.sku} deviceId=${lanDevice.device} ip=${lanDevice.ip} reachable=yes`
-      );
-      this.maybeNudgeSeedSku(lanDevice.sku, device.name);
-      (_c = this.onLanDeviceReady) == null ? void 0 : _c.call(this, device, this.getDevices());
+    if (wasOffline) {
+      matched.state.online = true;
+      (_b = this.onDeviceUpdate) == null ? void 0 : _b.call(this, matched, { online: true });
     }
+  }
+  /**
+   * Create a new device record from a LAN discovery frame for a device that
+   * has no Cloud data yet. Capabilities stay empty; Cloud-phase fires later
+   * from cache-merge or loadFromCloud once caps arrive. Before v2.8.0 this
+   * fired a bulk onDeviceListChanged that triggered a wipe-and-recreate bug
+   * (Issue #13).
+   *
+   * @param lanDevice Discovery frame
+   */
+  createLanOnlyDevice(lanDevice) {
+    var _a;
+    const shortId = (0, import_types.normalizeDeviceId)(lanDevice.device).slice(-4);
+    const device = {
+      sku: lanDevice.sku,
+      deviceId: lanDevice.device,
+      name: `${lanDevice.sku}_${shortId}`,
+      type: import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT,
+      lanIp: lanDevice.ip,
+      capabilities: [],
+      scenes: [],
+      diyScenes: [],
+      snapshots: [],
+      sceneLibrary: [],
+      musicLibrary: [],
+      diyLibrary: [],
+      skuFeatures: null,
+      lastSeenOnNetwork: Date.now(),
+      state: { online: true },
+      channels: { lan: true, mqtt: false, cloud: false }
+    };
+    this.devices.set(this.deviceKey(lanDevice.sku, lanDevice.device), device);
+    this.diagnostics.addLog(lanDevice.device, "info", `LAN-discovered at ${lanDevice.ip}`);
+    this.log.debug(
+      `LAN: new device sku=${lanDevice.sku} deviceId=${lanDevice.device} ip=${lanDevice.ip} reachable=yes`
+    );
+    this.maybeNudgeSeedSku(lanDevice.sku, device.name);
+    (_a = this.onLanDeviceReady) == null ? void 0 : _a.call(this, device, this.getDevices());
   }
   /**
    * Log the device's trust tier — once per SKU per adapter lifetime, so
@@ -872,7 +923,7 @@ class DeviceManager {
    * @param update MQTT status message
    */
   handleMqttStatus(update) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b;
     const device = this.findDeviceBySkuAndId(update.sku, update.device);
     if (!device) {
       this.log.debug(`MQTT: Unknown device ${update.sku} ${update.device}`);
@@ -880,59 +931,91 @@ class DeviceManager {
     }
     device.channels.mqtt = true;
     device.lastSeenOnNetwork = Date.now();
-    const state = {};
-    if (device.type !== "devices.types.light") {
-      state.online = true;
-    }
-    if (update.state) {
-      const onOff = (0, import_types.coerceFiniteNumber)(update.state.onOff);
-      if (onOff !== null) {
-        state.power = onOff === 1;
-      }
-      const brightness = (0, import_types.coerceFiniteNumber)(update.state.brightness);
-      if (brightness !== null) {
-        state.brightness = brightness;
-      }
-      if (update.state.color && typeof update.state.color === "object") {
-        const r = (0, import_types.coerceFiniteNumber)(update.state.color.r);
-        const g = (0, import_types.coerceFiniteNumber)(update.state.color.g);
-        const b = (0, import_types.coerceFiniteNumber)(update.state.color.b);
-        if (r !== null && g !== null && b !== null) {
-          state.colorRgb = (0, import_types.rgbToHex)(r, g, b);
-        }
-      }
-      const ctk = (0, import_types.coerceFiniteNumber)(update.state.colorTemInKelvin);
-      if (ctk !== null && ctk > 0) {
-        state.colorTemperature = ctk;
-      }
-    }
+    const state = this.parseMqttStateUpdate(device, update);
     Object.assign(device.state, state);
     (_a = this.onDeviceUpdate) == null ? void 0 : _a.call(this, device, state);
     if ((_b = update.op) == null ? void 0 : _b.command) {
-      const segData = (0, import_lookups.parseMqttSegmentData)(update.op.command);
-      if (segData.length > 0) {
-        const maxSeen = Math.max(...segData.map((s) => s.index)) + 1;
-        const current = (_c = device.segmentCount) != null ? _c : 0;
-        if (maxSeen > import_lookups.SEGMENT_HARD_MAX) {
-          this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${import_lookups.SEGMENT_HARD_MAX})`);
-          return;
-        }
-        if (maxSeen > current) {
-          this.log.info(
-            `${device.name}: detected ${maxSeen} segments via MQTT (was ${current}) \u2014 rebuilding state tree`
-          );
-          device.segmentCount = maxSeen;
-          if (this.skuCache) {
-            this.skuCache.save(cacheHelpers.goveeDeviceToCached(device));
-          }
-          (_d = this.onSegmentCountGrown) == null ? void 0 : _d.call(this, device);
-          return;
-        }
+      this.processMqttSegmentPacket(device, update.op.command);
+    }
+  }
+  /**
+   * Translate an MQTT status payload into a `DeviceState` patch. API-Boundary
+   * defense: Govee schickt gelegentlich brightness/onOff/color als String —
+   * `coerceFiniteNumber` returnt null bei Drift, das Feld bleibt unverändert
+   * statt mit kaputtem Wert geschrieben zu werden.
+   *
+   * MQTT-push proves the device talked to the Govee broker — but the broker
+   * can replay last-will/retained messages. For Lights, info.online comes
+   * ONLY from LAN-direct replies (`StateManager.syncInfoOnline`). MQTT-push
+   * still updates power/brightness/color but does NOT flip online for Lights.
+   *
+   * @param device Target device (for type-check on online-flip)
+   * @param update MQTT status update from the AWS-IoT subscription
+   */
+  parseMqttStateUpdate(device, update) {
+    const state = {};
+    if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
+      state.online = true;
+    }
+    if (!update.state) {
+      return state;
+    }
+    const onOff = (0, import_types.coerceFiniteNumber)(update.state.onOff);
+    if (onOff !== null) {
+      state.power = onOff === 1;
+    }
+    const brightness = (0, import_types.coerceFiniteNumber)(update.state.brightness);
+    if (brightness !== null) {
+      state.brightness = brightness;
+    }
+    if (update.state.color && typeof update.state.color === "object") {
+      const r = (0, import_types.coerceFiniteNumber)(update.state.color.r);
+      const g = (0, import_types.coerceFiniteNumber)(update.state.color.g);
+      const b = (0, import_types.coerceFiniteNumber)(update.state.color.b);
+      if (r !== null && g !== null && b !== null) {
+        state.colorRgb = (0, import_types.rgbToHex)(r, g, b);
       }
-      const filtered = device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0 ? segData.filter((s) => device.manualSegments.includes(s.index)) : segData;
-      if (filtered.length > 0) {
-        (_e = this.onMqttSegmentUpdate) == null ? void 0 : _e.call(this, device, filtered);
+    }
+    const ctk = (0, import_types.coerceFiniteNumber)(update.state.colorTemInKelvin);
+    if (ctk !== null && ctk > 0) {
+      state.colorTemperature = ctk;
+    }
+    return state;
+  }
+  /**
+   * Parse per-segment data from a BLE notification packet (AA A5) and either
+   * grow the segment tree if the device just reported a higher index than
+   * known, or forward filtered per-segment updates to the state-tree.
+   * MQTT is authoritative for segment count — the device tells us what it
+   * actually has; Cloud only gives an initial best-guess from capabilities.
+   *
+   * @param device Target device (segmentCount + manualSegments owner)
+   * @param opCommand Raw `op.command` payload from the MQTT update (string[] when AA A5)
+   */
+  processMqttSegmentPacket(device, opCommand) {
+    var _a, _b, _c;
+    const segData = (0, import_lookups.parseMqttSegmentData)(opCommand);
+    if (segData.length === 0) {
+      return;
+    }
+    const maxSeen = Math.max(...segData.map((s) => s.index)) + 1;
+    const current = (_a = device.segmentCount) != null ? _a : 0;
+    if (maxSeen > import_lookups.SEGMENT_HARD_MAX) {
+      this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${import_lookups.SEGMENT_HARD_MAX})`);
+      return;
+    }
+    if (maxSeen > current) {
+      this.log.info(`${device.name}: detected ${maxSeen} segments via MQTT (was ${current}) \u2014 rebuilding state tree`);
+      device.segmentCount = maxSeen;
+      if (this.skuCache) {
+        this.skuCache.save(cacheHelpers.goveeDeviceToCached(device));
       }
+      (_b = this.onSegmentCountGrown) == null ? void 0 : _b.call(this, device);
+      return;
+    }
+    const filtered = device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0 ? segData.filter((s) => device.manualSegments.includes(s.index)) : segData;
+    if (filtered.length > 0) {
+      (_c = this.onMqttSegmentUpdate) == null ? void 0 : _c.call(this, device, filtered);
     }
   }
   /**
@@ -1123,10 +1206,10 @@ class DeviceManager {
             return false;
           }
           (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, caps);
-          if (device.type !== "devices.types.light") {
+          if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
             this.applyOnlineCap(device, caps);
           }
-          this.diagnostics.setApiResponse(device.deviceId, "/device/rest/devices/v1/list", entry);
+          this.diagnostics.recordApiSuccess(device.deviceId, "/device/rest/devices/v1/list", entry);
           return true;
         })
       )
@@ -1170,7 +1253,7 @@ class DeviceManager {
    */
   hasDeviceNeedingAppApi() {
     for (const dev of this.devices.values()) {
-      if (dev.type !== "devices.types.light" && dev.sku !== "BaseGroup") {
+      if (dev.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && dev.sku !== "BaseGroup") {
         return true;
       }
     }
@@ -1208,7 +1291,7 @@ class DeviceManager {
       `OpenAPI-MQTT event for ${device.sku}: ${event.capabilities.length} cap(s) [${capSummary}]`
     );
     (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, event.capabilities);
-    if (device.type !== "devices.types.light") {
+    if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
       this.applyOnlineCap(device, event.capabilities);
     }
   }

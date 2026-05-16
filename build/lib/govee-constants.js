@@ -20,12 +20,43 @@ var govee_constants_exports = {};
 __export(govee_constants_exports, {
   GOVEE_APP_BASE_URL: () => GOVEE_APP_BASE_URL,
   GOVEE_APP_VERSION: () => GOVEE_APP_VERSION,
+  GOVEE_CAP_TYPE: () => GOVEE_CAP_TYPE,
   GOVEE_CLIENT_TYPE: () => GOVEE_CLIENT_TYPE,
+  GOVEE_DEVICE_TYPE: () => GOVEE_DEVICE_TYPE,
   GOVEE_USER_AGENT: () => GOVEE_USER_AGENT,
   deriveGoveeClientId: () => deriveGoveeClientId
 });
 module.exports = __toCommonJS(govee_constants_exports);
 var import_uuid = require("uuid");
+const GOVEE_CAP_TYPE = {
+  ON_OFF: "devices.capabilities.on_off",
+  RANGE: "devices.capabilities.range",
+  COLOR_SETTING: "devices.capabilities.color_setting",
+  SEGMENT_COLOR_SETTING: "devices.capabilities.segment_color_setting",
+  DYNAMIC_SCENE: "devices.capabilities.dynamic_scene",
+  PROPERTY: "devices.capabilities.property",
+  TOGGLE: "devices.capabilities.toggle",
+  MUSIC_SETTING: "devices.capabilities.music_setting",
+  MODE: "devices.capabilities.mode",
+  ONLINE: "devices.capabilities.online",
+  WORK_MODE: "devices.capabilities.work_mode",
+  TEMPERATURE_SETTING: "devices.capabilities.temperature_setting",
+  EVENT: "devices.capabilities.event"
+};
+const GOVEE_DEVICE_TYPE = {
+  LIGHT: "devices.types.light",
+  THERMOMETER: "devices.types.thermometer",
+  SENSOR: "devices.types.sensor",
+  HEATER: "devices.types.heater",
+  HUMIDIFIER: "devices.types.humidifier",
+  DEHUMIDIFIER: "devices.types.dehumidifier",
+  FAN: "devices.types.fan",
+  AIR_PURIFIER: "devices.types.air_purifier",
+  SOCKET: "devices.types.socket",
+  KETTLE: "devices.types.kettle",
+  ICE_MAKER: "devices.types.ice_maker",
+  AROMA_DIFFUSER: "devices.types.aroma_diffuser"
+};
 const GOVEE_APP_VERSION = "7.4.30";
 const GOVEE_CLIENT_TYPE = "1";
 const GOVEE_USER_AGENT = `GoveeHome/${GOVEE_APP_VERSION} (com.ihoment.GoVeeSensor; build:8; iOS 26.5.0) Alamofire/5.11.0`;
@@ -38,7 +69,9 @@ function deriveGoveeClientId(email) {
 0 && (module.exports = {
   GOVEE_APP_BASE_URL,
   GOVEE_APP_VERSION,
+  GOVEE_CAP_TYPE,
   GOVEE_CLIENT_TYPE,
+  GOVEE_DEVICE_TYPE,
   GOVEE_USER_AGENT,
   deriveGoveeClientId
 });

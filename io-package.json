@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.10.1",
     "news": {
+      "NEXT": {
+        "en": "Security: credentials encrypted — re-enter API key, Govee password and 2FA code once. Local snapshots backed up via ioBroker (auto-migration). sendTo with unknown command no longer hangs.",
+        "de": "Sicherheit: Credentials verschlüsselt — API-Key, Govee-Passwort und 2FA-Code einmal neu eingeben. Lokale Snapshots im ioBroker-Backup (Auto-Migration). sendTo bei unbekanntem Befehl hängt nicht mehr.",
+        "ru": "Безопасность: данные зашифрованы — заново введите API-ключ, пароль Govee и 2FA-код. Локальные снепшоты в бэкапе ioBroker (автомиграция). sendTo с неизвестной командой не зависает.",
+        "pt": "Segurança: credenciais cifradas — reintroduza API key, palavra-passe Govee e código 2FA uma vez. Snapshots locais nos backups ioBroker (auto-migração). sendTo desconhecido não bloqueia.",
+        "nl": "Beveiliging: inloggegevens versleuteld — voer API-sleutel, Govee-wachtwoord en 2FA-code eenmaal opnieuw in. Lokale snapshots in ioBroker-back-ups (auto-migratie). sendTo blokkeert niet meer.",
+        "fr": "Sécurité : identifiants chiffrés — ressaisir clé API, mot de passe Govee et code 2FA une fois. Snapshots locaux dans les sauvegardes ioBroker (migration auto). sendTo inconnu ne bloque plus.",
+        "it": "Sicurezza: credenziali cifrate — reinserire API key, password Govee e codice 2FA una volta. Snapshot locali nei backup ioBroker (migrazione automatica). sendTo sconosciuto non si blocca.",
+        "es": "Seguridad: credenciales cifradas — reintroduce clave API, contraseña Govee y código 2FA una vez. Snapshots locales en copias de seguridad ioBroker (migración auto). sendTo desconocido no se cuelga.",
+        "pl": "Bezpieczeństwo: dane zaszyfrowane — wpisz ponownie klucz API, hasło Govee i kod 2FA. Lokalne migawki w kopiach ioBroker (auto-migracja). sendTo z nieznanym poleceniem nie zawiesza się.",
+        "uk": "Безпека: дані зашифровані — введіть знову API-ключ, пароль Govee і 2FA-код. Локальні снапшоти в резервних копіях ioBroker (автоміграція). sendTo з невідомою командою не зависає.",
+        "zh-cn": "安全：凭据已加密——请重新输入一次 API 密钥、Govee 密码和 2FA 代码。本地快照纳入 ioBroker 备份（自动迁移）。sendTo 收到未知命令不再挂起。"
+      },
       "2.10.1": {
         "en": "Cleaner adapter log: each connected channel now shows ✓ or ✗ status. Cloud and network errors come as readable user-messages with a retry hint instead of raw Node internals.",
         "de": "Klarere Adapter-Logs: jeder verbundene Channel wird mit ✓ oder ✗ angezeigt. Cloud- und Netzwerk-Fehler kommen als lesbare User-Meldungen mit Retry-Hinweis statt roher Node-Interna.",
@@ -80,19 +93,6 @@
         "pl": "Debug-log obejmuje każdą ścieżkę adaptera: App/Cloud API, cache, zapisy stanu, mapowanie capabilities, timing LAN, login MQTT — bug-raporty z samego loga.",
         "uk": "Debug-лог охоплює кожен шлях адаптера: App/Cloud API, кеш, записи стану, мапінг capabilities, тайминг LAN, MQTT-логін — баг-репорти лише з лога.",
         "zh-cn": "debug 日志覆盖每条适配器路径：App/Cloud API、缓存、状态写、capability 映射、LAN 时序、MQTT 登录——bug 报告仅靠日志即可分类。"
-      },
-      "2.8.2": {
-        "en": "Per-device snapshot refresh also reloads activation data — re-recorded snapshots work right away. Cleaner debug log. Failed local commands appear as a warning.",
-        "de": "Snapshot-Refresh am Gerät lädt jetzt auch die Aktivierungs-Daten — neu aufgenommene Snapshots greifen sofort. Sauberes Debug-Log. Fehlgeschlagene lokale Befehle als Warnung.",
-        "ru": "Обновление снепшота на устройстве теперь перезагружает и данные активации — пересозданные снепшоты работают сразу. Чище debug-лог. Неудачные локальные команды — как warning.",
-        "pt": "Atualização do snapshot por dispositivo recarrega também os dados de ativação — snapshots regravados funcionam de imediato. Debug log mais limpo. Comandos locais falhados como aviso.",
-        "nl": "Snapshot-vernieuwen per apparaat herlaadt ook activatiegegevens — heropgenomen snapshots werken direct. Schoner debug-log. Mislukte lokale opdrachten als waarschuwing.",
-        "fr": "L'actualisation snapshot par appareil recharge aussi les données d'activation — les snapshots ré-enregistrés s'activent direct. Journal debug propre. Commandes locales en échec en warning.",
-        "it": "L'aggiornamento snapshot per dispositivo ricarica anche i dati di attivazione — gli snapshot ri-registrati funzionano subito. Log debug pulito. Comandi locali falliti come avviso.",
-        "es": "La actualización por dispositivo recarga también los datos de activación del snapshot — snapshots regrabados funcionan al instante. Log debug limpio. Comandos locales fallidos como aviso.",
-        "pl": "Odświeżanie migawki na urządzeniu odświeża też dane aktywacji — ponownie nagrane migawki działają od razu. Czysty debug-log. Nieudane lokalne polecenia jako ostrzeżenie.",
-        "uk": "Оновлення снепшоту на пристрої перезавантажує і дані активації — перезаписані снепшоти діють одразу. Чистий debug-лог. Невдалі локальні команди як warning.",
-        "zh-cn": "每个设备的快照刷新现在也会重载激活数据——重新录制的快照立刻生效。debug 日志更干净。本地命令失败时以警告级别记录。"
       }
     },
     "titleLang": {
@@ -170,11 +170,14 @@
   },
   "encryptedNative": [
     "apiKey",
-    "goveePassword"
+    "goveePassword",
+    "mqttVerificationCode"
   ],
   "protectedNative": [
     "apiKey",
-    "goveePassword"
+    "goveeEmail",
+    "goveePassword",
+    "mqttVerificationCode"
   ],
   "instanceObjects": [
     {
@@ -341,6 +344,28 @@
           "uk": "Групи",
           "zh-cn": "组"
         }
+      },
+      "native": {}
+    },
+    {
+      "_id": "snapshots",
+      "type": "meta",
+      "common": {
+        "name": {
+          "en": "User-saved local snapshots",
+          "de": "Benutzer-Snapshots",
+          "ru": "Пользовательские снепшоты",
+          "pt": "Snapshots do utilizador",
+          "nl": "Door gebruiker opgeslagen snapshots",
+          "fr": "Snapshots utilisateur",
+          "it": "Snapshot utente",
+          "es": "Snapshots del usuario",
+          "pl": "Migawki użytkownika",
+          "uk": "Користувацькі снапшоти",
+          "zh-cn": "用户保存的快照"
+        },
+        "type": "meta.user",
+        "role": "meta.user"
       },
       "native": {}
     }

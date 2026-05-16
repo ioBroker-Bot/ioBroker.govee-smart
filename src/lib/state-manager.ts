@@ -2,6 +2,7 @@ import type * as utils from "@iobroker/adapter-core";
 import { buildLanStateDefs, LAN_STATE_IDS, type StateDefinition } from "./capability-mapper";
 import { GROUP_ICON, iconForGoveeType, shortenGoveeType } from "./device-icons";
 import { resolveSegmentCount } from "./device-manager";
+import { GOVEE_DEVICE_TYPE } from "./govee-constants";
 import { tDesc, tName } from "./i18n-states";
 import { normalizeDeviceId, type DeviceState, type GoveeDevice } from "./types";
 
@@ -151,18 +152,18 @@ const SYNTHETIC_STATE_META: Record<string, SyntheticStateMeta> = {
   online: { type: "boolean", role: "indicator.connected", name: tName("online") },
   lackwater: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: tName("lackOfWater"),
   },
   lackwaterevent: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: tName("lackOfWater"),
   },
-  icefull: { type: "boolean", role: "indicator", name: tName("iceBucketFull") },
-  icefullevent: { type: "boolean", role: "indicator", name: tName("iceBucketFull") },
-  bodyappeared: { type: "boolean", role: "indicator", name: tName("bodyDetected") },
-  dirtdetected: { type: "boolean", role: "indicator", name: tName("dirtDetected") },
+  icefull: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
+  icefullevent: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
+  bodyappeared: { type: "boolean", role: "sensor.motion", name: tName("bodyDetected") },
+  dirtdetected: { type: "boolean", role: "indicator.maintenance", name: tName("dirtDetected") },
   // sanitizeId(instance) Aliases — gleiche Meta wie raw-Form, decoupled
   // damit der Adapter beim ersten Sensor-State-Write den richtigen Channel
   // (sensor/ bzw. events/) anlegt.
@@ -186,18 +187,18 @@ const SYNTHETIC_STATE_META: Record<string, SyntheticStateMeta> = {
   },
   lack_water: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: tName("lackOfWater"),
   },
   lack_water_event: {
     type: "boolean",
-    role: "indicator.alarm",
+    role: "indicator.maintenance",
     name: tName("lackOfWater"),
   },
-  ice_full: { type: "boolean", role: "indicator", name: tName("iceBucketFull") },
-  ice_full_event: { type: "boolean", role: "indicator", name: tName("iceBucketFull") },
-  body_appeared: { type: "boolean", role: "indicator", name: tName("bodyDetected") },
-  dirt_detected: { type: "boolean", role: "indicator", name: tName("dirtDetected") },
+  ice_full: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
+  ice_full_event: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
+  body_appeared: { type: "boolean", role: "sensor.motion", name: tName("bodyDetected") },
+  dirt_detected: { type: "boolean", role: "indicator.maintenance", name: tName("dirtDetected") },
 };
 
 /** Manages ioBroker state creation and updates for Govee devices */
@@ -256,7 +257,8 @@ export class StateManager {
       return;
     }
     existing.common = { ...existing.common, states: fresh } as ioBroker.StateCommon;
-    await this.adapter.setObjectAsync(id, existing).catch(() => undefined);
+    // setObject is promise-correct since js-controller 7.0.4; setObjectAsync deprecated.
+    await this.adapter.setObject(id, existing).catch(() => undefined);
   }
 
   /**
@@ -421,7 +423,7 @@ export class StateManager {
         name: device.name,
         icon,
         statusStates: { onlineId },
-      } as ioBroker.DeviceCommon,
+      },
       native: {
         sku: device.sku,
         deviceId: device.deviceId,
@@ -632,7 +634,7 @@ export class StateManager {
 
         await this.adapter.extendObjectAsync(`${prefix}.${channel}.${def.id}`, {
           type: "state",
-          common: common as ioBroker.StateCommon,
+          common: common,
           native: {
             capabilityType: def.capabilityType,
             capabilityInstance: def.capabilityInstance,
@@ -725,7 +727,7 @@ export class StateManager {
         write: true,
         def: false,
         desc: tDesc("manualSegmentsDesc"),
-      } as ioBroker.StateCommon,
+      },
       native: {},
     });
     await this.adapter.extendObjectAsync(`${prefix}.segments.manual_list`, {
@@ -738,7 +740,7 @@ export class StateManager {
         write: true,
         def: "",
         desc: tDesc("manualListDesc"),
-      } as ioBroker.StateCommon,
+      },
       native: {},
     });
 
@@ -774,7 +776,7 @@ export class StateManager {
           role: "level.color.rgb",
           read: true,
           write: true,
-        } as ioBroker.StateCommon,
+        },
         native: {},
       });
 
@@ -789,7 +791,7 @@ export class StateManager {
           min: 0,
           max: 100,
           unit: "%",
-        } as ioBroker.StateCommon,
+        },
         native: {},
       });
     }
@@ -804,7 +806,7 @@ export class StateManager {
         read: false,
         write: true,
         desc: tDesc("batchCommandDesc"),
-      } as ioBroker.StateCommon,
+      },
       native: {},
     });
 
@@ -875,7 +877,7 @@ export class StateManager {
     // the false-positive `true` writes from Cloud/MQTT paths. For Sensors/
     // Appliances the existing flow stays (applyOnlineCap → onDeviceUpdate →
     // here → info.online).
-    if (state.online !== undefined && device.type !== "devices.types.light") {
+    if (state.online !== undefined && device.type !== GOVEE_DEVICE_TYPE.LIGHT) {
       set(`${prefix}.info.online`, state.online);
     }
     if (state.power !== undefined) {
@@ -1199,7 +1201,7 @@ export class StateManager {
     }
     await this.adapter.extendObjectAsync(id, {
       type: "state",
-      common: common as ioBroker.StateCommon,
+      common: common,
       native: {},
     });
     this.ensuredStates.add(id);
@@ -1242,7 +1244,7 @@ export class StateManager {
     const stateId = `${prefix}.info.online`;
 
     let desiredOnline: boolean;
-    if (device.type === "devices.types.light") {
+    if (device.type === GOVEE_DEVICE_TYPE.LIGHT) {
       desiredOnline = !!(device.lastLanReplyAt && Date.now() - device.lastLanReplyAt < 90_000);
     } else {
       desiredOnline = device.state.online === true;
@@ -1254,7 +1256,7 @@ export class StateManager {
     }
 
     let lightOnlineChanged = false;
-    if (device.type === "devices.types.light" && device.state.online !== desiredOnline) {
+    if (device.type === GOVEE_DEVICE_TYPE.LIGHT && device.state.online !== desiredOnline) {
       device.state.online = desiredOnline;
       lightOnlineChanged = true;
     }

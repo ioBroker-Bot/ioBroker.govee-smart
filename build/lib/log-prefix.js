@@ -18,7 +18,6 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var log_prefix_exports = {};
 __export(log_prefix_exports, {
-  formatChannelPrefix: () => formatChannelPrefix,
   installLogPrefix: () => installLogPrefix
 });
 module.exports = __toCommonJS(log_prefix_exports);
@@ -41,7 +40,6 @@ function installLogPrefix(log, getSnap) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  formatChannelPrefix,
   installLogPrefix
 });
 //# sourceMappingURL=log-prefix.js.map

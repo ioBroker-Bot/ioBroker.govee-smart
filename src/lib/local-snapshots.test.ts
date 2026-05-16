@@ -1,8 +1,5 @@
 import { expect } from "chai";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import { LocalSnapshotStore, type LocalSnapshot } from "./local-snapshots";
+import { LocalSnapshotStore, type LocalSnapshot, type LocalSnapshotStoreAdapter } from "./local-snapshots";
 
 const mockLog: ioBroker.Logger = {
   debug: () => {},
@@ -13,21 +10,57 @@ const mockLog: ioBroker.Logger = {
   level: "debug",
 };
 
+/**
+ * In-memory mock of the ioBroker file-storage API. The store writes/reads
+ * `<namespace>.snapshots` files; the mock tracks them in a Map keyed by
+ * `<meta>/<filename>`.
+ */
+function createMockAdapter(namespace = "govee-smart.0"): {
+  adapter: LocalSnapshotStoreAdapter;
+  files: Map<string, string>;
+} {
+  const files = new Map<string, string>();
+  const key = (meta: string, name: string): string => `${meta}/${name}`;
+  return {
+    files,
+    adapter: {
+      namespace,
+      async readFileAsync(meta, name) {
+        const k = key(meta, name);
+        if (!files.has(k)) {
+          throw new Error(`ENOENT: ${k}`);
+        }
+        return { file: files.get(k)!, mimeType: "application/json" };
+      },
+      async writeFileAsync(meta, name, data) {
+        files.set(key(meta, name), typeof data === "string" ? data : data.toString("utf-8"));
+      },
+      async delFileAsync(meta, name) {
+        files.delete(key(meta, name));
+      },
+      async readDirAsync(meta) {
+        const prefix = `${meta}/`;
+        const entries: { file: string; isDir: boolean }[] = [];
+        for (const k of files.keys()) {
+          if (k.startsWith(prefix)) {
+            entries.push({ file: k.slice(prefix.length), isDir: false });
+          }
+        }
+        return entries;
+      },
+    },
+  };
+}
+
 describe("LocalSnapshotStore", () => {
-  let tmpDir: string;
   let store: LocalSnapshotStore;
+  let files: Map<string, string>;
 
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "snap-test-"));
-    store = new LocalSnapshotStore(tmpDir, mockLog);
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it("should create snapshots directory on construction", () => {
-    expect(fs.existsSync(path.join(tmpDir, "snapshots"))).to.be.true;
+  beforeEach(async () => {
+    const mock = createMockAdapter();
+    files = mock.files;
+    store = new LocalSnapshotStore(mock.adapter, mockLog);
+    await store.init();
   });
 
   it("should return empty array for device with no snapshots", () => {
@@ -35,7 +68,7 @@ describe("LocalSnapshotStore", () => {
     expect(snaps).to.deep.equal([]);
   });
 
-  it("should save and retrieve a snapshot", () => {
+  it("should save and retrieve a snapshot", async () => {
     const snap: LocalSnapshot = {
       name: "Abendstimmung",
       power: true,
@@ -45,7 +78,7 @@ describe("LocalSnapshotStore", () => {
       savedAt: 1712700000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result).to.have.lengthOf(1);
     expect(result[0].name).to.equal("Abendstimmung");
@@ -55,7 +88,7 @@ describe("LocalSnapshotStore", () => {
     expect(result[0].colorTemperature).to.equal(0);
   });
 
-  it("should overwrite snapshot with same name", () => {
+  it("should overwrite snapshot with same name", async () => {
     const snap1: LocalSnapshot = {
       name: "Test",
       power: true,
@@ -73,8 +106,8 @@ describe("LocalSnapshotStore", () => {
       savedAt: 2000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap2);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap2);
 
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result).to.have.lengthOf(1);
@@ -82,7 +115,7 @@ describe("LocalSnapshotStore", () => {
     expect(result[0].savedAt).to.equal(2000);
   });
 
-  it("should store multiple snapshots", () => {
+  it("should store multiple snapshots", async () => {
     const snap1: LocalSnapshot = {
       name: "Morning",
       power: true,
@@ -100,8 +133,8 @@ describe("LocalSnapshotStore", () => {
       savedAt: 2000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap2);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap2);
 
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result).to.have.lengthOf(2);
@@ -109,7 +142,7 @@ describe("LocalSnapshotStore", () => {
     expect(result[1].name).to.equal("Night");
   });
 
-  it("should delete a snapshot by name", () => {
+  it("should delete a snapshot by name", async () => {
     const snap: LocalSnapshot = {
       name: "ToDelete",
       power: true,
@@ -119,20 +152,20 @@ describe("LocalSnapshotStore", () => {
       savedAt: 1000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
-    const deleted = store.deleteSnapshot("H6160", "AABBCCDDEEFF0011", "ToDelete");
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
+    const deleted = await store.deleteSnapshot("H6160", "AABBCCDDEEFF0011", "ToDelete");
     expect(deleted).to.be.true;
 
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result).to.have.lengthOf(0);
   });
 
-  it("should return false when deleting non-existent snapshot", () => {
-    const deleted = store.deleteSnapshot("H6160", "AABBCCDDEEFF0011", "Nope");
+  it("should return false when deleting non-existent snapshot", async () => {
+    const deleted = await store.deleteSnapshot("H6160", "AABBCCDDEEFF0011", "Nope");
     expect(deleted).to.be.false;
   });
 
-  it("should keep separate files per device", () => {
+  it("should keep separate files per device", async () => {
     const snap1: LocalSnapshot = {
       name: "Device1Snap",
       power: true,
@@ -150,8 +183,8 @@ describe("LocalSnapshotStore", () => {
       savedAt: 2000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
-    store.saveSnapshot("H6160", "AABBCCDDEEFF2222", snap2);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF2222", snap2);
 
     const result1 = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     const result2 = store.getSnapshots("H6160", "AABBCCDDEEFF2222");
@@ -161,31 +194,32 @@ describe("LocalSnapshotStore", () => {
     expect(result2[0].name).to.equal("Device2Snap");
   });
 
-  it("should handle corrupt JSON gracefully", () => {
-    const snapDir = path.join(tmpDir, "snapshots");
-    fs.writeFileSync(path.join(snapDir, "h6160_0011.json"), "NOT JSON!", "utf-8");
-
-    const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
-    expect(result).to.deep.equal([]);
+  it("should handle corrupt JSON gracefully on init", async () => {
+    // Pre-populate the storage with corrupt content before init().
+    const mock = createMockAdapter();
+    mock.files.set("govee-smart.0.snapshots/h6160_0011.json", "NOT JSON!");
+    const corruptStore = new LocalSnapshotStore(mock.adapter, mockLog);
+    await corruptStore.init();
+    expect(corruptStore.getSnapshots("H6160", "AABBCCDDEEFF0011")).to.deep.equal([]);
   });
 
-  // Drift guard — user might hand-edit the JSON file and leave snapshots
-  // field in an unexpected shape. Downstream .findIndex would crash.
-  it("should return empty array when snapshots field is not an array", () => {
-    const snapDir = path.join(tmpDir, "snapshots");
-    fs.writeFileSync(path.join(snapDir, "h6160_0011.json"), JSON.stringify({ snapshots: "hello" }), "utf-8");
-    const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
-    expect(result).to.deep.equal([]);
+  it("should return empty array when snapshots field is not an array", async () => {
+    const mock = createMockAdapter();
+    mock.files.set("govee-smart.0.snapshots/h6160_0011.json", JSON.stringify({ snapshots: "hello" }));
+    const driftStore = new LocalSnapshotStore(mock.adapter, mockLog);
+    await driftStore.init();
+    expect(driftStore.getSnapshots("H6160", "AABBCCDDEEFF0011")).to.deep.equal([]);
   });
 
-  it("should return empty array when snapshots field is missing", () => {
-    const snapDir = path.join(tmpDir, "snapshots");
-    fs.writeFileSync(path.join(snapDir, "h6160_0011.json"), JSON.stringify({ version: 1 }), "utf-8");
-    const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
-    expect(result).to.deep.equal([]);
+  it("should return empty array when snapshots field is missing", async () => {
+    const mock = createMockAdapter();
+    mock.files.set("govee-smart.0.snapshots/h6160_0011.json", JSON.stringify({ version: 1 }));
+    const driftStore = new LocalSnapshotStore(mock.adapter, mockLog);
+    await driftStore.init();
+    expect(driftStore.getSnapshots("H6160", "AABBCCDDEEFF0011")).to.deep.equal([]);
   });
 
-  it("should save and retrieve snapshot with segment data", () => {
+  it("should save and retrieve snapshot with segment data", async () => {
     const snap: LocalSnapshot = {
       name: "Segments",
       power: true,
@@ -200,7 +234,7 @@ describe("LocalSnapshotStore", () => {
       savedAt: 3000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result).to.have.lengthOf(1);
     expect(result[0].segments).to.have.lengthOf(3);
@@ -209,7 +243,7 @@ describe("LocalSnapshotStore", () => {
     expect(result[0].segments![2]).to.deep.equal({ color: "#0000ff", brightness: 75 });
   });
 
-  it("should handle snapshot without segments (backwards compatible)", () => {
+  it("should handle snapshot without segments (backwards compatible)", async () => {
     const snap: LocalSnapshot = {
       name: "NoSegments",
       power: true,
@@ -219,12 +253,12 @@ describe("LocalSnapshotStore", () => {
       savedAt: 4000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result[0].segments).to.be.undefined;
   });
 
-  it("should overwrite segment data when updating snapshot", () => {
+  it("should overwrite segment data when updating snapshot", async () => {
     const snap1: LocalSnapshot = {
       name: "SegUpdate",
       power: true,
@@ -247,8 +281,8 @@ describe("LocalSnapshotStore", () => {
       savedAt: 2000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap2);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap1);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap2);
 
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result).to.have.lengthOf(1);
@@ -256,7 +290,7 @@ describe("LocalSnapshotStore", () => {
     expect(result[0].segments![0].color).to.equal("#00ff00");
   });
 
-  it("should preserve color temperature in snapshot", () => {
+  it("should preserve color temperature in snapshot", async () => {
     const snap: LocalSnapshot = {
       name: "Warm",
       power: true,
@@ -266,7 +300,7 @@ describe("LocalSnapshotStore", () => {
       savedAt: 1000,
     };
 
-    store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
     const result = store.getSnapshots("H6160", "AABBCCDDEEFF0011");
     expect(result[0].colorTemperature).to.equal(3200);
   });
@@ -277,5 +311,20 @@ describe("LocalSnapshotStore", () => {
 
   it("should not throw when sku is non-string", () => {
     expect(() => store.getSnapshots(null as unknown as string, "AABBCCDDEEFF0011")).to.not.throw();
+  });
+
+  it("should remove file when last snapshot for a device is deleted", async () => {
+    const snap: LocalSnapshot = {
+      name: "Single",
+      power: true,
+      brightness: 50,
+      colorRgb: "#ffffff",
+      colorTemperature: 0,
+      savedAt: 1000,
+    };
+    await store.saveSnapshot("H6160", "AABBCCDDEEFF0011", snap);
+    expect(files.has("govee-smart.0.snapshots/h6160_0011.json")).to.be.true;
+    await store.deleteSnapshot("H6160", "AABBCCDDEEFF0011", "Single");
+    expect(files.has("govee-smart.0.snapshots/h6160_0011.json")).to.be.false;
   });
 });

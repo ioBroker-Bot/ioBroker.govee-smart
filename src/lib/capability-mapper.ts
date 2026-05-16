@@ -1,11 +1,13 @@
 import {
   buildUniqueLabelMap,
+  errMessage,
   rgbToHex,
   type CloudCapability,
   type CloudStateCapability,
   type GoveeDevice,
 } from "./types";
 import { applyColorTempQuirk, getDeviceQuirks } from "./device-registry";
+import { GOVEE_CAP_TYPE, GOVEE_DEVICE_TYPE } from "./govee-constants";
 import { resolveLabel, tDesc, tName } from "./i18n-states";
 
 /** ioBroker state definition derived from a Govee capability */
@@ -169,7 +171,7 @@ export function hasDynamicSceneCapability(
     cap =>
       typeof cap?.type === "string" &&
       typeof cap?.instance === "string" &&
-      (cap.type === "devices.capabilities.dynamic_scene" || cap.type === "dynamic_scene") &&
+      (cap.type === GOVEE_CAP_TYPE.DYNAMIC_SCENE || cap.type === "dynamic_scene") &&
       cap.instance === instance,
   );
 }
@@ -1113,7 +1115,7 @@ export function buildCloudStateDefs(
   // Light-only synthetic state defs — scenes / snapshots / music / scene_speed
   // only make sense for lights. Sensors and appliances would otherwise see
   // empty snapshot dropdowns and a useless save/delete button pair.
-  const isLight = device.type === "devices.types.light";
+  const isLight = device.type === GOVEE_DEVICE_TYPE.LIGHT;
 
   // Three structurally-identical Cloud dropdowns — collapsed into one loop.
   for (const r of SCENE_DROPDOWN_RULES) {
@@ -1132,7 +1134,7 @@ export function buildCloudStateDefs(
       write: true,
       states: buildUniqueLabelMap(r.source(device)),
       def: "0",
-      capabilityType: "devices.capabilities.dynamic_scene",
+      capabilityType: GOVEE_CAP_TYPE.DYNAMIC_SCENE,
       capabilityInstance: r.cap,
       channel: r.channel,
     });
@@ -1154,8 +1156,8 @@ export function buildCloudStateDefs(
             max = cfg.moveIn.length - 1;
           }
         }
-      } catch {
-        /* ignore invalid config JSON */
+      } catch (e) {
+        log.debug(`${device.sku}: speed-config parse failed for scene "${entry.name}": ${errMessage(e)}`);
       }
     }
     return max;
@@ -1378,7 +1380,7 @@ function buildGroupStateDefs(members: GoveeDevice[], lang: string = "en"): State
         write: true,
         states: buildUniqueLabelMap(commonNames.map(name => ({ name }))),
         def: "0",
-        capabilityType: "devices.capabilities.dynamic_scene",
+        capabilityType: GOVEE_CAP_TYPE.DYNAMIC_SCENE,
         capabilityInstance: "lightScene",
         channel: "scenes",
       });
@@ -1398,7 +1400,7 @@ function buildGroupStateDefs(members: GoveeDevice[], lang: string = "en"): State
         write: true,
         states: buildUniqueLabelMap(commonNames.map(name => ({ name }))),
         def: "0",
-        capabilityType: "devices.capabilities.music_setting",
+        capabilityType: GOVEE_CAP_TYPE.MUSIC_SETTING,
         capabilityInstance: "musicMode",
         channel: "music",
       });

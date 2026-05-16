@@ -31,6 +31,7 @@ __export(capability_mapper_exports, {
 module.exports = __toCommonJS(capability_mapper_exports);
 var import_types = require("./types");
 var import_device_registry = require("./device-registry");
+var import_govee_constants = require("./govee-constants");
 var import_i18n_states = require("./i18n-states");
 function coerceBool(v) {
   return v === true || v === 1 || v === "1" || v === "true";
@@ -90,7 +91,7 @@ function hasDynamicSceneCapability(capabilities, instance) {
     return false;
   }
   return capabilities.some(
-    (cap) => typeof (cap == null ? void 0 : cap.type) === "string" && typeof (cap == null ? void 0 : cap.instance) === "string" && (cap.type === "devices.capabilities.dynamic_scene" || cap.type === "dynamic_scene") && cap.instance === instance
+    (cap) => typeof (cap == null ? void 0 : cap.type) === "string" && typeof (cap == null ? void 0 : cap.instance) === "string" && (cap.type === import_govee_constants.GOVEE_CAP_TYPE.DYNAMIC_SCENE || cap.type === "dynamic_scene") && cap.instance === instance
   );
 }
 const LAN_STATE_IDS = /* @__PURE__ */ new Set(["power", "brightness", "colorRgb", "colorTemperature"]);
@@ -746,7 +747,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
     log.debug(`${device.sku}: brokenPlatformApi quirk active \u2014 skipping capability-derived states + dropdowns`);
   }
   applyQuirksToStates(device.sku, stateDefs, log);
-  const isLight = device.type === "devices.types.light";
+  const isLight = device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT;
   for (const r of SCENE_DROPDOWN_RULES) {
     if (skipCapabilities || !isLight || !hasDynamicSceneCapability(device.capabilities, r.cap)) {
       continue;
@@ -763,7 +764,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
       write: true,
       states: (0, import_types.buildUniqueLabelMap)(r.source(device)),
       def: "0",
-      capabilityType: "devices.capabilities.dynamic_scene",
+      capabilityType: import_govee_constants.GOVEE_CAP_TYPE.DYNAMIC_SCENE,
       capabilityInstance: r.cap,
       channel: r.channel
     });
@@ -781,7 +782,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
             max = cfg.moveIn.length - 1;
           }
         }
-      } catch {
+      } catch (e) {
+        log.debug(`${device.sku}: speed-config parse failed for scene "${entry.name}": ${(0, import_types.errMessage)(e)}`);
       }
     }
     return max;
@@ -942,7 +944,7 @@ function buildGroupStateDefs(members, lang = "en") {
         write: true,
         states: (0, import_types.buildUniqueLabelMap)(commonNames.map((name) => ({ name }))),
         def: "0",
-        capabilityType: "devices.capabilities.dynamic_scene",
+        capabilityType: import_govee_constants.GOVEE_CAP_TYPE.DYNAMIC_SCENE,
         capabilityInstance: "lightScene",
         channel: "scenes"
       });
@@ -960,7 +962,7 @@ function buildGroupStateDefs(members, lang = "en") {
         write: true,
         states: (0, import_types.buildUniqueLabelMap)(commonNames.map((name) => ({ name }))),
         def: "0",
-        capabilityType: "devices.capabilities.music_setting",
+        capabilityType: import_govee_constants.GOVEE_CAP_TYPE.MUSIC_SETTING,
         capabilityInstance: "musicMode",
         channel: "music"
       });

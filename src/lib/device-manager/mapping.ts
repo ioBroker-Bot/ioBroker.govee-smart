@@ -1,4 +1,5 @@
 import type { AppDeviceEntry } from "../govee-api-client";
+import { GOVEE_CAP_TYPE } from "../govee-constants";
 import type { CloudDevice, CloudStateCapability, GoveeDevice } from "../types";
 
 /**
@@ -43,34 +44,34 @@ export function buildCapabilitiesFromAppEntry(entry: AppDeviceEntry): CloudState
   }
   if (typeof last.online === "boolean") {
     caps.push({
-      type: "devices.capabilities.online",
+      type: GOVEE_CAP_TYPE.ONLINE,
       instance: "online",
       state: { value: last.online },
     });
   }
   if (typeof last.tem === "number" && Number.isFinite(last.tem)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: GOVEE_CAP_TYPE.PROPERTY,
       instance: "sensorTemperature",
       state: { value: last.tem / 100 },
     });
   }
   if (typeof last.hum === "number" && Number.isFinite(last.hum)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: GOVEE_CAP_TYPE.PROPERTY,
       instance: "sensorHumidity",
       state: { value: last.hum / 100 },
     });
   }
   if (typeof last.battery === "number" && Number.isFinite(last.battery)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: GOVEE_CAP_TYPE.PROPERTY,
       instance: "battery",
       state: { value: last.battery },
     });
   } else if (entry.settings && typeof entry.settings.battery === "number" && Number.isFinite(entry.settings.battery)) {
     caps.push({
-      type: "devices.capabilities.property",
+      type: GOVEE_CAP_TYPE.PROPERTY,
       instance: "battery",
       state: { value: entry.settings.battery },
     });

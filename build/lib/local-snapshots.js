@@ -1,9 +1,7 @@
 "use strict";
-var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -17,14 +15,6 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var local_snapshots_exports = {};
 __export(local_snapshots_exports, {
@@ -32,132 +22,152 @@ __export(local_snapshots_exports, {
 });
 module.exports = __toCommonJS(local_snapshots_exports);
 var import_types = require("./types");
-var fs = __toESM(require("node:fs"));
-var path = __toESM(require("node:path"));
 class LocalSnapshotStore {
-  dir;
+  adapter;
   log;
+  metaNamespace;
+  /** key = `<sku>_<shortId>`, value = snapshots for that device */
+  cache = /* @__PURE__ */ new Map();
+  /** False until init() succeeds — guards save/load when meta.user is unreachable */
+  dataAvailable = false;
   /**
-   * @param dataDir Adapter data directory
+   * @param adapter ioBroker adapter (for writeFileAsync/readFileAsync/readDirAsync/delFileAsync)
    * @param log ioBroker logger
    */
-  constructor(dataDir, log) {
-    this.dir = path.join(dataDir, "snapshots");
+  constructor(adapter, log) {
+    this.adapter = adapter;
     this.log = log;
+    this.metaNamespace = `${adapter.namespace}.snapshots`;
+  }
+  /**
+   * Load all existing snapshot files from the `<namespace>.snapshots` meta.user
+   * object into the in-memory cache. Must be awaited before any `getSnapshots()`
+   * call. Idempotent — safe to call multiple times.
+   */
+  async init() {
+    this.cache.clear();
     try {
-      if (!fs.existsSync(this.dir)) {
-        fs.mkdirSync(this.dir, { recursive: true });
+      const entries = await this.adapter.readDirAsync(this.metaNamespace, "");
+      for (const entry of entries) {
+        if (entry.isDir || !entry.file.endsWith(".json")) {
+          continue;
+        }
+        const key = entry.file.slice(0, -".json".length);
+        try {
+          const { file } = await this.adapter.readFileAsync(this.metaNamespace, entry.file);
+          const data = JSON.parse(typeof file === "string" ? file : file.toString("utf-8"));
+          if (Array.isArray(data == null ? void 0 : data.snapshots)) {
+            this.cache.set(key, data.snapshots);
+          }
+        } catch (e) {
+          this.log.debug(`Snapshot read failed for ${entry.file}: ${(0, import_types.errMessage)(e)}`);
+        }
       }
       this.dataAvailable = true;
     } catch (e) {
-      this.dataAvailable = false;
-      this.log.warn(`Snapshot directory not writable (${this.dir}): ${(0, import_types.errMessage)(e)}`);
+      this.dataAvailable = true;
+      this.log.debug(`Snapshot directory empty or unreachable: ${(0, import_types.errMessage)(e)}`);
     }
   }
-  /** False wenn Snapshot-Dir nicht zugreifbar ist — save/load skippen dann. */
-  dataAvailable = false;
   /**
-   * Get all snapshots for a device.
+   * Get all snapshots for a device. Sync — reads from the in-memory cache
+   * populated by `init()`.
    *
    * @param sku Product model
    * @param deviceId Device identifier
    */
   getSnapshots(sku, deviceId) {
+    var _a;
     if (!this.dataAvailable) {
       return [];
     }
-    const file = this.snapshotFile(sku, deviceId);
-    try {
-      if (fs.existsSync(file)) {
-        const data = JSON.parse(fs.readFileSync(file, "utf-8"));
-        return Array.isArray(data == null ? void 0 : data.snapshots) ? data.snapshots : [];
-      }
-    } catch (e) {
-      this.log.debug(`Snapshot read failed for ${sku}: ${(0, import_types.errMessage)(e)}`);
-    }
-    return [];
+    return (_a = this.cache.get(this.deviceKey(sku, deviceId))) != null ? _a : [];
   }
   /**
-   * Save a new snapshot (or overwrite existing with same name).
+   * Save a new snapshot (or overwrite existing with same name). Updates the
+   * in-memory cache synchronously, then persists to meta.user.
    *
    * @param sku Product model
    * @param deviceId Device identifier
    * @param snapshot Snapshot data to save
    */
-  saveSnapshot(sku, deviceId, snapshot) {
+  async saveSnapshot(sku, deviceId, snapshot) {
+    var _a;
     if (!this.dataAvailable) {
-      this.log.warn(`Cannot save snapshot "${snapshot.name}" \u2014 snapshot directory not writable`);
+      this.log.warn(`Cannot save snapshot "${snapshot.name}" \u2014 snapshot storage not initialised`);
       return;
     }
-    const snapshots = this.getSnapshots(sku, deviceId);
+    const key = this.deviceKey(sku, deviceId);
+    const snapshots = (_a = this.cache.get(key)) != null ? _a : [];
     const existing = snapshots.findIndex((s) => s.name === snapshot.name);
     if (existing >= 0) {
       snapshots[existing] = snapshot;
     } else {
       snapshots.push(snapshot);
     }
-    this.writeFile(sku, deviceId, snapshots);
+    this.cache.set(key, snapshots);
+    await this.persist(key, snapshots);
     this.log.debug(`Local snapshot saved: "${snapshot.name}" for ${sku}`);
   }
   /**
-   * Delete a snapshot by name.
+   * Delete a snapshot by name. Updates the in-memory cache synchronously,
+   * then persists to meta.user.
    *
    * @param sku Product model
    * @param deviceId Device identifier
    * @param name Snapshot name to delete
    */
-  deleteSnapshot(sku, deviceId, name) {
+  async deleteSnapshot(sku, deviceId, name) {
+    var _a;
     if (!this.dataAvailable) {
       return false;
     }
-    const snapshots = this.getSnapshots(sku, deviceId);
+    const key = this.deviceKey(sku, deviceId);
+    const snapshots = (_a = this.cache.get(key)) != null ? _a : [];
     const idx = snapshots.findIndex((s) => s.name === name);
     if (idx < 0) {
       return false;
     }
     snapshots.splice(idx, 1);
-    this.writeFile(sku, deviceId, snapshots);
+    if (snapshots.length === 0) {
+      this.cache.delete(key);
+      try {
+        await this.adapter.delFileAsync(this.metaNamespace, `${key}.json`);
+      } catch (e) {
+        this.log.debug(`Snapshot file delete failed for ${key}: ${(0, import_types.errMessage)(e)}`);
+      }
+    } else {
+      this.cache.set(key, snapshots);
+      await this.persist(key, snapshots);
+    }
     this.log.debug(`Local snapshot deleted: "${name}" for ${sku}`);
     return true;
   }
   /**
-   * Write snapshot file for a device.
+   * Write snapshot file for a device to meta.user storage.
    *
-   * Uses explicit open/write/fsync/close so the data hits disk before the
-   * call returns — plain writeFileSync only pushes to the kernel page cache
-   * and an adapter SIGKILL within the dirty-writeback window would lose the
-   * save silently. Same hardening as sku-cache.
-   *
-   * @param sku Product model
-   * @param deviceId Device identifier
+   * @param key device key
    * @param snapshots Snapshot array to persist
    */
-  writeFile(sku, deviceId, snapshots) {
-    const file = this.snapshotFile(sku, deviceId);
+  async persist(key, snapshots) {
     try {
       const data = { snapshots };
-      const fd = fs.openSync(file, "w");
-      try {
-        fs.writeSync(fd, JSON.stringify(data, null, 2), 0, "utf-8");
-        fs.fsyncSync(fd);
-      } finally {
-        fs.closeSync(fd);
-      }
+      await this.adapter.writeFileAsync(this.metaNamespace, `${key}.json`, JSON.stringify(data, null, 2));
     } catch (e) {
-      this.log.warn(`Snapshot write failed for ${sku}: ${(0, import_types.errMessage)(e)}`);
+      this.log.warn(`Snapshot write failed for ${key}: ${(0, import_types.errMessage)(e)}`);
     }
   }
   /**
-   * Build file path for a device's snapshots.
+   * Build device key for cache + filename.
    *
    * @param sku Product model
    * @param deviceId Device identifier
    */
-  snapshotFile(sku, deviceId) {
+  deviceKey(sku, deviceId) {
     const safeSku = typeof sku === "string" ? sku : "";
     const safeId = typeof deviceId === "string" ? deviceId : "";
     const shortId = safeId.replace(/:/g, "").toLowerCase().slice(-4);
-    return path.join(this.dir, `${safeSku.toLowerCase()}_${shortId}.json`);
+    return `${safeSku.toLowerCase()}_${shortId}`;
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

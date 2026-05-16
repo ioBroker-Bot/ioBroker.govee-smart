@@ -22,6 +22,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
+var fs = __toESM(require("node:fs"));
+var path = __toESM(require("node:path"));
 var import_device_registry = require("./lib/device-registry");
 var import_device_manager = require("./lib/device-manager");
 var import_govee_api_client = require("./lib/govee-api-client");
@@ -48,6 +50,7 @@ var import_rate_limiter = require("./lib/rate-limiter");
 var import_segment_wizard = require("./lib/segment-wizard");
 var import_sku_cache = require("./lib/sku-cache");
 var import_state_manager = require("./lib/state-manager");
+var import_adapter_config = require("./lib/adapter-config");
 var import_types = require("./lib/types");
 var import_timing_constants = require("./lib/timing-constants");
 class GoveeAdapter extends utils.Adapter {
@@ -183,6 +186,11 @@ class GoveeAdapter extends utils.Adapter {
   async onReady() {
     var _a, _b, _c, _d;
     const config = this.config;
+    if (config.apiKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.apiKey)) {
+      this.log.error(
+        "Credentials encryption migration: stored values look corrupted \u2014 please re-enter API key, Govee password and verification code in the adapter settings (one-time after upgrade to v2.11.0)."
+      );
+    }
     this.channelStatus = {
       lan: "off",
       // LAN listener always exists; flips to "on" after first discovery
@@ -204,7 +212,8 @@ class GoveeAdapter extends utils.Adapter {
       if (typeof lang === "string" && lang.length > 0) {
         this.adminLanguage = lang;
       }
-    } catch {
+    } catch (e) {
+      this.log.debug(`system.config language read failed, using default "en": ${(0, import_types.errMessage)(e)}`);
     }
     await this.setStateAsync("info.wizardStatus", {
       val: (0, import_segment_wizard.wizardIdleText)(this.adminLanguage),
@@ -219,7 +228,9 @@ class GoveeAdapter extends utils.Adapter {
       log: this.log
     });
     this.skuCache = new import_sku_cache.SkuCache(dataDir, this.log);
-    this.localSnapshots = new import_local_snapshots.LocalSnapshotStore(dataDir, this.log);
+    await this.migrateLocalSnapshotsToMetaUser(dataDir);
+    this.localSnapshots = new import_local_snapshots.LocalSnapshotStore(this, this.log);
+    await this.localSnapshots.init();
     this.snapshotHandler = new import_snapshot_handler.SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
     this.groupFanout = new import_group_fanout.GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
     this.messageRouter = new import_message_router.MessageRouter(this.buildMessageRouterHost());
@@ -413,7 +424,7 @@ class GoveeAdapter extends utils.Adapter {
       this.cloudClient = new import_govee_cloud_client.GoveeCloudClient(config.apiKey, this.log);
       this.cloudClient.setResponseHook((deviceId, endpoint, body) => {
         var _a2;
-        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().setApiResponse(deviceId, endpoint, body);
+        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().recordApiSuccess(deviceId, endpoint, body);
       });
       this.deviceManager.setCloudClient(this.cloudClient);
       this.deviceManager.setOnCloudCapabilities((device, caps) => {
@@ -558,6 +569,51 @@ class GoveeAdapter extends utils.Adapter {
         connectionState.logDeviceSummary(this);
       }
     }, 6e4);
+  }
+  /**
+   * One-shot migration: copy snapshots from the pre-v2.11 filesystem location
+   * (`<dataDir>/snapshots/*.json`) into the `<namespace>.snapshots` meta.user
+   * object. After migration the FS files are deleted so iob backup picks up
+   * the new location. No-op if the old directory doesn't exist.
+   *
+   * @param dataDir Adapter instance data directory
+   */
+  async migrateLocalSnapshotsToMetaUser(dataDir) {
+    const oldDir = path.join(dataDir, "snapshots");
+    if (!fs.existsSync(oldDir)) {
+      return;
+    }
+    let files;
+    try {
+      files = fs.readdirSync(oldDir).filter((f) => f.endsWith(".json"));
+    } catch (e) {
+      this.log.warn(`Snapshot migration: cannot read ${oldDir}: ${(0, import_types.errMessage)(e)}`);
+      return;
+    }
+    if (files.length === 0) {
+      try {
+        fs.rmdirSync(oldDir);
+      } catch {
+      }
+      return;
+    }
+    this.log.info(`Migrating ${files.length} local snapshots from ${oldDir} to backup-included storage...`);
+    let migrated = 0;
+    for (const file of files) {
+      try {
+        const data = fs.readFileSync(path.join(oldDir, file));
+        await this.writeFileAsync(`${this.namespace}.snapshots`, file, data);
+        fs.unlinkSync(path.join(oldDir, file));
+        migrated++;
+      } catch (e) {
+        this.log.warn(`Snapshot migration of ${file} failed: ${(0, import_types.errMessage)(e)}`);
+      }
+    }
+    try {
+      fs.rmdirSync(oldDir);
+    } catch {
+    }
+    this.log.info(`Snapshot migration complete: ${migrated}/${files.length} files moved to meta.user storage.`);
   }
   /**
    * Adapter stopping — MUST be synchronous.

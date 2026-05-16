@@ -7,6 +7,8 @@
  * pipeline doesn't need separate icon files.
  */
 
+import { GOVEE_DEVICE_TYPE } from "./govee-constants";
+
 const LIGHT =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTkgMjFjMCAuNTUuNDUgMSAxIDFoNGMuNTUgMCAxLS40NSAxLTF2LTFIOXYxem0zLTE5QzguMTQgMiA1IDUuMTQgNSA5YzAgMi4zOCAxLjE5IDQuNDcgMyA1Ljc0VjE3YzAgLjU1LjQ1IDEgMSAxaDZjLjU1IDAgMS0uNDUgMS0xdi0yLjI2YzEuODEtMS4yNyAzLTMuMzYgMy01Ljc0IDAtMy44Ni0zLjE0LTctNy03eiIvPjwvc3ZnPg==";
 
@@ -48,27 +50,27 @@ const GROUP =
  */
 export function iconForGoveeType(govType: string | undefined): string {
   switch (govType) {
-    case "devices.types.light":
+    case GOVEE_DEVICE_TYPE.LIGHT:
       return LIGHT;
-    case "devices.types.thermometer":
-    case "devices.types.sensor":
+    case GOVEE_DEVICE_TYPE.THERMOMETER:
+    case GOVEE_DEVICE_TYPE.SENSOR:
       return THERMOMETER;
-    case "devices.types.heater":
+    case GOVEE_DEVICE_TYPE.HEATER:
       return HEATER;
-    case "devices.types.humidifier":
-    case "devices.types.dehumidifier":
+    case GOVEE_DEVICE_TYPE.HUMIDIFIER:
+    case GOVEE_DEVICE_TYPE.DEHUMIDIFIER:
       return HUMIDIFIER;
-    case "devices.types.fan":
+    case GOVEE_DEVICE_TYPE.FAN:
       return FAN;
-    case "devices.types.air_purifier":
+    case GOVEE_DEVICE_TYPE.AIR_PURIFIER:
       return AIR_PURIFIER;
-    case "devices.types.socket":
+    case GOVEE_DEVICE_TYPE.SOCKET:
       return SOCKET;
-    case "devices.types.kettle":
+    case GOVEE_DEVICE_TYPE.KETTLE:
       return KETTLE;
-    case "devices.types.ice_maker":
+    case GOVEE_DEVICE_TYPE.ICE_MAKER:
       return ICE_MAKER;
-    case "devices.types.aroma_diffuser":
+    case GOVEE_DEVICE_TYPE.AROMA_DIFFUSER:
       return AROMA;
     default:
       return LIGHT;

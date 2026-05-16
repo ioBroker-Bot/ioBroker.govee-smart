@@ -1,4 +1,6 @@
 import * as utils from "@iobroker/adapter-core";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { initDeviceRegistry } from "./lib/device-registry";
 import { DeviceManager, resolveSegmentCount } from "./lib/device-manager";
 import { GoveeApiClient } from "./lib/govee-api-client";
@@ -27,14 +29,8 @@ import type { SegmentWizard } from "./lib/segment-wizard";
 import { wizardIdleText } from "./lib/segment-wizard";
 import { SkuCache } from "./lib/sku-cache";
 import { StateManager } from "./lib/state-manager";
-import {
-  errMessage,
-  rgbIntToHex,
-  rgbToHex,
-  type AdapterConfig,
-  type CloudStateCapability,
-  type GoveeDevice,
-} from "./lib/types";
+import "./lib/adapter-config";
+import { errMessage, rgbIntToHex, rgbToHex, type CloudStateCapability, type GoveeDevice } from "./lib/types";
 import { APP_API_INITIAL_DELAY_MS, APP_API_POLL_INTERVAL_MS, CLOUD_FULL_LIMITS } from "./lib/timing-constants";
 
 // Rate-limit defaults moved to lib/timing-constants.ts as CLOUD_FULL_LIMITS so
@@ -171,7 +167,18 @@ class GoveeAdapter extends utils.Adapter {
 
   /** Adapter started — initialize all channels */
   private async onReady(): Promise<void> {
-    const config = this.config as unknown as AdapterConfig;
+    const config = this.config;
+
+    // v2.11.0 credential-encryption migration check: if encryptedNative was
+    // added retroactively, js-controller still decrypts existing plaintext
+    // values via the legacy XOR fallback — the adapter sees garbage that
+    // bears no resemblance to the original. Detect: Govee API keys are
+    // strict UUIDv4 (8-4-4-4-12 hex). Non-empty + non-UUID = needs re-entry.
+    if (config.apiKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.apiKey)) {
+      this.log.error(
+        "Credentials encryption migration: stored values look corrupted — please re-enter API key, Govee password and verification code in the adapter settings (one-time after upgrade to v2.11.0).",
+      );
+    }
 
     // Channel-status prefix for every log line — must run BEFORE sub-libraries
     // are constructed so they pick up the wrapped adapter.log automatically.
@@ -205,8 +212,8 @@ class GoveeAdapter extends utils.Adapter {
       if (typeof lang === "string" && lang.length > 0) {
         this.adminLanguage = lang;
       }
-    } catch {
-      // Keep default "en"
+    } catch (e) {
+      this.log.debug(`system.config language read failed, using default "en": ${errMessage(e)}`);
     }
     await this.setStateAsync("info.wizardStatus", {
       val: wizardIdleText(this.adminLanguage),
@@ -227,7 +234,12 @@ class GoveeAdapter extends utils.Adapter {
       log: this.log,
     });
     this.skuCache = new SkuCache(dataDir, this.log);
-    this.localSnapshots = new LocalSnapshotStore(dataDir, this.log);
+    // One-shot migration: pull pre-v2.11 snapshot files from the instance data
+    // dir into the meta.user storage so they're included in iob backup. Runs
+    // before LocalSnapshotStore.init() so the files are visible to the cache.
+    await this.migrateLocalSnapshotsToMetaUser(dataDir);
+    this.localSnapshots = new LocalSnapshotStore(this, this.log);
+    await this.localSnapshots.init();
     this.snapshotHandler = new SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
     this.groupFanout = new GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
     this.messageRouter = new MessageRouter(this.buildMessageRouterHost());
@@ -470,7 +482,7 @@ class GoveeAdapter extends utils.Adapter {
       // Capture the most recent Cloud response per (deviceId, endpoint) for
       // diagnostics — bounded by the DiagnosticsCollector's response slot cap.
       this.cloudClient.setResponseHook((deviceId, endpoint, body) => {
-        this.deviceManager?.getDiagnostics().setApiResponse(deviceId, endpoint, body);
+        this.deviceManager?.getDiagnostics().recordApiSuccess(deviceId, endpoint, body);
       });
       this.deviceManager.setCloudClient(this.cloudClient);
 
@@ -681,6 +693,54 @@ class GoveeAdapter extends utils.Adapter {
   }
 
   /**
+   * One-shot migration: copy snapshots from the pre-v2.11 filesystem location
+   * (`<dataDir>/snapshots/*.json`) into the `<namespace>.snapshots` meta.user
+   * object. After migration the FS files are deleted so iob backup picks up
+   * the new location. No-op if the old directory doesn't exist.
+   *
+   * @param dataDir Adapter instance data directory
+   */
+  private async migrateLocalSnapshotsToMetaUser(dataDir: string): Promise<void> {
+    const oldDir = path.join(dataDir, "snapshots");
+    if (!fs.existsSync(oldDir)) {
+      return;
+    }
+    let files: string[];
+    try {
+      files = fs.readdirSync(oldDir).filter(f => f.endsWith(".json"));
+    } catch (e) {
+      this.log.warn(`Snapshot migration: cannot read ${oldDir}: ${errMessage(e)}`);
+      return;
+    }
+    if (files.length === 0) {
+      try {
+        fs.rmdirSync(oldDir);
+      } catch {
+        /* dir already gone or non-empty with non-JSON, ignore */
+      }
+      return;
+    }
+    this.log.info(`Migrating ${files.length} local snapshots from ${oldDir} to backup-included storage...`);
+    let migrated = 0;
+    for (const file of files) {
+      try {
+        const data = fs.readFileSync(path.join(oldDir, file));
+        await this.writeFileAsync(`${this.namespace}.snapshots`, file, data);
+        fs.unlinkSync(path.join(oldDir, file));
+        migrated++;
+      } catch (e) {
+        this.log.warn(`Snapshot migration of ${file} failed: ${errMessage(e)}`);
+      }
+    }
+    try {
+      fs.rmdirSync(oldDir);
+    } catch {
+      /* dir still has files we failed to migrate — leave for retry on next start */
+    }
+    this.log.info(`Snapshot migration complete: ${migrated}/${files.length} files moved to meta.user storage.`);
+  }
+
+  /**
    * Adapter stopping — MUST be synchronous.
    *
    * @param callback Completion callback
@@ -886,7 +946,7 @@ class GoveeAdapter extends utils.Adapter {
     return {
       log: this.log,
       getConfig: () => {
-        const config = this.config as unknown as AdapterConfig;
+        const config = this.config;
         return {
           goveeEmail: config.goveeEmail,
           goveePassword: config.goveePassword,
@@ -895,7 +955,7 @@ class GoveeAdapter extends utils.Adapter {
       },
       sendResponse: (obj, data) => this.sendMessageResponse(obj, data),
       createMqttProbeClient: () => {
-        const config = this.config as unknown as AdapterConfig;
+        const config = this.config;
         return new GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
       },
       getSegmentDeviceList: () => {

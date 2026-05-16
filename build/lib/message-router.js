@@ -72,6 +72,8 @@ class MessageRouter {
         this.host.sendResponse(obj, response);
         return;
       }
+      this.host.log.debug(`onMessage: unknown command '${obj.command}'`);
+      this.host.sendResponse(obj, { error: `Unknown command '${obj.command}'` });
     } catch (e) {
       this.host.log.warn(`onMessage failed for ${obj.command}: ${(0, import_types.errMessage)(e)}`);
       this.host.sendResponse(obj, { error: e instanceof Error ? e.message : String(e) });

@@ -180,14 +180,6 @@ describe("DiagnosticsCollector", () => {
       expect(list[0].body).to.deep.equal({ error: "403 Forbidden", status: 403 });
     });
 
-    it("setApiResponse alias still works (back-compat shim)", () => {
-      const c = new DiagnosticsCollector();
-      c.setApiResponse("dev1", "/legacy", { v: 1 });
-      const list = (c.generate(makeDevice({ deviceId: "dev1" }), "2.0.0").apiHistory as Record<string, unknown[]>)[
-        "/legacy"
-      ];
-      expect(list).to.have.lengthOf(1);
-    });
   });
 
   describe("forget / clear", () => {

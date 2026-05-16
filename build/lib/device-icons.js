@@ -23,6 +23,7 @@ __export(device_icons_exports, {
   shortenGoveeType: () => shortenGoveeType
 });
 module.exports = __toCommonJS(device_icons_exports);
+var import_govee_constants = require("./govee-constants");
 const LIGHT = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTkgMjFjMCAuNTUuNDUgMSAxIDFoNGMuNTUgMCAxLS40NSAxLTF2LTFIOXYxem0zLTE5QzguMTQgMiA1IDUuMTQgNSA5YzAgMi4zOCAxLjE5IDQuNDcgMyA1Ljc0VjE3YzAgLjU1LjQ1IDEgMSAxaDZjLjU1IDAgMS0uNDUgMS0xdi0yLjI2YzEuODEtMS4yNyAzLTMuMzYgMy01Ljc0IDAtMy44Ni0zLjE0LTctNy03eiIvPjwvc3ZnPg==";
 const THERMOMETER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTE1IDEzVjVjMC0xLjY2LTEuMzQtMy0zLTNTOSAzLjM0IDkgNXY4Yy0xLjIxLjkxLTIgMi4zNS0yIDQgMCAyLjc2IDIuMjQgNSA1IDVzNS0yLjI0IDUtNWMwLTEuNjUtLjc5LTMuMDktMi00em0tNC04YzAtLjU1LjQ1LTEgMS0xczEgLjQ1IDEgMWgtMnYxaDJ2MmgtMnYxaDJ2MmgtMnYxLjFjMS40NC40NyAyLjUgMS44IDIuNSAzLjQgMCAyLjA5LTEuNzEgMy43NS0zLjc1IDMuNzVTNyAxOS4xOSA3IDE3LjFjMC0xLjYgMS4wNi0yLjkzIDIuNS0zLjRWNXoiLz48L3N2Zz4=";
 const HEATER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTE3LjY2IDExLjJjLS4yMy0uMzMtLjQ4LS42Ni0uNzgtLjk4Yy0uNTctLjY2LTEuMjEtMS4zMi0xLjg2LTEuOTdjLTEuMzgtMS4zNS0yLjg2LTIuNzMtMy45Ny00LjU0Yy0uNDgtLjc4LS44LTEuNTktMS4wMi0yLjQyYy0uNTguODYtMS4wOSAxLjctMS41OSAyLjU1Yy0uODcgMS40OS0xLjY3IDIuOTYtMi4yMyA0LjUyYy0uNzcgMi4xNi0xLjAxIDQuMzgtLjUyIDYuNTRjLjUgMi4xNiAxLjY3IDQuMjUgMy4zNyA1LjcxYy44Ni43NCAxLjg5IDEuMzMgMyAxLjc2YzEuMS40MyAyLjI4LjY3IDMuNDcuNzFjMS4xOS4wNCAyLjQtLjEyIDMuNTQtLjUyYzEuMTQtLjQgMi4yMS0xLjAyIDMuMTctMS44NWMxLjg5LTEuNjMgMy4yNi0zLjc4IDMuNTctNi4xN2MuMzEtMi4zOS0uNTQtNC44NC0yLjE1LTYuNTd6Ii8+PC9zdmc+";
@@ -36,27 +37,27 @@ const AROMA = HUMIDIFIER;
 const GROUP = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTE2IDExYzEuNjYgMCAyLjk5LTEuMzQgMi45OS0zUzE3LjY2IDUgMTYgNWMtMS42NiAwLTMgMS4zNC0zIDNzMS4zNCAzIDMgM3ptLTggMGMxLjY2IDAgMi45OS0xLjM0IDIuOTktM1M5LjY2IDUgOCA1QzYuMzQgNSA1IDYuMzQgNSA4czEuMzQgMyAzIDN6bTAgMmMtMi4zMyAwLTcgMS4xNy03IDMuNVYxOWgxNHYtMi41YzAtMi4zMy00LjY3LTMuNS03LTMuNXptOCAwYy0uMjkgMC0uNjIuMDItLjk3LjA1IDEuMTYuODQgMS45NyAxLjk3IDEuOTcgMy40NVYxOWg2di0yLjVjMC0yLjMzLTQuNjctMy41LTctMy41eiIvPjwvc3ZnPg==";
 function iconForGoveeType(govType) {
   switch (govType) {
-    case "devices.types.light":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT:
       return LIGHT;
-    case "devices.types.thermometer":
-    case "devices.types.sensor":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.THERMOMETER:
+    case import_govee_constants.GOVEE_DEVICE_TYPE.SENSOR:
       return THERMOMETER;
-    case "devices.types.heater":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.HEATER:
       return HEATER;
-    case "devices.types.humidifier":
-    case "devices.types.dehumidifier":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.HUMIDIFIER:
+    case import_govee_constants.GOVEE_DEVICE_TYPE.DEHUMIDIFIER:
       return HUMIDIFIER;
-    case "devices.types.fan":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.FAN:
       return FAN;
-    case "devices.types.air_purifier":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.AIR_PURIFIER:
       return AIR_PURIFIER;
-    case "devices.types.socket":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.SOCKET:
       return SOCKET;
-    case "devices.types.kettle":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.KETTLE:
       return KETTLE;
-    case "devices.types.ice_maker":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.ICE_MAKER:
       return ICE_MAKER;
-    case "devices.types.aroma_diffuser":
+    case import_govee_constants.GOVEE_DEVICE_TYPE.AROMA_DIFFUSER:
       return AROMA;
     default:
       return LIGHT;

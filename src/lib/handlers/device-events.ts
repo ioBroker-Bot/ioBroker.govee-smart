@@ -1,6 +1,7 @@
 import { buildCloudStateDefs } from "../capability-mapper";
 import type { DeviceManager } from "../device-manager";
 import { getDeviceTier } from "../device-registry";
+import { GOVEE_DEVICE_TYPE } from "../govee-constants";
 import type { LocalSnapshotStore } from "../local-snapshots";
 import type { StateManager } from "../state-manager";
 import { errMessage, type DeviceState, type GoveeDevice } from "../types";
@@ -56,7 +57,7 @@ export function onDeviceStateUpdate<
     // syncInfoOnline owns it. Trigger it here so a wasOffline → online
     // transition from handleLanDiscovery reflects in info.online within
     // milliseconds instead of waiting up to one sync-timer cycle (20 s).
-    if (device.type === "devices.types.light" && adapter.stateManager) {
+    if (device.type === GOVEE_DEVICE_TYPE.LIGHT && adapter.stateManager) {
       adapter.stateManager.syncInfoOnline(device).catch(() => undefined);
     }
   }

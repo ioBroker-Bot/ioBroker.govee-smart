@@ -1,10 +1,46 @@
 /**
- * Shared Govee app-impersonation constants.
- * The mqtt and undocumented-api clients both need to identify themselves
- * as the official Govee Home app to get valid responses.
+ * Shared Govee app-impersonation constants + capability/device-type strings.
+ *
+ * Capability and device-type constants replace inline string literals so a
+ * typo at the call site becomes a TypeScript compile error instead of a
+ * silent runtime miss. The values are dictated by Govee's Cloud API — we
+ * mirror them 1:1.
  */
 
 import { v5 as uuidv5, NIL as UUID_NIL } from "uuid";
+
+/** Govee Cloud API capability type strings (`capability.type`). */
+export const GOVEE_CAP_TYPE = {
+  ON_OFF: "devices.capabilities.on_off",
+  RANGE: "devices.capabilities.range",
+  COLOR_SETTING: "devices.capabilities.color_setting",
+  SEGMENT_COLOR_SETTING: "devices.capabilities.segment_color_setting",
+  DYNAMIC_SCENE: "devices.capabilities.dynamic_scene",
+  PROPERTY: "devices.capabilities.property",
+  TOGGLE: "devices.capabilities.toggle",
+  MUSIC_SETTING: "devices.capabilities.music_setting",
+  MODE: "devices.capabilities.mode",
+  ONLINE: "devices.capabilities.online",
+  WORK_MODE: "devices.capabilities.work_mode",
+  TEMPERATURE_SETTING: "devices.capabilities.temperature_setting",
+  EVENT: "devices.capabilities.event",
+} as const;
+
+/** Govee Cloud API device type strings (`device.type`). */
+export const GOVEE_DEVICE_TYPE = {
+  LIGHT: "devices.types.light",
+  THERMOMETER: "devices.types.thermometer",
+  SENSOR: "devices.types.sensor",
+  HEATER: "devices.types.heater",
+  HUMIDIFIER: "devices.types.humidifier",
+  DEHUMIDIFIER: "devices.types.dehumidifier",
+  FAN: "devices.types.fan",
+  AIR_PURIFIER: "devices.types.air_purifier",
+  SOCKET: "devices.types.socket",
+  KETTLE: "devices.types.kettle",
+  ICE_MAKER: "devices.types.ice_maker",
+  AROMA_DIFFUSER: "devices.types.aroma_diffuser",
+} as const;
 
 export const GOVEE_APP_VERSION = "7.4.30";
 export const GOVEE_CLIENT_TYPE = "1";

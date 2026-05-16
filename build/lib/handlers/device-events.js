@@ -36,6 +36,7 @@ __export(device_events_exports, {
 module.exports = __toCommonJS(device_events_exports);
 var import_capability_mapper = require("../capability-mapper");
 var import_device_registry = require("../device-registry");
+var import_govee_constants = require("../govee-constants");
 var import_types = require("../types");
 var connectionState = __toESM(require("./connection-state"));
 var groupFanoutHandler = __toESM(require("./group-fanout-handler"));
@@ -48,7 +49,7 @@ function onDeviceStateUpdate(adapter, device, state) {
   connectionState.updateConnectionState(adapter);
   if (state.online !== void 0) {
     groupFanoutHandler.updateGroupReachability(adapter);
-    if (device.type === "devices.types.light" && adapter.stateManager) {
+    if (device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && adapter.stateManager) {
       adapter.stateManager.syncInfoOnline(device).catch(() => void 0);
     }
   }

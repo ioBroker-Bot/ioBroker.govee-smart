@@ -1,5 +1,6 @@
 import type { DeviceManager } from "../device-manager";
 import { SEGMENT_HARD_MAX } from "../device-manager";
+import { GOVEE_CAP_TYPE } from "../govee-constants";
 import type { GoveeLanClient } from "../govee-lan-client";
 import type { GroupFanoutHandler } from "../group-fanout";
 import type { SnapshotHandler } from "../snapshot-handler";
@@ -138,12 +139,7 @@ export async function sendMusicCommand(
     autoColor,
   };
 
-  await adapter.deviceManager!.sendCapabilityCommand(
-    device,
-    "devices.capabilities.music_setting",
-    "musicMode",
-    structValue,
-  );
+  await adapter.deviceManager!.sendCapabilityCommand(device, GOVEE_CAP_TYPE.MUSIC_SETTING, "musicMode", structValue);
 }
 
 /**
@@ -319,7 +315,7 @@ export async function onStateChange(
     return;
   }
   if (stateSuffix === "snapshots.snapshot_delete" && typeof val === "string" && val.trim()) {
-    adapter.snapshotHandler!.delete(device, val.trim());
+    await adapter.snapshotHandler!.delete(device, val.trim());
     await adapter.setStateAsync(id, { val: "", ack: true });
     return;
   }
