@@ -50,7 +50,6 @@ var import_rate_limiter = require("./lib/rate-limiter");
 var import_segment_wizard = require("./lib/segment-wizard");
 var import_sku_cache = require("./lib/sku-cache");
 var import_state_manager = require("./lib/state-manager");
-var import_adapter_config = require("./lib/adapter-config");
 var import_types = require("./lib/types");
 var import_timing_constants = require("./lib/timing-constants");
 class GoveeAdapter extends utils.Adapter {

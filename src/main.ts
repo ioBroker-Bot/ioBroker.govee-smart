@@ -29,7 +29,8 @@ import type { SegmentWizard } from "./lib/segment-wizard";
 import { wizardIdleText } from "./lib/segment-wizard";
 import { SkuCache } from "./lib/sku-cache";
 import { StateManager } from "./lib/state-manager";
-import "./lib/adapter-config";
+// AdapterConfig is augmented globally in src/lib/adapter-config.d.ts —
+// TypeScript picks it up via tsconfig.json `include`, no value-import needed.
 import { errMessage, rgbIntToHex, rgbToHex, type CloudStateCapability, type GoveeDevice } from "./lib/types";
 import { APP_API_INITIAL_DELAY_MS, APP_API_POLL_INTERVAL_MS, CLOUD_FULL_LIMITS } from "./lib/timing-constants";
 
