@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.11.0 (2026-05-16)
 
 - Security: API key, Govee password and 2FA code are now stored encrypted — please re-enter them once in the adapter settings after this upgrade.
 - Locally saved snapshots are now included in ioBroker backups (BackItUp / `iob backup`). Existing snapshot files migrate automatically on first start.
@@ -155,10 +155,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.9.0 (2026-05-13)
 
 - `info.online` for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive `true` during real outages.
-
-### 2.8.4 (2026-05-12)
-
-- The device trust tier state under each device no longer carries a multi-language label object that would crash the admin with "Error in GUI" if rendered as a dropdown.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

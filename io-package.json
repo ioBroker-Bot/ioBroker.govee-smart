@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.10.1",
+    "version": "2.11.0",
     "news": {
-      "NEXT": {
+      "2.11.0": {
         "en": "Security: credentials encrypted — re-enter API key, Govee password and 2FA code once. Local snapshots backed up via ioBroker (auto-migration). sendTo with unknown command no longer hangs.",
         "de": "Sicherheit: Credentials verschlüsselt — API-Key, Govee-Passwort und 2FA-Code einmal neu eingeben. Lokale Snapshots im ioBroker-Backup (Auto-Migration). sendTo bei unbekanntem Befehl hängt nicht mehr.",
         "ru": "Безопасность: данные зашифрованы — заново введите API-ключ, пароль Govee и 2FA-код. Локальные снепшоты в бэкапе ioBroker (автомиграция). sendTo с неизвестной командой не зависает.",
