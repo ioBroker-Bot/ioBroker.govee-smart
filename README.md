@@ -128,7 +128,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.12.0 (2026-05-17)
 
 - Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)
 - All info datapoint names now show in 11 languages instead of English-only
@@ -152,13 +152,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Snapshots on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8) now work; matrix-light scenes too.
 - New per-SKU quirks system: device-specific fixes ship via a one-line catalog entry, no full adapter release needed.
-
-### 2.9.1 (2026-05-13)
-
-- Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable directly from the export.
-- Diagnostics now also captures outgoing LAN commands, raw cloud-events messages and live error/rate-limit state, so "the adapter went silent" reports are traceable end-to-end.
-- Groups now have their own diagnostics export button just like regular devices, so group-specific fan-out problems can be reported the same way.
-- Appliance and sensor values are now reflected in the runtime state shown in the export, not only in the state tree.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
