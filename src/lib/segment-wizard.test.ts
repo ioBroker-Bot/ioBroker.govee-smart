@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { SegmentWizard, type WizardHost, type WizardResult } from "./segment-wizard";
 import { SEGMENT_HARD_MAX } from "./device-manager";
 import type { CloudCapability, GoveeDevice } from "./types";
@@ -188,15 +187,17 @@ describe("SegmentWizard", () => {
   describe("start", () => {
     it("should refuse when device key is unknown", async () => {
       const r = await wizard.start("H9999:NOPE");
-      expect(r.error).to.be.a("string").and.include("not found");
-      expect(wizard.isActive()).to.be.false;
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("not found");
+      expect(wizard.isActive()).toBe(false);
     });
 
     it("should refuse when device has no segment capability", async () => {
       host.devices.set(key, makeDevice({ capabilities: [] }));
       const r = await wizard.start(key);
-      expect(r.error).to.be.a("string").and.include("no segments");
-      expect(wizard.isActive()).to.be.false;
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("no segments");
+      expect(wizard.isActive()).toBe(false);
     });
 
     it("should start even when device.segmentCount=0 (first-measurement case)", async () => {
@@ -204,47 +205,47 @@ describe("SegmentWizard", () => {
       // the user CAN measure it for the first time.
       host.devices.set(key, makeDevice({ segmentCount: 0, capabilities: [segmentCapability(14)] }));
       const r = await wizard.start(key);
-      expect(r.error).to.be.undefined;
-      expect(r.active).to.be.true;
+      expect(r.error).toBeUndefined();
+      expect(r.active).toBe(true);
     });
 
     it("should ensure strip is on + full brightness before flashing", async () => {
       await wizard.start(key);
-      expect(host.calls[0].command).to.equal("power");
-      expect(host.calls[0].value).to.equal(true);
-      expect(host.calls[1].command).to.equal("brightness");
-      expect(host.calls[1].value).to.equal(100);
+      expect(host.calls[0].command).toBe("power");
+      expect(host.calls[0].value).toBe(true);
+      expect(host.calls[1].command).toBe("brightness");
+      expect(host.calls[1].value).toBe(100);
     });
 
     it("should open a session and flash segment 0 over the FULL protocol range", async () => {
       const r = await wizard.start(key);
-      expect(r.error).to.be.undefined;
-      expect(r.active).to.be.true;
-      expect(r.progress).to.equal("Segment 0");
-      expect(wizard.isActive()).to.be.true;
+      expect(r.error).toBeUndefined();
+      expect(r.active).toBe(true);
+      expect(r.progress).toBe("Segment 0");
+      expect(wizard.isActive()).toBe(true);
 
       // Two segmentBatch calls: others→dim, target→bright.
       // "others" must now cover 1..SEGMENT_HARD_MAX (not just 1..4),
       // because we can't know the real strip length yet.
       const batches = host.segmentBatchCalls();
-      expect(batches).to.have.lengthOf(2);
+      expect(batches).toHaveLength(2);
       const dimBatch = batches[0].value as { segments: number[] };
-      expect(dimBatch.segments).to.have.lengthOf(SEGMENT_HARD_MAX);
-      expect(dimBatch.segments[0]).to.equal(1);
-      expect(dimBatch.segments[SEGMENT_HARD_MAX - 1]).to.equal(SEGMENT_HARD_MAX);
+      expect(dimBatch.segments).toHaveLength(SEGMENT_HARD_MAX);
+      expect(dimBatch.segments[0]).toBe(1);
+      expect(dimBatch.segments[SEGMENT_HARD_MAX - 1]).toBe(SEGMENT_HARD_MAX);
       const brightBatch = batches[1].value as {
         segments: number[];
         color: number;
       };
-      expect(brightBatch.segments).to.deep.equal([0]);
-      expect(brightBatch.color).to.equal(0xffffff);
+      expect(brightBatch.segments).toEqual([0]);
+      expect(brightBatch.color).toBe(0xffffff);
     });
 
     it("should send segmentBatch value as an OBJECT (not string)", async () => {
       await wizard.start(key);
       for (const c of host.segmentBatchCalls()) {
-        expect(c.value).to.be.an("object");
-        expect(c.value).to.not.be.a("string");
+        expect(c.value).toBeTypeOf("object");
+        expect(typeof c.value).not.toBe("string");
       }
     });
 
@@ -252,56 +253,58 @@ describe("SegmentWizard", () => {
       await wizard.start(key);
       await wizard.abort();
       const restoreCall = host.calls[host.calls.length - 1];
-      expect(restoreCall.command).to.equal("segmentBatch");
+      expect(restoreCall.command).toBe("segmentBatch");
       const v = restoreCall.value as {
         segments: number[];
         color: number;
         brightness: number;
       };
-      expect(v.color).to.equal(0xff6600);
-      expect(v.brightness).to.equal(75);
+      expect(v.color).toBe(0xff6600);
+      expect(v.brightness).toBe(75);
       // Restore scopes to device.segmentCount — the pre-measurement value
-      expect(v.segments).to.deep.equal([0, 1, 2, 3, 4]);
+      expect(v.segments).toEqual([0, 1, 2, 3, 4]);
     });
 
     it("should refuse a second start while active (session lock)", async () => {
       const first = await wizard.start(key);
-      expect(first.active).to.be.true;
+      expect(first.active).toBe(true);
       const second = await wizard.start(key);
-      expect(second.error).to.be.a("string").and.include("already active");
-      expect(wizard.isActive()).to.be.true;
+      expect(typeof second.error).toBe("string");
+      expect(second.error).toContain("already active");
+      expect(wizard.isActive()).toBe(true);
     });
 
     it("should schedule an idle timeout of 5 minutes", async () => {
       await wizard.start(key);
-      expect(host.timerCallbacks).to.have.lengthOf(1);
-      expect(host.timerCallbacks[0].ms).to.equal(5 * 60_000);
+      expect(host.timerCallbacks).toHaveLength(1);
+      expect(host.timerCallbacks[0].ms).toBe(5 * 60_000);
     });
   });
 
   describe("answer", () => {
     it("should return error when no session active", async () => {
       const r = await wizard.answer(true);
-      expect(r.error).to.be.a("string").and.include("No wizard active");
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("No wizard active");
     });
 
     it("should record 'yes' answers into the visible list", async () => {
       await wizard.start(key);
       host.calls.length = 0;
       await wizard.answer(true); // seg 0 visible, advances to 1
-      expect(host.calls).to.have.lengthOf(2); // dim others + bright target
+      expect(host.calls).toHaveLength(2); // dim others + bright target
       const bright = host.calls[1].value as { segments: number[] };
-      expect(bright.segments).to.deep.equal([1]);
+      expect(bright.segments).toEqual([1]);
     });
 
     it("should skip 'no' answers but still advance", async () => {
       await wizard.start(key);
       host.calls.length = 0;
       const r = await wizard.answer(false);
-      expect(r.active).to.be.true;
-      expect(r.progress).to.equal("Segment 1");
+      expect(r.active).toBe(true);
+      expect(r.progress).toBe("Segment 1");
       const bright = host.calls[1].value as { segments: number[] };
-      expect(bright.segments).to.deep.equal([1]);
+      expect(bright.segments).toEqual([1]);
     });
 
     it("should NOT auto-finish at device.segmentCount — keeps going", async () => {
@@ -310,9 +313,9 @@ describe("SegmentWizard", () => {
       await wizard.start(key);
       for (let i = 0; i < 10; i++) {
         const r = await wizard.answer(true);
-        expect(r.active).to.be.true;
+        expect(r.active).toBe(true);
       }
-      expect(wizard.isActive()).to.be.true;
+      expect(wizard.isActive()).toBe(true);
     });
 
     it("should auto-finish when the protocol limit is reached", async () => {
@@ -321,22 +324,24 @@ describe("SegmentWizard", () => {
       for (let i = 0; i <= SEGMENT_HARD_MAX; i++) {
         final = await wizard.answer(true);
       }
-      expect((final as { done?: boolean }).done).to.be.true;
-      expect(wizard.isActive()).to.be.false;
+      expect((final as { done?: boolean }).done).toBe(true);
+      expect(wizard.isActive()).toBe(false);
     });
   });
 
   describe("done", () => {
     it("should error when no session active", async () => {
       const r = await wizard.done();
-      expect(r.error).to.be.a("string").and.include("No wizard");
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("No wizard");
     });
 
     it("should error when no answer has been given yet", async () => {
       await wizard.start(key);
       const r = await wizard.done();
-      expect(r.error).to.be.a("string").and.include("at least once first");
-      expect(wizard.isActive()).to.be.true;
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("at least once first");
+      expect(wizard.isActive()).toBe(true);
     });
 
     it("should finalize with contiguous result (all visible, no gaps)", async () => {
@@ -345,15 +350,15 @@ describe("SegmentWizard", () => {
       await wizard.answer(true); // 1
       await wizard.answer(true); // 2
       const r = await wizard.done();
-      expect(r.done).to.be.true;
-      expect(r.segmentCount).to.equal(3);
-      expect(r.list).to.equal("");
-      expect(r.hasGaps).to.be.false;
+      expect(r.done).toBe(true);
+      expect(r.segmentCount).toBe(3);
+      expect(r.list).toBe("");
+      expect(r.hasGaps).toBe(false);
 
-      expect(host.appliedResults).to.have.lengthOf(1);
+      expect(host.appliedResults).toHaveLength(1);
       const applied = host.appliedResults[0];
-      expect(applied.device).to.equal(device);
-      expect(applied.result).to.deep.equal({
+      expect(applied.device).toBe(device);
+      expect(applied.result).toEqual({
         segmentCount: 3,
         manualList: "",
         hasGaps: false,
@@ -368,13 +373,13 @@ describe("SegmentWizard", () => {
       await wizard.answer(true); // 3 visible
       await wizard.answer(true); // 4 visible
       const r = await wizard.done();
-      expect(r.segmentCount).to.equal(5);
-      expect(r.list).to.equal("0-1,3-4");
-      expect(r.hasGaps).to.be.true;
+      expect(r.segmentCount).toBe(5);
+      expect(r.list).toBe("0-1,3-4");
+      expect(r.hasGaps).toBe(true);
 
       const applied = host.appliedResults[0];
-      expect(applied.result.hasGaps).to.be.true;
-      expect(applied.result.manualList).to.equal("0-1,3-4");
+      expect(applied.result.hasGaps).toBe(true);
+      expect(applied.result.manualList).toBe("0-1,3-4");
     });
 
     it("should handle a 20-segment strip when cloud said 15 (the Esszimmer case)", async () => {
@@ -386,9 +391,9 @@ describe("SegmentWizard", () => {
       }
       // User sees segment 20 is dark (past end of strip) → done
       const r = await wizard.done();
-      expect(r.segmentCount).to.equal(20);
-      expect(r.hasGaps).to.be.false;
-      expect(r.list).to.equal("");
+      expect(r.segmentCount).toBe(20);
+      expect(r.hasGaps).toBe(false);
+      expect(r.list).toBe("");
     });
 
     it("should restore baseline after applying the result", async () => {
@@ -399,52 +404,52 @@ describe("SegmentWizard", () => {
       await wizard.done();
       // Last sendCommand should be the restore segmentBatch
       const last = host.calls[host.calls.length - 1];
-      expect(last.command).to.equal("segmentBatch");
+      expect(last.command).toBe("segmentBatch");
       const v = last.value as { color: number; brightness: number };
-      expect(v.color).to.equal(0xff6600);
-      expect(v.brightness).to.equal(75);
+      expect(v.color).toBe(0xff6600);
+      expect(v.brightness).toBe(75);
     });
 
     it("should clear the idle timer on done", async () => {
       await wizard.start(key);
       await wizard.answer(true);
       await wizard.done();
-      expect(wizard.isActive()).to.be.false;
+      expect(wizard.isActive()).toBe(false);
     });
   });
 
   describe("abort", () => {
     it("should error when no session active", async () => {
       const r = await wizard.abort();
-      expect(r.error).to.be.a("string");
+      expect(typeof r.error).toBe("string");
     });
 
     it("should restore baseline on abort", async () => {
       await wizard.start(key);
       host.calls.length = 0;
       await wizard.abort();
-      expect(host.calls).to.have.lengthOf(1);
+      expect(host.calls).toHaveLength(1);
       const v = host.calls[0].value as {
         color: number;
         brightness: number;
       };
-      expect(v.color).to.equal(0xff6600);
-      expect(v.brightness).to.equal(75);
+      expect(v.color).toBe(0xff6600);
+      expect(v.brightness).toBe(75);
     });
 
     it("should NOT apply a result on abort", async () => {
       await wizard.start(key);
       await wizard.answer(true);
       await wizard.abort();
-      expect(host.appliedResults).to.have.lengthOf(0);
+      expect(host.appliedResults).toHaveLength(0);
     });
 
     it("should release the session lock", async () => {
       await wizard.start(key);
       await wizard.abort();
-      expect(wizard.isActive()).to.be.false;
+      expect(wizard.isActive()).toBe(false);
       const again = await wizard.start(key);
-      expect(again.active).to.be.true;
+      expect(again.active).toBe(true);
     });
 
     it("should skip restore when baseline color is missing", async () => {
@@ -452,27 +457,27 @@ describe("SegmentWizard", () => {
       await wizard.start(key);
       host.calls.length = 0;
       await wizard.abort();
-      expect(host.calls).to.have.lengthOf(0);
+      expect(host.calls).toHaveLength(0);
     });
   });
 
   describe("runStep dispatch", () => {
     it("should route 'start' to start()", async () => {
       const r = await wizard.runStep("start", key);
-      expect(r.active).to.be.true;
+      expect(r.active).toBe(true);
     });
 
     it("should reject yes/no/done/abort without a session", async () => {
       for (const a of ["yes", "no", "done", "abort"]) {
         const r = await wizard.runStep(a, "");
-        expect(r.error).to.include("No wizard");
+        expect(r.error).toContain("No wizard");
       }
     });
 
     it("should reject unknown actions", async () => {
       await wizard.start(key);
       const r = await wizard.runStep("maybe", "");
-      expect(r.error).to.include("Unknown action");
+      expect(r.error).toContain("Unknown action");
     });
 
     it("should route 'yes'/'no'/'done'/'abort'", async () => {
@@ -481,31 +486,31 @@ describe("SegmentWizard", () => {
       await wizard.runStep("no", "");
       await wizard.runStep("yes", "");
       const r = await wizard.runStep("done", "");
-      expect(r.done).to.be.true;
-      expect(r.list).to.equal("0,2");
+      expect(r.done).toBe(true);
+      expect(r.list).toBe("0,2");
 
       // New session — abort works too
       await wizard.runStep("start", key);
       const aborted = await wizard.runStep("abort", "");
-      expect(aborted.aborted).to.be.true;
+      expect(aborted.aborted).toBe(true);
     });
   });
 
   describe("idle timeout", () => {
     it("should abort the session when the timer fires", async () => {
       await wizard.start(key);
-      expect(wizard.isActive()).to.be.true;
+      expect(wizard.isActive()).toBe(true);
       host.fireLatestTimer();
       await new Promise(resolve => setImmediate(resolve));
-      expect(wizard.isActive()).to.be.false;
+      expect(wizard.isActive()).toBe(false);
       const warns = host.logs.filter(l => l.level === "warn");
-      expect(warns.some(l => l.msg.toLowerCase().includes("idle timeout"))).to.be.true;
+      expect(warns.some(l => l.msg.toLowerCase().includes("idle timeout"))).toBe(true);
     });
 
     it("should do nothing if the session is already gone when firing", async () => {
       await wizard.start(key);
       await wizard.abort();
-      expect(() => host.fireLatestTimer()).to.not.throw();
+      expect(() => host.fireLatestTimer()).not.toThrow();
     });
 
     it("should reset the timer on each answer", async () => {
@@ -513,8 +518,8 @@ describe("SegmentWizard", () => {
       const before = host.timerCallbacks.length;
       await wizard.answer(true);
       await wizard.answer(false);
-      expect(host.timerCallbacks.length).to.equal(before + 2);
-      expect(host.clearedTimers).to.be.greaterThanOrEqual(2);
+      expect(host.timerCallbacks.length).toBe(before + 2);
+      expect(host.clearedTimers).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -523,8 +528,9 @@ describe("SegmentWizard", () => {
       await wizard.start(key);
       host.devices.delete(key);
       const r = await wizard.answer(true);
-      expect(r.error).to.be.a("string").and.include("disappeared");
-      expect(wizard.isActive()).to.be.false;
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("disappeared");
+      expect(wizard.isActive()).toBe(false);
     });
 
     it("should handle device missing at done", async () => {
@@ -532,8 +538,9 @@ describe("SegmentWizard", () => {
       await wizard.answer(true);
       host.devices.delete(key);
       const r = await wizard.done();
-      expect(r.error).to.be.a("string").and.include("disappeared");
-      expect(wizard.isActive()).to.be.false;
+      expect(typeof r.error).toBe("string");
+      expect(r.error).toContain("disappeared");
+      expect(wizard.isActive()).toBe(false);
     });
   });
 
@@ -541,33 +548,36 @@ describe("SegmentWizard", () => {
     it("should cancel pending timer and drop session", async () => {
       await wizard.start(key);
       wizard.dispose();
-      expect(wizard.isActive()).to.be.false;
-      expect(host.clearedTimers).to.be.greaterThan(0);
+      expect(wizard.isActive()).toBe(false);
+      expect(host.clearedTimers).toBeGreaterThan(0);
     });
 
     it("should be safe to call without a session", () => {
-      expect(() => wizard.dispose()).to.not.throw();
+      expect(() => wizard.dispose()).not.toThrow();
     });
   });
 
   describe("localization", () => {
     it("should render English strings by default", async () => {
       const r = await wizard.start(key);
-      expect(r.message).to.be.a("string").and.include("Wizard started");
-      expect(wizard.getStatusText()).to.include("Can you see");
+      expect(typeof r.message).toBe("string");
+      expect(r.message).toContain("Wizard started");
+      expect(wizard.getStatusText()).toContain("Can you see");
     });
 
     it("should render German strings when language is 'de'", async () => {
       host.language = "de";
       const r = await wizard.start(key);
-      expect(r.message).to.be.a("string").and.include("gestartet");
-      expect(wizard.getStatusText()).to.include("Siehst du");
+      expect(typeof r.message).toBe("string");
+      expect(r.message).toContain("gestartet");
+      expect(wizard.getStatusText()).toContain("Siehst du");
     });
 
     it("should fall back to English for unknown languages", async () => {
       host.language = "fr"; // not in WIZARD_STRINGS
       const r = await wizard.start(key);
-      expect(r.message).to.be.a("string").and.include("Wizard started");
+      expect(typeof r.message).toBe("string");
+      expect(r.message).toContain("Wizard started");
     });
   });
 
@@ -579,8 +589,8 @@ describe("SegmentWizard", () => {
       await wizard.answer(true);
       await wizard.done();
       for (const c of host.segmentBatchCalls()) {
-        expect(c.value).to.be.an("object");
-        expect(c.value).to.not.be.a("string");
+        expect(c.value).toBeTypeOf("object");
+        expect(typeof c.value).not.toBe("string");
       }
     });
 
@@ -589,8 +599,8 @@ describe("SegmentWizard", () => {
       await wizard.start(key);
       // No segmentBatch fallback calls when atomic succeeded
       const batches = host.segmentBatchCalls();
-      expect(batches).to.have.lengthOf(0);
-      expect(host.atomicFlashUsed).to.be.true;
+      expect(batches).toHaveLength(0);
+      expect(host.atomicFlashUsed).toBe(true);
     });
   });
 });

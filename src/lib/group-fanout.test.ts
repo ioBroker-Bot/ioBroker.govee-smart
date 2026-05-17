@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { GroupFanoutHandler, type GroupFanoutHost } from "./group-fanout";
 import type { GoveeDevice } from "./types";
 
@@ -133,8 +132,8 @@ describe("GroupFanoutHandler", () => {
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "control.power", true);
       // m3 offline → skipped
-      expect(commands).to.have.length(2);
-      expect(commands.map(c => c.device).sort()).to.deep.equal(["AA:01", "AA:02"]);
+      expect(commands).toHaveLength(2);
+      expect(commands.map(c => c.device).sort()).toEqual(["AA:01", "AA:02"]);
     });
 
     it("forwards brightness verbatim", async () => {
@@ -143,7 +142,7 @@ describe("GroupFanoutHandler", () => {
       const { host, commands } = makeHost({ devices: [m1] });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "control.brightness", 75);
-      expect(commands[0]).to.deep.include({ command: "brightness", value: 75 });
+      expect(commands[0]).toEqual(expect.objectContaining({ command: "brightness", value: 75 }));
     });
 
     it("no-op when no online members", async () => {
@@ -152,7 +151,7 @@ describe("GroupFanoutHandler", () => {
       const { host, commands } = makeHost({ devices: [m1] });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "control.power", true);
-      expect(commands).to.have.length(0);
+      expect(commands).toHaveLength(0);
     });
 
     it("no-op when group has no groupMembers", async () => {
@@ -160,7 +159,7 @@ describe("GroupFanoutHandler", () => {
       const { host, commands } = makeHost({ devices: [] });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "control.power", true);
-      expect(commands).to.have.length(0);
+      expect(commands).toHaveLength(0);
     });
   });
 
@@ -194,8 +193,8 @@ describe("GroupFanoutHandler", () => {
       // Aurora is index 2 in memberA, index 1 in memberB → 1-based → "2" and "1"
       const auroraA = commands.find(c => c.device === memberA.deviceId);
       const auroraB = commands.find(c => c.device === memberB.deviceId);
-      expect(auroraA?.value).to.equal(2);
-      expect(auroraB?.value).to.equal(1);
+      expect(auroraA?.value).toBe(2);
+      expect(auroraB?.value).toBe(1);
     });
 
     it("skips scene that no member has", async () => {
@@ -207,7 +206,7 @@ describe("GroupFanoutHandler", () => {
       });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "scenes.light_scene", "1");
-      expect(commands).to.have.length(0);
+      expect(commands).toHaveLength(0);
     });
 
     it("ignores scene-reset (value=0)", async () => {
@@ -216,7 +215,7 @@ describe("GroupFanoutHandler", () => {
       const { host, commands } = makeHost({ devices: [memberA] });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "scenes.light_scene", "0");
-      expect(commands).to.have.length(0);
+      expect(commands).toHaveLength(0);
     });
   });
 
@@ -236,8 +235,8 @@ describe("GroupFanoutHandler", () => {
       });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "music.music_mode", "1");
-      expect(musicCalls).to.have.length(1);
-      expect(musicCalls[0].value).to.equal(2); // index 2 in memberA's musicLibrary (1-based)
+      expect(musicCalls).toHaveLength(1);
+      expect(musicCalls[0].value).toBe(2); // index 2 in memberA's musicLibrary (1-based)
     });
 
     it("forwards sensitivity directly to sendMusicCommand", async () => {
@@ -246,8 +245,8 @@ describe("GroupFanoutHandler", () => {
       const { host, musicCalls } = makeHost({ devices: [m1] });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "music.music_sensitivity", 80);
-      expect(musicCalls).to.have.length(1);
-      expect(musicCalls[0].value).to.equal(80);
+      expect(musicCalls).toHaveLength(1);
+      expect(musicCalls[0].value).toBe(80);
     });
 
     it("ignores music-mode 0 (reset)", async () => {
@@ -256,8 +255,8 @@ describe("GroupFanoutHandler", () => {
       const { host, commands, musicCalls } = makeHost({ devices: [m1] });
       const handler = new GroupFanoutHandler(host);
       await handler.fanOut(group, "music.music_mode", 0);
-      expect(commands).to.have.length(0);
-      expect(musicCalls).to.have.length(0);
+      expect(commands).toHaveLength(0);
+      expect(musicCalls).toHaveLength(0);
     });
   });
 
@@ -271,15 +270,15 @@ describe("GroupFanoutHandler", () => {
       const { host } = makeHost({ devices: [m1] });
       const handler = new GroupFanoutHandler(host);
       const resolved = handler.resolveMembers(group, [m1]);
-      expect(resolved).to.have.length(1);
-      expect(resolved[0].deviceId).to.equal("MK:01");
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0].deviceId).toBe("MK:01");
     });
 
     it("returns empty array for group with no members declared", () => {
       const group: GoveeDevice = { ...makeGroup([]), groupMembers: undefined };
       const { host } = makeHost({ devices: [] });
       const handler = new GroupFanoutHandler(host);
-      expect(handler.resolveMembers(group, [])).to.deep.equal([]);
+      expect(handler.resolveMembers(group, [])).toEqual([]);
     });
   });
 });

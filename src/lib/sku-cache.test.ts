@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -58,12 +57,12 @@ describe("SkuCache", () => {
 
   it("should create cache directory on construction", () => {
     new SkuCache(dir, mockLog);
-    expect(fs.existsSync(path.join(dir, "cache"))).to.be.true;
+    expect(fs.existsSync(path.join(dir, "cache"))).toBe(true);
   });
 
   it("should return empty for non-existent cache", () => {
     const cache = new SkuCache(dir, mockLog);
-    expect(cache.loadAll()).to.deep.equal([]);
+    expect(cache.loadAll()).toEqual([]);
   });
 
   it("should save and load a cache entry", () => {
@@ -71,15 +70,15 @@ describe("SkuCache", () => {
     const data = createTestData();
     cache.save(data);
     const all = cache.loadAll();
-    expect(all).to.have.length(1);
+    expect(all).toHaveLength(1);
     const loaded = all[0];
-    expect(loaded.sku).to.equal("H61BE");
-    expect(loaded.name).to.equal("Test Light");
-    expect(loaded.scenes).to.have.length(1);
-    expect(loaded.sceneLibrary).to.have.length(1);
-    expect(loaded.musicLibrary).to.have.length(1);
-    expect(loaded.diyLibrary).to.have.length(1);
-    expect(loaded.skuFeatures).to.deep.equal({
+    expect(loaded.sku).toBe("H61BE");
+    expect(loaded.name).toBe("Test Light");
+    expect(loaded.scenes).toHaveLength(1);
+    expect(loaded.sceneLibrary).toHaveLength(1);
+    expect(loaded.musicLibrary).toHaveLength(1);
+    expect(loaded.diyLibrary).toHaveLength(1);
+    expect(loaded.skuFeatures).toEqual({
       musicMode: true,
       gradient: true,
     });
@@ -93,9 +92,9 @@ describe("SkuCache", () => {
     data.scenes.push({ name: "Aurora", value: { id: 2 } });
     cache.save(data);
     const all = cache.loadAll();
-    expect(all).to.have.length(1);
-    expect(all[0].name).to.equal("Updated Light");
-    expect(all[0].scenes).to.have.length(2);
+    expect(all).toHaveLength(1);
+    expect(all[0].name).toBe("Updated Light");
+    expect(all[0].scenes).toHaveLength(2);
   });
 
   it("should store separate entries for different devices", () => {
@@ -103,9 +102,9 @@ describe("SkuCache", () => {
     cache.save(createTestData("H61BE", "AA:BB:CC:DD:11:22:33:44"));
     cache.save(createTestData("H6160", "EE:FF:00:11:22:33:44:55"));
     const all = cache.loadAll();
-    expect(all).to.have.length(2);
+    expect(all).toHaveLength(2);
     const skus = all.map(d => d.sku).sort();
-    expect(skus).to.deep.equal(["H6160", "H61BE"]);
+    expect(skus).toEqual(["H6160", "H61BE"]);
   });
 
   it("should store separate entries for same SKU different devices", () => {
@@ -113,28 +112,28 @@ describe("SkuCache", () => {
     cache.save(createTestData("H61BE", "AA:BB:CC:DD:11:22:11:11"));
     cache.save(createTestData("H61BE", "AA:BB:CC:DD:11:22:22:22"));
     const all = cache.loadAll();
-    expect(all).to.have.length(2);
+    expect(all).toHaveLength(2);
   });
 
   it("should loadAll from empty cache", () => {
     const cache = new SkuCache(dir, mockLog);
-    expect(cache.loadAll()).to.deep.equal([]);
+    expect(cache.loadAll()).toEqual([]);
   });
 
   it("should clear all cache entries", () => {
     const cache = new SkuCache(dir, mockLog);
     cache.save(createTestData("H61BE", "AA:BB:CC:DD:11:22:33:44"));
     cache.save(createTestData("H6160", "EE:FF:00:11:22:33:44:55"));
-    expect(cache.loadAll()).to.have.length(2);
+    expect(cache.loadAll()).toHaveLength(2);
     cache.clear();
-    expect(cache.loadAll()).to.have.length(0);
+    expect(cache.loadAll()).toHaveLength(0);
   });
 
   it("should handle corrupt JSON gracefully", () => {
     const cache = new SkuCache(dir, mockLog);
     const cacheDir = path.join(dir, "cache");
     fs.writeFileSync(path.join(cacheDir, "corrupt_1234.json"), "not json");
-    expect(cache.loadAll()).to.deep.equal([]);
+    expect(cache.loadAll()).toEqual([]);
   });
 
   it("should use normalized device ID for file naming", () => {
@@ -142,8 +141,8 @@ describe("SkuCache", () => {
     cache.save(createTestData("H61BE", "AA:BB:CC:DD:11:22:33:44"));
     // Same device without colons should hit same file (loadAll finds the single entry)
     const all = cache.loadAll();
-    expect(all).to.have.length(1);
-    expect(all[0].sku).to.equal("H61BE");
+    expect(all).toHaveLength(1);
+    expect(all[0].sku).toBe("H61BE");
   });
 
   it("should preserve all library data types", () => {
@@ -156,10 +155,10 @@ describe("SkuCache", () => {
     data.diyLibrary = [{ name: "My DIY", diyCode: 10, scenceParam: "BASE64DATA" }];
     cache.save(data);
     const loaded = cache.loadAll()[0];
-    expect(loaded.musicLibrary).to.have.length(2);
-    expect(loaded.musicLibrary[0].scenceParam).to.equal("AQID");
-    expect(loaded.musicLibrary[1].mode).to.equal(1);
-    expect(loaded.diyLibrary[0].scenceParam).to.equal("BASE64DATA");
+    expect(loaded.musicLibrary).toHaveLength(2);
+    expect(loaded.musicLibrary[0].scenceParam).toBe("AQID");
+    expect(loaded.musicLibrary[1].mode).toBe(1);
+    expect(loaded.diyLibrary[0].scenceParam).toBe("BASE64DATA");
   });
 
   it("should handle null skuFeatures", () => {
@@ -168,21 +167,21 @@ describe("SkuCache", () => {
     data.skuFeatures = null;
     cache.save(data);
     const loaded = cache.loadAll()[0];
-    expect(loaded.skuFeatures).to.be.null;
+    expect(loaded.skuFeatures).toBeNull();
   });
 
   it("should not throw when deviceId is non-string", () => {
     const cache = new SkuCache(dir, mockLog);
     const data = createTestData();
     (data as unknown as { deviceId: unknown }).deviceId = 12345;
-    expect(() => cache.save(data)).to.not.throw();
+    expect(() => cache.save(data)).not.toThrow();
   });
 
   it("should not throw when sku is non-string", () => {
     const cache = new SkuCache(dir, mockLog);
     const data = createTestData();
     (data as unknown as { sku: unknown }).sku = null;
-    expect(() => cache.save(data)).to.not.throw();
+    expect(() => cache.save(data)).not.toThrow();
   });
 
   describe("pruneStale", () => {
@@ -198,10 +197,10 @@ describe("SkuCache", () => {
       cache.save(fresh);
 
       const pruned = cache.pruneStale(14);
-      expect(pruned).to.equal(1);
+      expect(pruned).toBe(1);
       const remaining = cache.loadAll();
-      expect(remaining).to.have.length(1);
-      expect(remaining[0].sku).to.equal("H6002");
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].sku).toBe("H6002");
     });
 
     it("keeps legacy entries without lastSeenOnNetwork", () => {
@@ -211,13 +210,13 @@ describe("SkuCache", () => {
       cache.save(legacy);
 
       const pruned = cache.pruneStale(14);
-      expect(pruned).to.equal(0);
-      expect(cache.loadAll()).to.have.length(1);
+      expect(pruned).toBe(0);
+      expect(cache.loadAll()).toHaveLength(1);
     });
 
     it("returns 0 on empty cache", () => {
       const cache = new SkuCache(dir, mockLog);
-      expect(cache.pruneStale(14)).to.equal(0);
+      expect(cache.pruneStale(14)).toBe(0);
     });
 
     it("respects custom maxAgeDays threshold", () => {
@@ -227,18 +226,18 @@ describe("SkuCache", () => {
       cache.save(data);
 
       // With 7-day threshold: still fresh
-      expect(cache.pruneStale(7)).to.equal(0);
-      expect(cache.loadAll()).to.have.length(1);
+      expect(cache.pruneStale(7)).toBe(0);
+      expect(cache.loadAll()).toHaveLength(1);
       // With 3-day threshold: stale
-      expect(cache.pruneStale(3)).to.equal(1);
-      expect(cache.loadAll()).to.have.length(0);
+      expect(cache.pruneStale(3)).toBe(1);
+      expect(cache.loadAll()).toHaveLength(0);
     });
 
     it("skips corrupt cache files silently", () => {
       const cache = new SkuCache(dir, mockLog);
       const cacheDir = path.join(dir, "cache");
       fs.writeFileSync(path.join(cacheDir, "corrupt_1234.json"), "not json");
-      expect(() => cache.pruneStale(14)).to.not.throw();
+      expect(() => cache.pruneStale(14)).not.toThrow();
     });
   });
 
@@ -248,7 +247,7 @@ describe("SkuCache", () => {
     data.scenesChecked = true;
     cache.save(data);
     const loaded = cache.loadAll()[0];
-    expect(loaded.scenesChecked).to.equal(true);
+    expect(loaded.scenesChecked).toBe(true);
   });
 
   it("should persist lastSeenOnNetwork timestamp", () => {
@@ -258,7 +257,7 @@ describe("SkuCache", () => {
     data.lastSeenOnNetwork = now;
     cache.save(data);
     const loaded = cache.loadAll()[0];
-    expect(loaded.lastSeenOnNetwork).to.equal(now);
+    expect(loaded.lastSeenOnNetwork).toBe(now);
   });
 
   it("should persist segmentCount (authoritative real count)", () => {
@@ -267,7 +266,7 @@ describe("SkuCache", () => {
     data.segmentCount = 20;
     cache.save(data);
     const loaded = cache.loadAll()[0];
-    expect(loaded.segmentCount).to.equal(20);
+    expect(loaded.segmentCount).toBe(20);
   });
 
   it("should persist manualMode + manualSegments together", () => {
@@ -278,7 +277,7 @@ describe("SkuCache", () => {
     data.manualSegments = [0, 1, 2, 5, 6, 7, 8];
     cache.save(data);
     const loaded = cache.loadAll()[0];
-    expect(loaded.manualMode).to.equal(true);
-    expect(loaded.manualSegments).to.deep.equal([0, 1, 2, 5, 6, 7, 8]);
+    expect(loaded.manualMode).toBe(true);
+    expect(loaded.manualSegments).toEqual([0, 1, 2, 5, 6, 7, 8]);
   });
 });

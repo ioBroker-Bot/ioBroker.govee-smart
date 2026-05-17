@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { CommandRouter } from "./command-router";
 import { _resetDeviceRegistry, initDeviceRegistry } from "./device-registry";
 import type { GoveeCloudClient } from "./govee-cloud-client";
@@ -119,9 +118,9 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "power", true);
-      expect(lan.calls).to.have.length(1);
-      expect(lan.calls[0].method).to.equal("setPower");
-      expect(lan.calls[0].args).to.deep.equal(["192.168.1.42", true]);
+      expect(lan.calls).toHaveLength(1);
+      expect(lan.calls[0].method).toBe("setPower");
+      expect(lan.calls[0].args).toEqual(["192.168.1.42", true]);
     });
 
     it("routes brightness to LAN setBrightness", async () => {
@@ -129,8 +128,8 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "brightness", 75);
-      expect(lan.calls[0].method).to.equal("setBrightness");
-      expect(lan.calls[0].args).to.deep.equal(["192.168.1.42", 75]);
+      expect(lan.calls[0].method).toBe("setBrightness");
+      expect(lan.calls[0].args).toEqual(["192.168.1.42", 75]);
     });
 
     it("routes colorRgb to LAN setColor with hex parsed to rgb", async () => {
@@ -138,8 +137,8 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "colorRgb", "#FF6600");
-      expect(lan.calls[0].method).to.equal("setColor");
-      expect(lan.calls[0].args).to.deep.equal(["192.168.1.42", 0xff, 0x66, 0x00]);
+      expect(lan.calls[0].method).toBe("setColor");
+      expect(lan.calls[0].args).toEqual(["192.168.1.42", 0xff, 0x66, 0x00]);
     });
 
     it("routes colorTemperature to LAN setColorTemperature", async () => {
@@ -147,8 +146,8 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "colorTemperature", 4000);
-      expect(lan.calls[0].method).to.equal("setColorTemperature");
-      expect(lan.calls[0].args).to.deep.equal(["192.168.1.42", 4000]);
+      expect(lan.calls[0].method).toBe("setColorTemperature");
+      expect(lan.calls[0].args).toEqual(["192.168.1.42", 4000]);
     });
 
     it("routes gradientToggle to LAN setGradient", async () => {
@@ -156,8 +155,8 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "gradientToggle", true);
-      expect(lan.calls[0].method).to.equal("setGradient");
-      expect(lan.calls[0].args).to.deep.equal(["192.168.1.42", true]);
+      expect(lan.calls[0].method).toBe("setGradient");
+      expect(lan.calls[0].args).toEqual(["192.168.1.42", true]);
     });
   });
 
@@ -170,9 +169,9 @@ describe("CommandRouter", () => {
       router.setRateLimiter(limiter);
       const device = makeDevice({ lanIp: undefined });
       await router.sendCommand(device, "power", true);
-      expect(cloud.calls).to.have.length(1);
-      expect(cloud.calls[0].instance).to.equal("powerSwitch");
-      expect(cloud.calls[0].value).to.equal(1);
+      expect(cloud.calls).toHaveLength(1);
+      expect(cloud.calls[0].instance).toBe("powerSwitch");
+      expect(cloud.calls[0].value).toBe(1);
     });
 
     it("debug-logs without warn when Cloud client not yet ready (init-race)", async () => {
@@ -199,10 +198,10 @@ describe("CommandRouter", () => {
       await router.sendCommand(makeDevice(), "segmentColor:3", "#0000FF");
       // forceColorMode sends a setColor first
       const setColorCall = lan.calls.find(c => c.method === "setColor");
-      expect(setColorCall).to.exist;
+      expect(setColorCall).toBeDefined();
       const segColorCall = lan.calls.find(c => c.method === "setSegmentColor");
-      expect(segColorCall).to.exist;
-      expect(segColorCall!.args).to.deep.equal(["192.168.1.42", 0x00, 0x00, 0xff, [3]]);
+      expect(segColorCall).toBeDefined();
+      expect(segColorCall!.args).toEqual(["192.168.1.42", 0x00, 0x00, 0xff, [3]]);
     });
 
     it("routes segmentBrightness:N to setSegmentBrightness", async () => {
@@ -211,8 +210,8 @@ describe("CommandRouter", () => {
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "segmentBrightness:5", 50);
       const segBrightCall = lan.calls.find(c => c.method === "setSegmentBrightness");
-      expect(segBrightCall).to.exist;
-      expect(segBrightCall!.args).to.deep.equal(["192.168.1.42", 50, [5]]);
+      expect(segBrightCall).toBeDefined();
+      expect(segBrightCall!.args).toEqual(["192.168.1.42", 50, [5]]);
     });
 
     it("rejects negative segment index", async () => {
@@ -220,7 +219,7 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "segmentColor:-1", "#FF0000");
-      expect(lan.calls).to.have.length(0);
+      expect(lan.calls).toHaveLength(0);
     });
   });
 
@@ -228,95 +227,95 @@ describe("CommandRouter", () => {
     it("parses range syntax (0-5:#ff0000:50)", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.parseSegmentBatch(makeDevice(), "0-5:#ff0000:50");
-      expect(result).to.deep.equal({ segments: [0, 1, 2, 3, 4, 5], color: 0xff0000, brightness: 50 });
+      expect(result).toEqual({ segments: [0, 1, 2, 3, 4, 5], color: 0xff0000, brightness: 50 });
     });
 
     it("parses comma-list (0,3,7:#00ff00:100)", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.parseSegmentBatch(makeDevice(), "0,3,7:#00ff00:100");
-      expect(result).to.deep.equal({ segments: [0, 3, 7], color: 0x00ff00, brightness: 100 });
+      expect(result).toEqual({ segments: [0, 3, 7], color: 0x00ff00, brightness: 100 });
     });
 
     it("parses 'all' to expanded indices", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.parseSegmentBatch(makeDevice({ segmentCount: 4 }), "all:#ffffff:75");
-      expect(result?.segments).to.deep.equal([0, 1, 2, 3]);
+      expect(result?.segments).toEqual([0, 1, 2, 3]);
     });
 
     it("respects manualSegments (cut-strip)", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const device = makeDevice({ manualMode: true, manualSegments: [0, 2, 4] });
       const result = router.parseSegmentBatch(device, "all:#ff0000:50");
-      expect(result?.segments).to.deep.equal([0, 2, 4]);
+      expect(result?.segments).toEqual([0, 2, 4]);
     });
 
     it("filters out-of-range indices", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const device = makeDevice({ segmentCount: 5 });
       const result = router.parseSegmentBatch(device, "3-10:#ff0000:50");
-      expect(result?.segments).to.deep.equal([3, 4]);
+      expect(result?.segments).toEqual([3, 4]);
     });
 
     it("returns null for empty/invalid input", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.parseSegmentBatch(makeDevice(), "")).to.be.null;
-      expect(router.parseSegmentBatch(makeDevice(), "::100")).to.be.null;
+      expect(router.parseSegmentBatch(makeDevice(), "")).toBeNull();
+      expect(router.parseSegmentBatch(makeDevice(), "::100")).toBeNull();
     });
 
     it("returns null when neither color nor brightness given", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.parseSegmentBatch(makeDevice(), "0-5")).to.be.null;
+      expect(router.parseSegmentBatch(makeDevice(), "0-5")).toBeNull();
     });
 
     it("accepts brightness-only (no color)", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.parseSegmentBatch(makeDevice(), "0-3::25");
-      expect(result).to.deep.equal({ segments: [0, 1, 2, 3], color: undefined, brightness: 25 });
+      expect(result).toEqual({ segments: [0, 1, 2, 3], color: undefined, brightness: 25 });
     });
 
     it("rejects brightness above 100", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.parseSegmentBatch(makeDevice(), "0-3::150");
-      expect(result?.brightness).to.be.undefined;
+      expect(result?.brightness).toBeUndefined();
     });
 
     it("rejects non-string input", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.parseSegmentBatch(makeDevice(), 42 as unknown as string)).to.be.null;
+      expect(router.parseSegmentBatch(makeDevice(), 42 as unknown as string)).toBeNull();
     });
   });
 
   describe("toCloudValue", () => {
     it("converts power true → 1, false → 0", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.toCloudValue(makeDevice(), "power", true)).to.equal(1);
-      expect(router.toCloudValue(makeDevice(), "power", false)).to.equal(0);
+      expect(router.toCloudValue(makeDevice(), "power", true)).toBe(1);
+      expect(router.toCloudValue(makeDevice(), "power", false)).toBe(0);
     });
 
     it("converts colorRgb hex to packed int", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.toCloudValue(makeDevice(), "colorRgb", "#FF6600")).to.equal(0xff6600);
+      expect(router.toCloudValue(makeDevice(), "colorRgb", "#FF6600")).toBe(0xff6600);
     });
 
     it("resolves lightScene index to value payload", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.toCloudValue(makeDevice(), "lightScene", "1");
-      expect(result).to.deep.equal({ paramId: 1 });
+      expect(result).toEqual({ paramId: 1 });
     });
 
     it("resolves diyScene index", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.toCloudValue(makeDevice(), "diyScene", "1")).to.deep.equal({ paramId: 2 });
+      expect(router.toCloudValue(makeDevice(), "diyScene", "1")).toEqual({ paramId: 2 });
     });
 
     it("resolves snapshot index", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.toCloudValue(makeDevice(), "snapshot", "1")).to.equal(7);
+      expect(router.toCloudValue(makeDevice(), "snapshot", "1")).toBe(7);
     });
 
     it("returns input value for invalid scene index", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.toCloudValue(makeDevice(), "lightScene", "99")).to.equal("99");
+      expect(router.toCloudValue(makeDevice(), "lightScene", "99")).toBe("99");
     });
 
     it("converts segmentColor:N to {segment, rgb}", () => {
@@ -325,14 +324,14 @@ describe("CommandRouter", () => {
         segment: number[];
         rgb: number;
       };
-      expect(result.segment).to.deep.equal([3]);
-      expect(result.rgb).to.equal(0xff0000);
+      expect(result.segment).toEqual([3]);
+      expect(result.rgb).toBe(0xff0000);
     });
 
     it("converts segmentBrightness:N to {segment, brightness}", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const result = router.toCloudValue(makeDevice(), "segmentBrightness:7", 50);
-      expect(result).to.deep.equal({ segment: [7], brightness: 50 });
+      expect(result).toEqual({ segment: [7], brightness: 50 });
     });
   });
 
@@ -340,48 +339,48 @@ describe("CommandRouter", () => {
     it("matches power → on_off", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const cap = router.findCapabilityForCommand(makeDevice(), "power");
-      expect(cap?.instance).to.equal("powerSwitch");
+      expect(cap?.instance).toBe("powerSwitch");
     });
 
     it("matches brightness → range/brightness", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const cap = router.findCapabilityForCommand(makeDevice(), "brightness");
-      expect(cap?.instance).to.equal("brightness");
+      expect(cap?.instance).toBe("brightness");
     });
 
     it("matches colorRgb → color_setting/colorRgb", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const cap = router.findCapabilityForCommand(makeDevice(), "colorRgb");
-      expect(cap?.instance).to.equal("colorRgb");
+      expect(cap?.instance).toBe("colorRgb");
     });
 
     it("matches lightScene → dynamic_scene/lightScene", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const cap = router.findCapabilityForCommand(makeDevice(), "lightScene");
-      expect(cap?.instance).to.equal("lightScene");
+      expect(cap?.instance).toBe("lightScene");
     });
 
     it("matches segmentColor:N → segment_color_setting (NOT brightness)", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const cap = router.findCapabilityForCommand(makeDevice(), "segmentColor:0");
-      expect(cap?.instance).to.equal("segmentedColorRgb");
+      expect(cap?.instance).toBe("segmentedColorRgb");
     });
 
     it("matches segmentBrightness:N → segment_color_setting/brightness-flavour", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const cap = router.findCapabilityForCommand(makeDevice(), "segmentBrightness:0");
-      expect(cap?.instance).to.equal("segmentedBrightness");
+      expect(cap?.instance).toBe("segmentedBrightness");
     });
 
     it("returns undefined for unknown command", () => {
       const router = new CommandRouter(mockLog, noopTimers);
-      expect(router.findCapabilityForCommand(makeDevice(), "xyz")).to.be.undefined;
+      expect(router.findCapabilityForCommand(makeDevice(), "xyz")).toBeUndefined();
     });
 
     it("returns undefined when capabilities is empty", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       const dev = makeDevice({ capabilities: [] });
-      expect(router.findCapabilityForCommand(dev, "power")).to.be.undefined;
+      expect(router.findCapabilityForCommand(dev, "power")).toBeUndefined();
     });
   });
 
@@ -393,8 +392,8 @@ describe("CommandRouter", () => {
       router.setCloudClient(cloud.client);
       router.setRateLimiter(limiter);
       await router.sendCapabilityCommand(makeDevice(), "devices.capabilities.toggle", "gradientToggle", true);
-      expect(cloud.calls).to.have.length(1);
-      expect(cloud.calls[0].value).to.equal(1);
+      expect(cloud.calls).toHaveLength(1);
+      expect(cloud.calls[0].value).toBe(1);
     });
 
     it("forwards non-toggle value verbatim", async () => {
@@ -404,7 +403,7 @@ describe("CommandRouter", () => {
       router.setCloudClient(cloud.client);
       router.setRateLimiter(limiter);
       await router.sendCapabilityCommand(makeDevice(), "devices.capabilities.dynamic_scene", "snapshot", { v: 1 });
-      expect(cloud.calls[0].value).to.deep.equal({ v: 1 });
+      expect(cloud.calls[0].value).toEqual({ v: 1 });
     });
 
     it("no-op when Cloud not configured", async () => {
@@ -462,9 +461,9 @@ describe("CommandRouter", () => {
       router.setCloudClient(cloud.client);
       router.setRateLimiter(limiter);
       await router.sendCommand(makeH70B3(), "snapshot", "1");
-      expect(lan.calls.find(c => c.method === "sendPtReal")).to.be.undefined;
-      expect(cloud.calls).to.have.length(1);
-      expect(cloud.calls[0].instance).to.equal("snapshot");
+      expect(lan.calls.find(c => c.method === "sendPtReal")).toBeUndefined();
+      expect(cloud.calls).toHaveLength(1);
+      expect(cloud.calls[0].instance).toBe("snapshot");
     });
 
     it("snapshot=cloud + device.channels.cloud=false → skip (no warn loop)", async () => {
@@ -477,7 +476,7 @@ describe("CommandRouter", () => {
       // Cloud-override but no Cloud channel → no LAN ptReal, no Cloud send,
       // dedup-warn fires once (we don't assert on logger because mockLog is
       // a spy stub — verifying no LAN ptReal call is enough)
-      expect(lan.calls.find(c => c.method === "sendPtReal")).to.be.undefined;
+      expect(lan.calls.find(c => c.method === "sendPtReal")).toBeUndefined();
     });
 
     it("snapshot=cloud + cloudClient=null (init-race) → debug, no throw", async () => {
@@ -488,7 +487,7 @@ describe("CommandRouter", () => {
       // setCloudClient NOT called → cloudClient is null even though
       // device.channels.cloud=true
       await router.sendCommand(makeH70B3(), "snapshot", "1");
-      expect(lan.calls.find(c => c.method === "sendPtReal")).to.be.undefined;
+      expect(lan.calls.find(c => c.method === "sendPtReal")).toBeUndefined();
     });
 
     it("snapshot=lan (or unset) → existing LAN ptReal path unchanged", async () => {
@@ -499,7 +498,7 @@ describe("CommandRouter", () => {
       const device = makeH70B3({ segmentCount: 22 }); // hasSegments=true so no heuristic
       await router.sendCommand(device, "snapshot", "1");
       const ptRealCall = lan.calls.find(c => c.method === "sendPtReal");
-      expect(ptRealCall).to.exist;
+      expect(ptRealCall).toBeDefined();
     });
 
     it("gradientToggle=cloud → Cloud via extended findCapabilityForCommand", async () => {
@@ -526,10 +525,10 @@ describe("CommandRouter", () => {
         capabilities: [{ type: "devices.capabilities.toggle", instance: "gradientToggle" }],
       });
       await router.sendCommand(device, "gradientToggle", true);
-      expect(lan.calls.find(c => c.method === "setGradient")).to.be.undefined;
-      expect(cloud.calls).to.have.length(1);
-      expect(cloud.calls[0].instance).to.equal("gradientToggle");
-      expect(cloud.calls[0].value).to.equal(1);
+      expect(lan.calls.find(c => c.method === "setGradient")).toBeUndefined();
+      expect(cloud.calls).toHaveLength(1);
+      expect(cloud.calls[0].instance).toBe("gradientToggle");
+      expect(cloud.calls[0].value).toBe(1);
     });
 
     it("segmentBatch=cloud → Cloud via sendSegmentBatchParsed (not sendCloudCommand)", async () => {
@@ -554,10 +553,10 @@ describe("CommandRouter", () => {
       router.setRateLimiter(limiter);
       await router.sendCommand(makeDevice(), "segmentBatch", "0-2:#ff0000:50");
       // No LAN segment-set
-      expect(lan.calls.find(c => c.method === "setSegmentColor")).to.be.undefined;
+      expect(lan.calls.find(c => c.method === "setSegmentColor")).toBeUndefined();
       // Cloud got the segment_color_setting call
-      expect(cloud.calls.length).to.be.greaterThan(0);
-      expect(cloud.calls[0].capabilityType).to.contain("segment_color_setting");
+      expect(cloud.calls.length).toBeGreaterThan(0);
+      expect(cloud.calls[0].capabilityType).toContain("segment_color_setting");
     });
 
     it("segmentBatch=cloud + command segmentColor:5 → suffix-inherits Cloud path", async () => {
@@ -582,9 +581,9 @@ describe("CommandRouter", () => {
       router.setRateLimiter(limiter);
       await router.sendCommand(makeDevice(), "segmentColor:5", "#00FF00");
       // No LAN setSegmentColor
-      expect(lan.calls.find(c => c.method === "setSegmentColor")).to.be.undefined;
+      expect(lan.calls.find(c => c.method === "setSegmentColor")).toBeUndefined();
       // Cloud got it via sendCloudCommand
-      expect(cloud.calls.length).to.be.greaterThan(0);
+      expect(cloud.calls.length).toBeGreaterThan(0);
     });
 
     it("unknown SKU + segmentCount=0 + lightScene → hasSegments-Heuristic fires (regression-guard)", async () => {
@@ -602,8 +601,8 @@ describe("CommandRouter", () => {
       });
       await router.sendCommand(device, "lightScene", "1");
       // Heuristic routed to Cloud
-      expect(cloud.calls.length).to.equal(1);
-      expect(cloud.calls[0].instance).to.equal("lightScene");
+      expect(cloud.calls.length).toBe(1);
+      expect(cloud.calls[0].instance).toBe("lightScene");
     });
 
     it("registry not initialized → resolveTransport returns LAN default (no crash)", async () => {
@@ -612,8 +611,8 @@ describe("CommandRouter", () => {
       const router = new CommandRouter(mockLog, noopTimers);
       router.setLanClient(lan.client);
       await router.sendCommand(makeDevice(), "power", true);
-      expect(lan.calls).to.have.length(1);
-      expect(lan.calls[0].method).to.equal("setPower");
+      expect(lan.calls).toHaveLength(1);
+      expect(lan.calls[0].method).toBe("setPower");
     });
 
     it("dedup-map: repeated override-cloud-missing logs only once at warn level", async () => {
@@ -653,8 +652,8 @@ describe("CommandRouter", () => {
         const overrides = entry.quirks?.transportOverrides;
         if (!overrides) continue;
         for (const [cmd, target] of Object.entries(overrides)) {
-          expect(validKeys, `${sku}.transportOverrides key "${cmd}"`).to.include(cmd);
-          expect(validValues, `${sku}.transportOverrides["${cmd}"] value "${target}"`).to.include(target);
+          expect(validKeys, `${sku}.transportOverrides key "${cmd}"`).toContain(cmd);
+          expect(validValues, `${sku}.transportOverrides["${cmd}"] value "${target}"`).toContain(target);
         }
       }
     });

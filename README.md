@@ -128,6 +128,11 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)
+- All info datapoint names now show in 11 languages instead of English-only
+
 ### 2.11.1 (2026-05-16)
 
 - Internal cleanup. No user-facing changes.

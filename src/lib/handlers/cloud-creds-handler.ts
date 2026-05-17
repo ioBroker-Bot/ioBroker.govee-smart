@@ -117,26 +117,11 @@ export async function persistCredsToState(adapter: CloudCredsAdapter, creds: Per
  * One-shot cleanup of legacy v2.1.0/v2.1.1/v2.1.2 plaintext credentials
  * sitting in `system.adapter.X.native`.
  *
- * Doppelte Idempotenz:
- * 1. State-Marker `info.legacyMqttCleaned=true` wird NACH erfolgreichem
- *    Wipe gesetzt. Bei späteren Starts wird die Funktion über den Marker
- *    sofort verlassen — auch wenn das native irgendwie wieder dirty wird.
- * 2. Nur wenn KEINER der Legacy-Marker gesetzt ist UND das native dirty,
- *    wird der einmalige extendForeignObjectAsync (Restart-Trigger) gemacht.
- *
- * Dieser Aufruf triggert genau einmal pro Adapter-Lifetime einen
- * Restart — das ist unvermeidlich, weil die Plaintext-Bytes weg müssen.
- * Aber: nach erfolgreichem Cleanup bleibt der Marker, kein erneuter
- * Restart bei flaky writes.
- *
- * @param adapter ioBroker adapter surface
+ * Idempotent via dirty-check: if all legacy fields are already empty/zero,
+ * returns immediately without side-effects.
  */
 export async function cleanupLegacyMqttNativeOnce(adapter: CloudCredsAdapter): Promise<void> {
   try {
-    const markerState = await adapter.getStateAsync("info.legacyMqttCleaned");
-    if (markerState?.val === true) {
-      return;
-    }
     const obj = await adapter.getForeignObjectAsync(`system.adapter.${adapter.namespace}`);
     const native = (obj?.native ?? {}) as Record<string, unknown>;
     const legacy = [
@@ -150,7 +135,6 @@ export async function cleanupLegacyMqttNativeOnce(adapter: CloudCredsAdapter): P
     ];
     const dirty = legacy.some(k => k in native && native[k] !== "" && native[k] !== 0);
     if (!dirty) {
-      await adapter.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => undefined);
       return;
     }
     adapter.log.info(`Removing legacy plaintext MQTT credentials from native (one-time migration)`);
@@ -159,7 +143,6 @@ export async function cleanupLegacyMqttNativeOnce(adapter: CloudCredsAdapter): P
       wipe[k] = k === "mqttTokenExpiresAt" ? 0 : "";
     }
     await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, { native: wipe });
-    await adapter.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => undefined);
   } catch (e) {
     adapter.log.debug(`legacy MQTT cleanup skipped: ${errMessage(e)}`);
   }

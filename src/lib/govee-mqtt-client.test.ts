@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { GoveeMqttClient } from "./govee-mqtt-client";
 import { type HttpRequestOptions, type HttpResult, type HttpsRequestFn } from "./http-client";
 import { mockLog, mockTimers } from "./test-helpers";
@@ -44,47 +43,47 @@ describe("GoveeMqttClient", () => {
   describe("getFailureReason", () => {
     it("should return null initially when not connected and no error has occurred", () => {
       const client = new GoveeMqttClient("user@example.com", "password", mockLog, mockTimers);
-      expect(client.getFailureReason()).to.be.null;
+      expect(client.getFailureReason()).toBeNull();
     });
   });
 
   describe("token getter", () => {
     it("should return empty string before login", () => {
       const client = new GoveeMqttClient("user@example.com", "password", mockLog, mockTimers);
-      expect(client.token).to.equal("");
+      expect(client.token).toBe("");
     });
   });
 
   describe("connected getter", () => {
     it("should return false before connect", () => {
       const client = new GoveeMqttClient("user@example.com", "password", mockLog, mockTimers);
-      expect(client.connected).to.be.false;
+      expect(client.connected).toBe(false);
     });
   });
 
   describe("setVerificationCode", () => {
     it("should accept and trim verification codes", () => {
       const client = new GoveeMqttClient("user@example.com", "password", mockLog, mockTimers);
-      expect(() => client.setVerificationCode("  123456  ")).to.not.throw();
-      expect(() => client.setVerificationCode("")).to.not.throw();
+      expect(() => client.setVerificationCode("  123456  ")).not.toThrow();
+      expect(() => client.setVerificationCode("")).not.toThrow();
     });
   });
 
   describe("setOnVerificationConsumed / setOnVerificationFailed", () => {
     it("should accept callback or null", () => {
       const client = new GoveeMqttClient("user@example.com", "password", mockLog, mockTimers);
-      expect(() => client.setOnVerificationConsumed(() => {})).to.not.throw();
-      expect(() => client.setOnVerificationConsumed(null)).to.not.throw();
-      expect(() => client.setOnVerificationFailed(_reason => {})).to.not.throw();
-      expect(() => client.setOnVerificationFailed(null)).to.not.throw();
+      expect(() => client.setOnVerificationConsumed(() => {})).not.toThrow();
+      expect(() => client.setOnVerificationConsumed(null)).not.toThrow();
+      expect(() => client.setOnVerificationFailed(_reason => {})).not.toThrow();
+      expect(() => client.setOnVerificationFailed(null)).not.toThrow();
     });
   });
 
   describe("disconnect", () => {
     it("should be safe to call when never connected", () => {
       const client = new GoveeMqttClient("user@example.com", "password", mockLog, mockTimers);
-      expect(() => client.disconnect()).to.not.throw();
-      expect(() => client.disconnect()).to.not.throw();
+      expect(() => client.disconnect()).not.toThrow();
+      expect(() => client.disconnect()).not.toThrow();
     });
   });
 
@@ -93,12 +92,12 @@ describe("GoveeMqttClient", () => {
       const fake = makeFakeHttps(() => ({}));
       const client = new GoveeMqttClient("test@example.com", "secret", mockLog, mockTimers, fake.fn);
       await client.requestVerificationCode();
-      expect(fake.calls).to.have.lengthOf(1);
-      expect(fake.calls[0].method).to.equal("POST");
-      expect(fake.calls[0].url).to.include("/account/rest/account/v1/verification");
+      expect(fake.calls).toHaveLength(1);
+      expect(fake.calls[0].method).toBe("POST");
+      expect(fake.calls[0].url).toContain("/account/rest/account/v1/verification");
       const body = fake.calls[0].body as { type: number; email: string };
-      expect(body.type).to.equal(8);
-      expect(body.email).to.equal("test@example.com");
+      expect(body.type).toBe(8);
+      expect(body.email).toBe("test@example.com");
     });
 
     it("should set Govee headers (User-Agent + clientId etc.)", async () => {
@@ -106,9 +105,9 @@ describe("GoveeMqttClient", () => {
       const client = new GoveeMqttClient("test@example.com", "secret", mockLog, mockTimers, fake.fn);
       await client.requestVerificationCode();
       const headers = fake.calls[0].headers;
-      expect(headers["User-Agent"]).to.match(/GoveeHome/);
-      expect(headers.clientId).to.be.a("string");
-      expect(headers.appVersion).to.be.a("string");
+      expect(headers["User-Agent"]).toMatch(/GoveeHome/);
+      expect(typeof headers.clientId).toBe("string");
+      expect(typeof headers.appVersion).toBe("string");
     });
 
     it("should propagate errors", async () => {
@@ -116,9 +115,9 @@ describe("GoveeMqttClient", () => {
       const client = new GoveeMqttClient("test@example.com", "secret", mockLog, mockTimers, fake.fn);
       try {
         await client.requestVerificationCode();
-        expect.fail("expected throw");
+        throw new Error("expected throw");
       } catch (e) {
-        expect((e as Error).message).to.equal("HTTP 500");
+        expect((e as Error).message).toBe("HTTP 500");
       }
     });
   });
@@ -140,10 +139,10 @@ describe("GoveeMqttClient", () => {
           lastConnectedFlag = connected;
         },
       );
-      expect(verificationFailedReason).to.equal("pending");
-      expect(connectionCalls).to.be.greaterThan(0);
-      expect(lastConnectedFlag).to.be.false;
-      expect(client.getFailureReason()).to.equal("Govee asked for verification — request a code in adapter settings");
+      expect(verificationFailedReason).toBe("pending");
+      expect(connectionCalls).toBeGreaterThan(0);
+      expect(lastConnectedFlag).toBe(false);
+      expect(client.getFailureReason()).toBe("Govee asked for verification — request a code in adapter settings");
     });
 
     it("should silently return on 455 (verification failed) and fire onVerificationFailed('failed')", async () => {
@@ -157,8 +156,8 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(verificationFailedReason).to.equal("failed");
-      expect(client.getFailureReason()).to.equal("verification code rejected — request a fresh code");
+      expect(verificationFailedReason).toBe("failed");
+      expect(client.getFailureReason()).toBe("verification code rejected — request a fresh code");
     });
 
     it("should treat 454 with verification code submitted as VERIFICATION_FAILED (code expired)", async () => {
@@ -174,8 +173,8 @@ describe("GoveeMqttClient", () => {
         () => {},
       );
       // Status 454 + code-was-sent → "Verification code invalid or expired" → classifyError → VERIFICATION_FAILED
-      expect(verificationFailedReason).to.equal("failed");
-      expect(client.getFailureReason()).to.equal("verification code rejected — request a fresh code");
+      expect(verificationFailedReason).toBe("failed");
+      expect(client.getFailureReason()).toBe("verification code rejected — request a fresh code");
     });
 
     it("should set AUTH failure reason on 401", async () => {
@@ -185,7 +184,7 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(client.getFailureReason()).to.equal("login failed (will retry)");
+      expect(client.getFailureReason()).toBe("login failed (will retry)");
     });
 
     it("should report 'login rejected — check email/password' after 3 consecutive AUTH failures", async () => {
@@ -204,7 +203,7 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(client.getFailureReason()).to.equal("login rejected — check email/password");
+      expect(client.getFailureReason()).toBe("login rejected — check email/password");
     });
 
     it("should set RATE_LIMIT failure reason on 429", async () => {
@@ -214,7 +213,7 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(client.getFailureReason()).to.equal("rate-limited by Govee — will retry");
+      expect(client.getFailureReason()).toBe("rate-limited by Govee — will retry");
     });
 
     it("should set NETWORK failure reason on ECONNREFUSED", async () => {
@@ -226,7 +225,7 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(client.getFailureReason()).to.equal("cannot reach Govee servers — will retry");
+      expect(client.getFailureReason()).toBe("cannot reach Govee servers — will retry");
     });
 
     it("should fire onVerificationConsumed when login succeeds with a code", async () => {
@@ -257,8 +256,8 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(consumedFired).to.be.true;
-      expect(client.token).to.equal("bearer-token-abc");
+      expect(consumedFired).toBe(true);
+      expect(client.token).toBe("bearer-token-abc");
     });
 
     it("should set lastErrorCategory back to null after VERIFICATION_PENDING when next login succeeds", async () => {
@@ -287,14 +286,14 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(client.getFailureReason()).to.match(/verification/i);
+      expect(client.getFailureReason()).toMatch(/verification/i);
       // Login klappt jetzt — getIotKey-Fail produziert eine NETWORK-category (oder UNKNOWN)
       await client.connect(
         () => {},
         () => {},
       );
       // login war erfolgreich; iot-key-call schlug fehl → category != VERIFICATION_PENDING
-      expect(client.getFailureReason()).to.not.equal("Govee asked for verification — request a code in adapter settings");
+      expect(client.getFailureReason()).not.toBe("Govee asked for verification — request a code in adapter settings");
     });
   });
 
@@ -322,7 +321,7 @@ describe("GoveeMqttClient", () => {
         () => {},
         () => {},
       );
-      expect(client.token).to.equal("fresh-bearer");
+      expect(client.token).toBe("fresh-bearer");
     });
 
     it("should fire onToken callback when login provides a token", async () => {
@@ -349,7 +348,7 @@ describe("GoveeMqttClient", () => {
           capturedToken = token;
         },
       );
-      expect(capturedToken).to.equal("tok-CB");
+      expect(capturedToken).toBe("tok-CB");
     });
 
     it("should call getIotKey with Bearer token after login", async () => {
@@ -374,10 +373,10 @@ describe("GoveeMqttClient", () => {
         () => {},
       );
       // 2 calls: 1) login, 2) getIotKey with Bearer
-      expect(fake.calls).to.have.lengthOf.at.least(2);
-      expect(fake.calls[1].method).to.equal("GET");
-      expect(fake.calls[1].url).to.include("/app/v1/account/iot/key");
-      expect(fake.calls[1].headers.Authorization).to.equal("Bearer tok-BR");
+      expect(fake.calls.length).toBeGreaterThanOrEqual(2);
+      expect(fake.calls[1].method).toBe("GET");
+      expect(fake.calls[1].url).toContain("/app/v1/account/iot/key");
+      expect(fake.calls[1].headers.Authorization).toBe("Bearer tok-BR");
     });
 
     it("should throw 'IoT key response missing endpoint' when iotKey response is malformed", async () => {
@@ -406,7 +405,7 @@ describe("GoveeMqttClient", () => {
         },
       );
       // Connect bails — connection callback is invoked with false
-      expect(lastConnFlag).to.be.false;
+      expect(lastConnFlag).toBe(false);
     });
   });
 
@@ -435,7 +434,7 @@ describe("GoveeMqttClient", () => {
         () => {},
       );
       // p12 was unusable → fresh login attempted → httpCalls > 0
-      expect(httpCalls).to.be.greaterThan(0);
+      expect(httpCalls).toBeGreaterThan(0);
     });
 
     it("should NOT skip login when persisted token is already expired", async () => {
@@ -459,12 +458,12 @@ describe("GoveeMqttClient", () => {
         () => {},
       );
       // expired → tryPersistedReuse returns false → fresh login happens
-      expect(httpCalls).to.be.greaterThan(0);
+      expect(httpCalls).toBeGreaterThan(0);
     });
 
     it("should accept null to clear persisted credentials", () => {
       const client = new GoveeMqttClient("u@example.com", "pw", mockLog, noopTimers);
-      expect(() => client.setPersistedCredentials(null)).to.not.throw();
+      expect(() => client.setPersistedCredentials(null)).not.toThrow();
     });
   });
 
@@ -486,7 +485,7 @@ describe("GoveeMqttClient", () => {
           lastConnectedFlag = connected;
         },
       );
-      expect(lastConnectedFlag).to.be.false;
+      expect(lastConnectedFlag).toBe(false);
     });
 
     it("should treat missing topic in successful login as failure", async () => {
@@ -506,7 +505,7 @@ describe("GoveeMqttClient", () => {
           lastConnectedFlag = connected;
         },
       );
-      expect(lastConnectedFlag).to.be.false;
+      expect(lastConnectedFlag).toBe(false);
     });
   });
 });

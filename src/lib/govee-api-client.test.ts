@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { parseLastData, parseSettings } from "./govee-api-client";
 
 /**
@@ -14,7 +13,7 @@ describe("AppApiClient — lastDeviceData parser", () => {
   it("parses the full H5179 payload captured from /device/rest/devices/v1/list", () => {
     const raw = '{"online":true,"tem":2370,"hum":4290,"lastTime":1776704461000}';
     const out = parseLastData(raw);
-    expect(out).to.deep.equal({
+    expect(out).toEqual({
       online: true,
       tem: 2370,
       hum: 4290,
@@ -23,32 +22,34 @@ describe("AppApiClient — lastDeviceData parser", () => {
   });
 
   it("accepts numeric online=1/0 (older firmware variants)", () => {
-    expect(parseLastData('{"online":1,"tem":100}')).to.deep.include({
-      online: true,
-    });
-    expect(parseLastData('{"online":0}')).to.deep.include({ online: false });
+    expect(parseLastData('{"online":1,"tem":100}')).toEqual(
+      expect.objectContaining({ online: true }),
+    );
+    expect(parseLastData('{"online":0}')).toEqual(
+      expect.objectContaining({ online: false }),
+    );
   });
 
   it("ignores unexpected types for each field", () => {
     const raw = '{"online":"yes","tem":"warm","hum":4290}';
     const out = parseLastData(raw);
-    expect(out).to.deep.equal({ hum: 4290 });
+    expect(out).toEqual({ hum: 4290 });
   });
 
   it("ignores NaN/Infinity in tem/hum", () => {
-    expect(parseLastData('{"tem":null,"hum":null}')).to.deep.equal({});
+    expect(parseLastData('{"tem":null,"hum":null}')).toEqual({});
   });
 
   it("returns undefined on malformed JSON", () => {
-    expect(parseLastData("not json")).to.equal(undefined);
-    expect(parseLastData("")).to.equal(undefined);
-    expect(parseLastData(undefined)).to.equal(undefined);
+    expect(parseLastData("not json")).toBe(undefined);
+    expect(parseLastData("")).toBe(undefined);
+    expect(parseLastData(undefined)).toBe(undefined);
   });
 
   it("preserves battery when present", () => {
-    expect(parseLastData('{"battery":75,"tem":2000}')).to.deep.include({
-      battery: 75,
-    });
+    expect(parseLastData('{"battery":75,"tem":2000}')).toEqual(
+      expect.objectContaining({ battery: 75 }),
+    );
   });
 });
 
@@ -57,18 +58,20 @@ describe("AppApiClient — deviceSettings parser", () => {
     const raw =
       '{"uploadRate":10,"temMin":-2000,"battery":100,"wifiName":"krobisnet","temMax":6000,"humMin":0,"humMax":10000,"fahOpen":false}';
     const out = parseSettings(raw);
-    expect(out).to.include({
-      uploadRate: 10,
-      temMin: -2000,
-      battery: 100,
-      wifiName: "krobisnet",
-      fahOpen: false,
-    });
+    expect(out).toEqual(
+      expect.objectContaining({
+        uploadRate: 10,
+        temMin: -2000,
+        battery: 100,
+        wifiName: "krobisnet",
+        fahOpen: false,
+      }),
+    );
   });
 
   it("returns undefined on malformed input", () => {
-    expect(parseSettings("not json")).to.equal(undefined);
-    expect(parseSettings(undefined)).to.equal(undefined);
-    expect(parseSettings("")).to.equal(undefined);
+    expect(parseSettings("not json")).toBe(undefined);
+    expect(parseSettings(undefined)).toBe(undefined);
+    expect(parseSettings("")).toBe(undefined);
   });
 });

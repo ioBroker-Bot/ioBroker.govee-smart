@@ -130,7 +130,7 @@
     },
     "platform": "Javascript/Node.js",
     "icon": "govee-smart.svg",
-    "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.govee-smart/main/admin/govee-smart.svg",
+    "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.govee-smart@main/admin/govee-smart.svg",
     "readme": "https://github.com/krobipd/ioBroker.govee-smart/blob/main/README.md",
     "enabled": true,
     "tier": 2,
@@ -204,7 +204,19 @@
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": "Adapter connected",
+        "name": {
+          "en": "Adapter connected",
+          "de": "Adapter verbunden",
+          "ru": "Адаптер подключён",
+          "pt": "Adaptador conectado",
+          "nl": "Adapter verbonden",
+          "fr": "Adaptateur connecté",
+          "it": "Adattatore connesso",
+          "es": "Adaptador conectado",
+          "pl": "Adapter połączony",
+          "uk": "Адаптер підключено",
+          "zh-cn": "适配器已连接"
+        },
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -217,7 +229,19 @@
       "_id": "info.mqttConnected",
       "type": "state",
       "common": {
-        "name": "MQTT connected",
+        "name": {
+          "en": "MQTT connected",
+          "de": "MQTT verbunden",
+          "ru": "MQTT подключён",
+          "pt": "MQTT conectado",
+          "nl": "MQTT verbonden",
+          "fr": "MQTT connecté",
+          "it": "MQTT connesso",
+          "es": "MQTT conectado",
+          "pl": "MQTT połączony",
+          "uk": "MQTT підключено",
+          "zh-cn": "MQTT 已连接"
+        },
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -230,7 +254,19 @@
       "_id": "info.cloudConnected",
       "type": "state",
       "common": {
-        "name": "Cloud API connected",
+        "name": {
+          "en": "Cloud API connected",
+          "de": "Cloud-API verbunden",
+          "ru": "Cloud API подключён",
+          "pt": "Cloud API conectada",
+          "nl": "Cloud-API verbonden",
+          "fr": "API Cloud connectée",
+          "it": "Cloud API connesso",
+          "es": "Cloud API conectado",
+          "pl": "Cloud API połączony",
+          "uk": "Cloud API підключено",
+          "zh-cn": "云 API 已连接"
+        },
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -243,7 +279,19 @@
       "_id": "info.openapiMqttConnected",
       "type": "state",
       "common": {
-        "name": "Govee OpenAPI MQTT connected",
+        "name": {
+          "en": "Govee OpenAPI MQTT connected",
+          "de": "Govee OpenAPI MQTT verbunden",
+          "ru": "Govee OpenAPI MQTT подключён",
+          "pt": "Govee OpenAPI MQTT conectado",
+          "nl": "Govee OpenAPI MQTT verbonden",
+          "fr": "Govee OpenAPI MQTT connecté",
+          "it": "Govee OpenAPI MQTT connesso",
+          "es": "Govee OpenAPI MQTT conectado",
+          "pl": "Govee OpenAPI MQTT połączony",
+          "uk": "Govee OpenAPI MQTT підключено",
+          "zh-cn": "Govee OpenAPI MQTT 已连接"
+        },
         "desc": "Push channel for sensor and appliance events. Independent of the AWS-IoT MQTT used for status push of regular Govee lights.",
         "type": "boolean",
         "role": "indicator.connected",
@@ -257,7 +305,19 @@
       "_id": "info.wizardStatus",
       "type": "state",
       "common": {
-        "name": "Segment-Wizard status",
+        "name": {
+          "en": "Segment-Wizard status",
+          "de": "Segment-Wizard Status",
+          "ru": "Статус мастера сегментов",
+          "pt": "Estado do assistente de segmentos",
+          "nl": "Segment-wizard status",
+          "fr": "État de l'assistant de segments",
+          "it": "Stato del wizard segmenti",
+          "es": "Estado del asistente de segmentos",
+          "pl": "Status kreatora segmentów",
+          "uk": "Статус майстра сегментів",
+          "zh-cn": "分段向导状态"
+        },
         "type": "string",
         "role": "text",
         "read": true,
@@ -270,7 +330,19 @@
       "_id": "info.mqttCredentials",
       "type": "state",
       "common": {
-        "name": "Persisted MQTT credentials",
+        "name": {
+          "en": "Persisted MQTT credentials",
+          "de": "Gespeicherte MQTT-Anmeldedaten",
+          "ru": "Сохранённые учётные данные MQTT",
+          "pt": "Credenciais MQTT persistidas",
+          "nl": "Opgeslagen MQTT-referenties",
+          "fr": "Identifiants MQTT enregistrés",
+          "it": "Credenziali MQTT salvate",
+          "es": "Credenciales MQTT guardadas",
+          "pl": "Zapisane dane uwierzytelniające MQTT",
+          "uk": "Збережені облікові дані MQTT",
+          "zh-cn": "已保存的 MQTT 凭据"
+        },
         "type": "string",
         "role": "json",
         "read": true,
@@ -280,24 +352,22 @@
       "native": {}
     },
     {
-      "_id": "info.legacyMqttCleaned",
-      "type": "state",
-      "common": {
-        "name": "Legacy MQTT cleanup done",
-        "type": "boolean",
-        "role": "indicator",
-        "read": true,
-        "write": false,
-        "def": false,
-        "desc": "Internal flag — true after one-time migration of legacy plaintext MQTT credentials. Prevents repeated extendForeignObjectAsync restart-trigger."
-      },
-      "native": {}
-    },
-    {
       "_id": "info.appVersionDrift",
       "type": "state",
       "common": {
-        "name": "Govee App Version drift",
+        "name": {
+          "en": "Govee App Version drift",
+          "de": "Govee App Versionsabweichung",
+          "ru": "Расхождение версии приложения Govee",
+          "pt": "Desvio de versão do app Govee",
+          "nl": "Govee App versieafwijking",
+          "fr": "Dérive de version de l'app Govee",
+          "it": "Scostamento versione app Govee",
+          "es": "Desviación de versión de la app Govee",
+          "pl": "Odchylenie wersji aplikacji Govee",
+          "uk": "Розбіжність версії додатку Govee",
+          "zh-cn": "Govee 应用版本偏差"
+        },
         "type": "string",
         "role": "text",
         "read": true,
@@ -342,7 +412,7 @@
           "es": "Grupos",
           "pl": "Grupy",
           "uk": "Групи",
-          "zh-cn": "组"
+          "zh-cn": "分组"
         }
       },
       "native": {}
@@ -353,16 +423,16 @@
       "common": {
         "name": {
           "en": "User-saved local snapshots",
-          "de": "Benutzer-Snapshots",
-          "ru": "Пользовательские снепшоты",
-          "pt": "Snapshots do utilizador",
-          "nl": "Door gebruiker opgeslagen snapshots",
-          "fr": "Snapshots utilisateur",
-          "it": "Snapshot utente",
-          "es": "Snapshots del usuario",
-          "pl": "Migawki użytkownika",
-          "uk": "Користувацькі снапшоти",
-          "zh-cn": "用户保存的快照"
+          "de": "Vom Benutzer gespeicherte lokale Snapshots",
+          "ru": "Сохранённые пользователем локальные снимки",
+          "pt": "Snapshots locais salvos pelo utilizador",
+          "nl": "Door gebruiker opgeslagen lokale snapshots",
+          "fr": "Snapshots locaux enregistrés par l'utilisateur",
+          "it": "Snapshot locali salvati dall'utente",
+          "es": "Instantáneas locales guardadas por el usuario",
+          "pl": "Lokalne migawki zapisane przez użytkownika",
+          "uk": "Збережені користувачем локальні знімки",
+          "zh-cn": "用户保存的本地快照"
         },
         "type": "meta.user",
         "role": "meta.user"

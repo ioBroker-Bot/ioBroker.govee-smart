@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import {
   buildCapabilitiesFromAppEntry,
   DeviceManager,
@@ -149,11 +148,11 @@ describe("DeviceManager", () => {
 
       dm.handleLanDiscovery(lanDevice);
       const devices = dm.getDevices();
-      expect(devices).to.have.lengthOf(1);
-      expect(devices[0].sku).to.equal("H6160");
-      expect(devices[0].name).to.equal("H6160_0011");
-      expect(devices[0].lanIp).to.equal("192.168.1.100");
-      expect(devices[0].channels.lan).to.be.true;
+      expect(devices).toHaveLength(1);
+      expect(devices[0].sku).toBe("H6160");
+      expect(devices[0].name).toBe("H6160_0011");
+      expect(devices[0].lanIp).toBe("192.168.1.100");
+      expect(devices[0].channels.lan).toBe(true);
     });
 
     it("should create unique names for devices with same SKU", () => {
@@ -172,10 +171,10 @@ describe("DeviceManager", () => {
       dm.handleLanDiscovery(lanDevice2);
 
       const devices = dm.getDevices();
-      expect(devices).to.have.lengthOf(2);
-      expect(devices[0].name).to.not.equal(devices[1].name);
-      expect(devices[0].name).to.equal("H61BE_0011");
-      expect(devices[1].name).to.equal("H61BE_7788");
+      expect(devices).toHaveLength(2);
+      expect(devices[0].name).not.toBe(devices[1].name);
+      expect(devices[0].name).toBe("H61BE_0011");
+      expect(devices[1].name).toBe("H61BE_7788");
     });
 
     it("should update LAN IP for existing device", () => {
@@ -187,15 +186,15 @@ describe("DeviceManager", () => {
       };
 
       dm.handleLanDiscovery(lanDevice1);
-      expect(dm.getDevices()[0].lanIp).to.equal("192.168.1.100");
+      expect(dm.getDevices()[0].lanIp).toBe("192.168.1.100");
 
       // Same device, new IP
       const lanDevice2: LanDevice = { ...lanDevice1, ip: "192.168.1.200" };
       dm.handleLanDiscovery(lanDevice2);
 
       const devices = dm.getDevices();
-      expect(devices).to.have.lengthOf(1);
-      expect(devices[0].lanIp).to.equal("192.168.1.200");
+      expect(devices).toHaveLength(1);
+      expect(devices[0].lanIp).toBe("192.168.1.200");
     });
 
     it("should flip cache-loaded matched device from offline to online + emit onDeviceUpdate", () => {
@@ -228,7 +227,7 @@ describe("DeviceManager", () => {
       };
       dm.setSkuCache(mockCache as never);
       dm.loadFromCache();
-      expect(dm.getDevices()[0].state.online).to.be.false;
+      expect(dm.getDevices()[0].state.online).toBe(false);
 
       let updateCount = 0;
       let lastUpdate: Partial<import("./types").DeviceState> | null = null;
@@ -244,13 +243,13 @@ describe("DeviceManager", () => {
 
       // First Discovery — must flip online to true and emit one update
       dm.handleLanDiscovery({ ip: "192.168.1.100", device: "AABBCCDDEEFF0011", sku: "H6160" });
-      expect(dm.getDevices()[0].state.online).to.be.true;
-      expect(updateCount).to.equal(1);
-      expect(lastUpdate).to.deep.equal({ online: true });
+      expect(dm.getDevices()[0].state.online).toBe(true);
+      expect(updateCount).toBe(1);
+      expect(lastUpdate).toEqual({ online: true });
 
       // Second Discovery — must NOT emit again (idempotent)
       dm.handleLanDiscovery({ ip: "192.168.1.100", device: "AABBCCDDEEFF0011", sku: "H6160" });
-      expect(updateCount).to.equal(1);
+      expect(updateCount).toBe(1);
     });
   });
 
@@ -285,10 +284,10 @@ describe("DeviceManager", () => {
       };
 
       dm.handleMqttStatus(update);
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.power).to.be.true;
-      expect(updatedState!.brightness).to.equal(75);
-      expect(updatedState!.colorRgb).to.equal("#ff8000");
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.power).toBe(true);
+      expect(updatedState!.brightness).toBe(75);
+      expect(updatedState!.colorRgb).toBe("#ff8000");
     });
 
     it("should ignore unknown devices", () => {
@@ -308,7 +307,7 @@ describe("DeviceManager", () => {
         state: { onOff: 1 },
       });
 
-      expect(updateCalled).to.be.false;
+      expect(updateCalled).toBe(false);
     });
   });
 
@@ -338,11 +337,11 @@ describe("DeviceManager", () => {
         colorTemInKelvin: 4000,
       });
 
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.power).to.be.false;
-      expect(updatedState!.brightness).to.equal(50);
-      expect(updatedState!.colorRgb).to.equal("#00ff00");
-      expect(updatedState!.colorTemperature).to.equal(4000);
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.power).toBe(false);
+      expect(updatedState!.brightness).toBe(50);
+      expect(updatedState!.colorRgb).toBe("#00ff00");
+      expect(updatedState!.colorTemperature).toBe(4000);
     });
 
     it("should ignore unknown IP addresses", () => {
@@ -363,7 +362,7 @@ describe("DeviceManager", () => {
         colorTemInKelvin: 4000,
       });
 
-      expect(updateCalled).to.be.false;
+      expect(updateCalled).toBe(false);
     });
   });
 
@@ -384,9 +383,9 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "power", true);
-      expect(tracker.calls).to.have.lengthOf(1);
-      expect(tracker.calls[0].method).to.equal("setPower");
-      expect(tracker.calls[0].args).to.deep.equal(["192.168.1.100", true]);
+      expect(tracker.calls).toHaveLength(1);
+      expect(tracker.calls[0].method).toBe("setPower");
+      expect(tracker.calls[0].args).toEqual(["192.168.1.100", true]);
     });
 
     it("should route brightness to LAN", async () => {
@@ -403,8 +402,8 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "brightness", 75);
-      expect(tracker.calls[0].method).to.equal("setBrightness");
-      expect(tracker.calls[0].args).to.deep.equal(["192.168.1.100", 75]);
+      expect(tracker.calls[0].method).toBe("setBrightness");
+      expect(tracker.calls[0].args).toEqual(["192.168.1.100", 75]);
     });
 
     it("should route colorRgb to LAN with parsed RGB values", async () => {
@@ -421,8 +420,8 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "colorRgb", "#ff8000");
-      expect(tracker.calls[0].method).to.equal("setColor");
-      expect(tracker.calls[0].args).to.deep.equal(["192.168.1.100", 255, 128, 0]);
+      expect(tracker.calls[0].method).toBe("setColor");
+      expect(tracker.calls[0].args).toEqual(["192.168.1.100", 255, 128, 0]);
     });
 
     it("should fall back to Cloud when LAN is not available", async () => {
@@ -442,12 +441,12 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "power", true);
-      expect(tracker.calls).to.have.lengthOf(1);
-      expect(tracker.calls[0].method).to.equal("controlDevice");
+      expect(tracker.calls).toHaveLength(1);
+      expect(tracker.calls[0].method).toBe("controlDevice");
       // Cloud receives: sku, deviceId, capType, capInstance, value(1 for on)
-      expect(tracker.calls[0].args[0]).to.equal("H6160");
-      expect(tracker.calls[0].args[1]).to.equal("AABBCCDDEEFF0011");
-      expect(tracker.calls[0].args[4]).to.equal(1); // power on = 1
+      expect(tracker.calls[0].args[0]).toBe("H6160");
+      expect(tracker.calls[0].args[1]).toBe("AABBCCDDEEFF0011");
+      expect(tracker.calls[0].args[4]).toBe(1); // power on = 1
     });
 
     it("should route lightScene via ptReal when scene is in library", async () => {
@@ -471,9 +470,9 @@ describe("DeviceManager", () => {
 
       // Select scene index 1 = "Sunset" → matches library entry
       await dm.sendCommand(device, "lightScene", "1");
-      expect(tracker.calls).to.have.lengthOf(1);
-      expect(tracker.calls[0].method).to.equal("setScene");
-      expect(tracker.calls[0].args).to.deep.equal(["192.168.1.100", 42, "AQID"]);
+      expect(tracker.calls).toHaveLength(1);
+      expect(tracker.calls[0].method).toBe("setScene");
+      expect(tracker.calls[0].args).toEqual(["192.168.1.100", 42, "AQID"]);
     });
 
     it("should match ptReal by base name (strip -A/-B suffix)", async () => {
@@ -495,9 +494,9 @@ describe("DeviceManager", () => {
 
       // "Aurora-B" → base name "Aurora" → matches library
       await dm.sendCommand(device, "lightScene", "1");
-      expect(tracker.calls).to.have.lengthOf(1);
-      expect(tracker.calls[0].method).to.equal("setScene");
-      expect(tracker.calls[0].args).to.deep.equal(["192.168.1.100", 215, ""]);
+      expect(tracker.calls).toHaveLength(1);
+      expect(tracker.calls[0].method).toBe("setScene");
+      expect(tracker.calls[0].args).toEqual(["192.168.1.100", 215, ""]);
     });
 
     it("should fall back to Cloud for lightScene not in library", async () => {
@@ -528,10 +527,10 @@ describe("DeviceManager", () => {
       // Select scene index 1 = "Sunset" → NOT in library (library only has "Aurora")
       await dm.sendCommand(device, "lightScene", "1");
       // LAN setScene should NOT be called
-      expect(lanTracker.calls).to.have.lengthOf(0);
+      expect(lanTracker.calls).toHaveLength(0);
       // Cloud should be called
-      expect(cloudTracker.calls).to.have.lengthOf(1);
-      expect(cloudTracker.calls[0].method).to.equal("controlDevice");
+      expect(cloudTracker.calls).toHaveLength(1);
+      expect(cloudTracker.calls[0].method).toBe("controlDevice");
     });
 
     it("should route segment color via LAN ptReal (after forcing color mode)", async () => {
@@ -558,14 +557,14 @@ describe("DeviceManager", () => {
 
       await dm.sendCommand(device, "segmentColor:3", "#ff0000");
       // v1.7.1: colorwc pre-amble forces color mode before the ptReal burst
-      expect(lanTracker.calls.map(c => c.method)).to.deep.equal(["setColor", "setSegmentColor"]);
+      expect(lanTracker.calls.map(c => c.method)).toEqual(["setColor", "setSegmentColor"]);
       const segCall = lanTracker.calls[1];
-      expect(segCall.args[0]).to.equal("192.168.1.100");
-      expect(segCall.args[1]).to.equal(255); // R
-      expect(segCall.args[2]).to.equal(0); // G
-      expect(segCall.args[3]).to.equal(0); // B
+      expect(segCall.args[0]).toBe("192.168.1.100");
+      expect(segCall.args[1]).toBe(255); // R
+      expect(segCall.args[2]).toBe(0); // G
+      expect(segCall.args[3]).toBe(0); // B
       // Cloud should NOT be called
-      expect(cloudTracker.calls).to.have.lengthOf(0);
+      expect(cloudTracker.calls).toHaveLength(0);
     });
 
     it("should route segment brightness via LAN ptReal (after forcing color mode)", async () => {
@@ -582,8 +581,8 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "segmentBrightness:5", 50);
-      expect(lanTracker.calls.map(c => c.method)).to.deep.equal(["setColor", "setSegmentBrightness"]);
-      expect(lanTracker.calls[1].args[1]).to.equal(50);
+      expect(lanTracker.calls.map(c => c.method)).toEqual(["setColor", "setSegmentBrightness"]);
+      expect(lanTracker.calls[1].args[1]).toBe(50);
     });
 
     // Regression: v1.6.0-1.6.2 shipped with sendCommand(segmentBatch, object)
@@ -611,10 +610,10 @@ describe("DeviceManager", () => {
       // Must not throw, must call LAN setSegmentColor + setSegmentBrightness
       const colorCalls = lanTracker.calls.filter(c => c.method === "setSegmentColor");
       const brightCalls = lanTracker.calls.filter(c => c.method === "setSegmentBrightness");
-      expect(colorCalls).to.have.lengthOf(1);
-      expect(colorCalls[0].args[4]).to.deep.equal([0, 1, 2]);
-      expect(brightCalls).to.have.lengthOf(1);
-      expect(brightCalls[0].args[1]).to.equal(80);
+      expect(colorCalls).toHaveLength(1);
+      expect(colorCalls[0].args[4]).toEqual([0, 1, 2]);
+      expect(brightCalls).toHaveLength(1);
+      expect(brightCalls[0].args[1]).toBe(80);
     });
 
     it("should not crash on sendCommand(segmentBatch, null)", async () => {
@@ -644,7 +643,7 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "segmentColor:0", "#00ff00");
-      expect(cloudTracker.calls).to.have.lengthOf(1);
+      expect(cloudTracker.calls).toHaveLength(1);
     });
 
     it("should route snapshot via LAN ptReal when BLE data available", async () => {
@@ -664,9 +663,9 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "snapshot", 1);
-      expect(lanTracker.calls).to.have.lengthOf(1);
-      expect(lanTracker.calls[0].method).to.equal("sendPtReal");
-      expect(lanTracker.calls[0].args[1]).to.deep.equal(["cGFja2V0MQ==", "cGFja2V0Mg=="]);
+      expect(lanTracker.calls).toHaveLength(1);
+      expect(lanTracker.calls[0].method).toBe("sendPtReal");
+      expect(lanTracker.calls[0].args[1]).toEqual(["cGFja2V0MQ==", "cGFja2V0Mg=="]);
     });
 
     it("should fall back to Cloud for snapshot without BLE data", async () => {
@@ -692,8 +691,8 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "snapshot", 1);
-      expect(lanTracker.calls).to.have.lengthOf(0);
-      expect(cloudTracker.calls).to.have.lengthOf(1);
+      expect(lanTracker.calls).toHaveLength(0);
+      expect(cloudTracker.calls).toHaveLength(1);
     });
 
     it("should route gradient toggle via LAN ptReal", async () => {
@@ -712,9 +711,9 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "gradientToggle", true);
-      expect(lanTracker.calls).to.have.lengthOf(1);
-      expect(lanTracker.calls[0].method).to.equal("setGradient");
-      expect(lanTracker.calls[0].args[1]).to.equal(true);
+      expect(lanTracker.calls).toHaveLength(1);
+      expect(lanTracker.calls[0].method).toBe("setGradient");
+      expect(lanTracker.calls[0].args[1]).toBe(true);
     });
   });
 
@@ -727,77 +726,77 @@ describe("DeviceManager", () => {
 
     it("should convert power true to 1", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "power", true);
-      expect(result).to.equal(1);
+      expect(result).toBe(1);
     });
 
     it("should convert power false to 0", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "power", false);
-      expect(result).to.equal(0);
+      expect(result).toBe(0);
     });
 
     it("should pass brightness through unchanged", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "brightness", 75);
-      expect(result).to.equal(75);
+      expect(result).toBe(75);
     });
 
     it("should convert colorRgb hex to packed integer", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "colorRgb", "#ff8000");
-      expect(result).to.equal(0xff8000);
+      expect(result).toBe(0xff8000);
     });
 
     it("should convert black color", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "colorRgb", "#000000");
-      expect(result).to.equal(0);
+      expect(result).toBe(0);
     });
 
     it("should convert white color", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "colorRgb", "#ffffff");
-      expect(result).to.equal(0xffffff);
+      expect(result).toBe(0xffffff);
     });
 
     it("should resolve lightScene index to scene value", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "lightScene", "1");
-      expect(result).to.deep.equal({ id: 1, paramId: "abc" }); // Sunset
+      expect(result).toEqual({ id: 1, paramId: "abc" }); // Sunset
     });
 
     it("should resolve lightScene index 2", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "lightScene", "2");
-      expect(result).to.deep.equal({ id: 2, paramId: "def" }); // Rainbow
+      expect(result).toEqual({ id: 2, paramId: "def" }); // Rainbow
     });
 
     it("should fall back to raw value for invalid lightScene index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "lightScene", "99");
-      expect(result).to.equal("99");
+      expect(result).toBe("99");
     });
 
     it("should resolve snapshot index to integer value", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "snapshot", "1");
-      expect(result).to.equal(3782580);
+      expect(result).toBe(3782580);
     });
 
     it("should resolve snapshot index 2", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "snapshot", "2");
-      expect(result).to.equal(3782581);
+      expect(result).toBe(3782581);
     });
 
     it("should resolve diyScene index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "diyScene", "1");
-      expect(result).to.deep.equal({ id: 100, paramId: "xyz" });
+      expect(result).toEqual({ id: 100, paramId: "xyz" });
     });
 
     it("should convert segmentColor to struct", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "segmentColor:3", "#ff0000");
-      expect(result).to.deep.equal({ segment: [3], rgb: 0xff0000 });
+      expect(result).toEqual({ segment: [3], rgb: 0xff0000 });
     });
 
     it("should convert segmentBrightness to struct", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "segmentBrightness:5", 80);
-      expect(result).to.deep.equal({ segment: [5], brightness: 80 });
+      expect(result).toEqual({ segment: [5], brightness: 80 });
     });
 
     it("should pass unknown commands through", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "unknownCommand", 42);
-      expect(result).to.equal(42);
+      expect(result).toBe(42);
     });
   });
 
@@ -810,64 +809,64 @@ describe("DeviceManager", () => {
 
     it("should parse range with color and brightness", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "1-5:#ff0000:20");
-      expect(result).to.not.be.null;
-      expect(result.segments).to.deep.equal([1, 2, 3, 4, 5]);
-      expect(result.color).to.equal(0xff0000);
-      expect(result.brightness).to.equal(20);
+      expect(result).not.toBeNull();
+      expect(result.segments).toEqual([1, 2, 3, 4, 5]);
+      expect(result.color).toBe(0xff0000);
+      expect(result.brightness).toBe(20);
     });
 
     it("should parse 'all' keyword", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "all:#00ff00:50");
-      expect(result.segments).to.have.lengthOf(15);
-      expect(result.segments[0]).to.equal(0);
-      expect(result.segments[14]).to.equal(14);
-      expect(result.color).to.equal(0x00ff00);
-      expect(result.brightness).to.equal(50);
+      expect(result.segments).toHaveLength(15);
+      expect(result.segments[0]).toBe(0);
+      expect(result.segments[14]).toBe(14);
+      expect(result.color).toBe(0x00ff00);
+      expect(result.brightness).toBe(50);
     });
 
     it("should parse comma-separated indices", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "0,3,7:#0000ff");
-      expect(result.segments).to.deep.equal([0, 3, 7]);
-      expect(result.color).to.equal(0x0000ff);
-      expect(result.brightness).to.be.undefined;
+      expect(result.segments).toEqual([0, 3, 7]);
+      expect(result.color).toBe(0x0000ff);
+      expect(result.brightness).toBeUndefined();
     });
 
     it("should parse brightness only (empty color)", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "all::50");
-      expect(result.segments).to.have.lengthOf(15);
-      expect(result.color).to.be.undefined;
-      expect(result.brightness).to.equal(50);
+      expect(result.segments).toHaveLength(15);
+      expect(result.color).toBeUndefined();
+      expect(result.brightness).toBe(50);
     });
 
     it("should parse color without # prefix", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "0:ff8000");
-      expect(result.color).to.equal(0xff8000);
+      expect(result.color).toBe(0xff8000);
     });
 
     it("should clamp segments to segmentCount", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "10-20:#ff0000");
       // Only 10-14 should be included (segmentCount=15)
-      expect(result.segments).to.deep.equal([10, 11, 12, 13, 14]);
+      expect(result.segments).toEqual([10, 11, 12, 13, 14]);
     });
 
     it("should return null for empty command", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "");
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should return null when no color or brightness given", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "1-5");
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should return null for invalid segment indices", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "abc:#ff0000");
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should handle mixed ranges and indices", () => {
       const result = (dm as any).commandRouter.parseSegmentBatch(device, "0,3-5,10:#ffffff");
-      expect(result.segments).to.deep.equal([0, 3, 4, 5, 10]);
+      expect(result.segments).toEqual([0, 3, 4, 5, 10]);
     });
 
     describe("manual segment override", () => {
@@ -875,36 +874,36 @@ describe("DeviceManager", () => {
         device.manualMode = true;
         device.manualSegments = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         const result = (dm as any).commandRouter.parseSegmentBatch(device, "all:#ff0000");
-        expect(result).to.not.be.null;
-        expect(result.segments).to.deep.equal([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        expect(result).not.toBeNull();
+        expect(result.segments).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
       });
 
       it("should honor non-contiguous manualSegments for 'all'", () => {
         device.manualMode = true;
         device.manualSegments = [0, 1, 2, 5, 6, 7]; // gap at 3,4
         const result = (dm as any).commandRouter.parseSegmentBatch(device, "all:#00ff00");
-        expect(result.segments).to.deep.equal([0, 1, 2, 5, 6, 7]);
+        expect(result.segments).toEqual([0, 1, 2, 5, 6, 7]);
       });
 
       it("should filter out invalid indices when manual mode active", () => {
         device.manualMode = true;
         device.manualSegments = [0, 1, 2, 5, 6]; // user says 3,4,7..14 not physical
         const result = (dm as any).commandRouter.parseSegmentBatch(device, "0-14:#0000ff");
-        expect(result.segments).to.deep.equal([0, 1, 2, 5, 6]);
+        expect(result.segments).toEqual([0, 1, 2, 5, 6]);
       });
 
       it("should return null if no valid indices after filtering", () => {
         device.manualMode = true;
         device.manualSegments = [0, 1, 2];
         const result = (dm as any).commandRouter.parseSegmentBatch(device, "10-14:#ff0000");
-        expect(result).to.be.null;
+        expect(result).toBeNull();
       });
 
       it("should fall back to segmentCount when manualMode=false", () => {
         device.manualMode = false;
         device.manualSegments = [0, 1, 2]; // list ignored when mode off
         const result = (dm as any).commandRouter.parseSegmentBatch(device, "all:#ff0000");
-        expect(result.segments).to.have.lengthOf(15);
+        expect(result.segments).toHaveLength(15);
       });
     });
 
@@ -914,12 +913,12 @@ describe("DeviceManager", () => {
           segments: [0, 1],
           color: 0xff0000,
         } as any);
-        expect(result).to.be.null;
+        expect(result).toBeNull();
       });
 
       it("parseSegmentBatch returns null for null/undefined", () => {
-        expect((dm as any).commandRouter.parseSegmentBatch(device, null)).to.be.null;
-        expect((dm as any).commandRouter.parseSegmentBatch(device, undefined)).to.be.null;
+        expect((dm as any).commandRouter.parseSegmentBatch(device, null)).toBeNull();
+        expect((dm as any).commandRouter.parseSegmentBatch(device, undefined)).toBeNull();
       });
 
       it("coerceParsedBatch accepts valid object", () => {
@@ -928,7 +927,7 @@ describe("DeviceManager", () => {
           color: 0xff0000,
           brightness: 50,
         });
-        expect(result).to.deep.equal({
+        expect(result).toEqual({
           segments: [0, 1, 2],
           color: 0xff0000,
           brightness: 50,
@@ -940,21 +939,21 @@ describe("DeviceManager", () => {
           segments: [0],
           brightness: 150,
         });
-        expect(result.brightness).to.equal(100);
+        expect(result.brightness).toBe(100);
       });
 
       it("coerceParsedBatch rejects empty segments", () => {
-        expect((dm as any).commandRouter.coerceParsedBatch({ segments: [], color: 0 })).to.be.null;
+        expect((dm as any).commandRouter.coerceParsedBatch({ segments: [], color: 0 })).toBeNull();
       });
 
       it("coerceParsedBatch rejects missing segments field", () => {
-        expect((dm as any).commandRouter.coerceParsedBatch({ color: 0 })).to.be.null;
+        expect((dm as any).commandRouter.coerceParsedBatch({ color: 0 })).toBeNull();
       });
 
       it("coerceParsedBatch rejects non-object", () => {
-        expect((dm as any).commandRouter.coerceParsedBatch("string")).to.be.null;
-        expect((dm as any).commandRouter.coerceParsedBatch(null)).to.be.null;
-        expect((dm as any).commandRouter.coerceParsedBatch(42)).to.be.null;
+        expect((dm as any).commandRouter.coerceParsedBatch("string")).toBeNull();
+        expect((dm as any).commandRouter.coerceParsedBatch(null)).toBeNull();
+        expect((dm as any).commandRouter.coerceParsedBatch(42)).toBeNull();
       });
 
       it("coerceParsedBatch filters non-numeric segment entries", () => {
@@ -962,11 +961,11 @@ describe("DeviceManager", () => {
           segments: [0, "bad", -1, 2, NaN, 3],
           color: 0,
         });
-        expect(result.segments).to.deep.equal([0, 2, 3]);
+        expect(result.segments).toEqual([0, 2, 3]);
       });
 
       it("coerceParsedBatch requires at least color or brightness", () => {
-        expect((dm as any).commandRouter.coerceParsedBatch({ segments: [0, 1] })).to.be.null;
+        expect((dm as any).commandRouter.coerceParsedBatch({ segments: [0, 1] })).toBeNull();
       });
     });
   });
@@ -980,78 +979,78 @@ describe("DeviceManager", () => {
 
     it("should find on_off for power", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "power");
-      expect(result).to.not.be.undefined;
-      expect(result.type).to.equal("devices.capabilities.on_off");
+      expect(result).toBeDefined();
+      expect(result.type).toBe("devices.capabilities.on_off");
     });
 
     it("should find range brightness for brightness", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "brightness");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.equal("brightness");
+      expect(result).toBeDefined();
+      expect(result.instance).toBe("brightness");
     });
 
     it("should find colorRgb for colorRgb", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "colorRgb");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.equal("colorRgb");
+      expect(result).toBeDefined();
+      expect(result.instance).toBe("colorRgb");
     });
 
     it("should find colorTemperatureK for colorTemperature", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "colorTemperature");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.include("colorTem");
+      expect(result).toBeDefined();
+      expect(result.instance).toContain("colorTem");
     });
 
     it("should find dynamic_scene lightScene for lightScene", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "lightScene");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.equal("lightScene");
+      expect(result).toBeDefined();
+      expect(result.instance).toBe("lightScene");
     });
 
     it("should find dynamic_scene snapshot for snapshot", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "snapshot");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.equal("snapshot");
+      expect(result).toBeDefined();
+      expect(result.instance).toBe("snapshot");
     });
 
     it("should find dynamic_scene diyScene for diyScene", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "diyScene");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.equal("diyScene");
+      expect(result).toBeDefined();
+      expect(result.instance).toBe("diyScene");
     });
 
     it("should find segmentedColorRgb for segmentColor", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "segmentColor:0");
-      expect(result).to.not.be.undefined;
-      expect(result.type).to.include("segment_color_setting");
-      expect(result.instance).to.equal("segmentedColorRgb");
+      expect(result).toBeDefined();
+      expect(result.type).toContain("segment_color_setting");
+      expect(result.instance).toBe("segmentedColorRgb");
     });
 
     it("should find segmentedBrightness for segmentBrightness", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "segmentBrightness:3");
-      expect(result).to.not.be.undefined;
-      expect(result.type).to.include("segment_color_setting");
-      expect(result.instance).to.equal("segmentedBrightness");
+      expect(result).toBeDefined();
+      expect(result.type).toContain("segment_color_setting");
+      expect(result.instance).toBe("segmentedBrightness");
     });
 
     it("should return undefined for unknown commands", () => {
       const result = (dm as any).commandRouter.findCapabilityForCommand(device, "unknownCommand");
-      expect(result).to.be.undefined;
+      expect(result).toBeUndefined();
     });
 
     it("should return undefined for device without capabilities", () => {
       const emptyDevice = createTestDevice({ capabilities: [] });
       const result = (dm as any).commandRouter.findCapabilityForCommand(emptyDevice, "power");
-      expect(result).to.be.undefined;
+      expect(result).toBeUndefined();
     });
 
     it("should not throw when capabilities is non-array", () => {
       const badDevice = createTestDevice({
         capabilities: undefined as unknown as CloudCapability[],
       });
-      expect(() => (dm as any).commandRouter.findCapabilityForCommand(badDevice, "power")).to.not.throw();
+      expect(() => (dm as any).commandRouter.findCapabilityForCommand(badDevice, "power")).not.toThrow();
       const result = (dm as any).commandRouter.findCapabilityForCommand(badDevice, "power");
-      expect(result).to.be.undefined;
+      expect(result).toBeUndefined();
     });
 
     it("should skip malformed capability entries", () => {
@@ -1063,10 +1062,10 @@ describe("DeviceManager", () => {
           { type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: { dataType: "ENUM" } },
         ] as unknown as CloudCapability[],
       });
-      expect(() => (dm as any).commandRouter.findCapabilityForCommand(badDevice, "power")).to.not.throw();
+      expect(() => (dm as any).commandRouter.findCapabilityForCommand(badDevice, "power")).not.toThrow();
       const result = (dm as any).commandRouter.findCapabilityForCommand(badDevice, "power");
-      expect(result).to.not.be.undefined;
-      expect(result.instance).to.equal("powerSwitch");
+      expect(result).toBeDefined();
+      expect(result.instance).toBe("powerSwitch");
     });
   });
 
@@ -1076,33 +1075,33 @@ describe("DeviceManager", () => {
         { sku: null, device: "abc", deviceName: "x", type: "devices.types.light", capabilities: [] },
         { sku: "H6160", device: "good123", deviceName: "Good", type: "devices.types.light", capabilities: [] },
       ];
-      expect(() => (dm as any).mergeCloudDevices(bad)).to.not.throw();
+      expect(() => (dm as any).mergeCloudDevices(bad)).not.toThrow();
       (dm as any).mergeCloudDevices(bad);
       const devices = dm.getDevices();
       const skus = devices.map(d => d.sku);
-      expect(skus).to.include("H6160");
-      expect(skus).to.not.include(null);
+      expect(skus).toContain("H6160");
+      expect(skus).not.toContain(null);
     });
 
     it("mergeCloudDevices should skip devices with non-string device id", () => {
       const bad = [{ sku: "H6160", device: 123, deviceName: "x", type: "devices.types.light", capabilities: [] }];
-      expect(() => (dm as any).mergeCloudDevices(bad)).to.not.throw();
+      expect(() => (dm as any).mergeCloudDevices(bad)).not.toThrow();
     });
 
     it("mergeCloudDevices should not throw when capabilities is non-array", () => {
       const bad = [{ sku: "H6160", device: "abc", deviceName: "x", type: "devices.types.light", capabilities: "oops" }];
-      expect(() => (dm as any).mergeCloudDevices(bad)).to.not.throw();
+      expect(() => (dm as any).mergeCloudDevices(bad)).not.toThrow();
       const devices = dm.getDevices();
       const dev = devices.find(d => d.sku === "H6160");
       if (dev) {
-        expect(Array.isArray(dev.capabilities)).to.be.true;
+        expect(Array.isArray(dev.capabilities)).toBe(true);
       }
     });
 
     it("mergeCloudDevices should not throw when cloudDevices is non-array", () => {
-      expect(() => (dm as any).mergeCloudDevices(null)).to.not.throw();
-      expect(() => (dm as any).mergeCloudDevices(undefined)).to.not.throw();
-      expect(() => (dm as any).mergeCloudDevices({} as any)).to.not.throw();
+      expect(() => (dm as any).mergeCloudDevices(null)).not.toThrow();
+      expect(() => (dm as any).mergeCloudDevices(undefined)).not.toThrow();
+      expect(() => (dm as any).mergeCloudDevices({} as any)).not.toThrow();
     });
 
     it("mergeCloudDevices should skip null entries", () => {
@@ -1111,7 +1110,7 @@ describe("DeviceManager", () => {
         undefined,
         { sku: "H6160", device: "abc", deviceName: "x", type: "devices.types.light", capabilities: [] },
       ];
-      expect(() => (dm as any).mergeCloudDevices(bad)).to.not.throw();
+      expect(() => (dm as any).mergeCloudDevices(bad)).not.toThrow();
     });
   });
 
@@ -1136,18 +1135,18 @@ describe("DeviceManager", () => {
 
       // First call — new category: 1 warn + 1 debug (stack on debug, v2.10.1)
       (dedupDm as any).logDedup("Cloud failed", new Error("ECONNREFUSED"));
-      expect(warnings).to.have.lengthOf(1);
-      expect(debugs).to.have.lengthOf(1); // stack-trace went to debug
+      expect(warnings).toHaveLength(1);
+      expect(debugs).toHaveLength(1); // stack-trace went to debug
 
       // Same category — should debug (repeated), no new warn
       (dedupDm as any).logDedup("Cloud failed", new Error("ENOTFOUND"));
-      expect(warnings).to.have.lengthOf(1); // no new warning
-      expect(debugs).to.have.lengthOf(2); // +1 repeated
+      expect(warnings).toHaveLength(1); // no new warning
+      expect(debugs).toHaveLength(2); // +1 repeated
 
       // Different category — should warn again + new stack debug
       (dedupDm as any).logDedup("Cloud failed", new Error("HTTP 401"));
-      expect(warnings).to.have.lengthOf(2);
-      expect(debugs).to.have.lengthOf(3); // +1 stack for new category
+      expect(warnings).toHaveLength(2);
+      expect(debugs).toHaveLength(3); // +1 stack for new category
     });
   });
 
@@ -1178,10 +1177,10 @@ describe("DeviceManager", () => {
         device: "AABBCCDDEEFF0011",
         state: { onOff: 0 },
       });
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.power).to.be.false;
-      expect(updatedState!.brightness).to.be.undefined;
-      expect(updatedState!.colorRgb).to.be.undefined;
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.power).toBe(false);
+      expect(updatedState!.brightness).toBeUndefined();
+      expect(updatedState!.colorRgb).toBeUndefined();
     });
 
     it("should handle color temperature from MQTT", () => {
@@ -1201,7 +1200,7 @@ describe("DeviceManager", () => {
         device: "AABBCCDDEEFF0011",
         state: { colorTemInKelvin: 5000 },
       });
-      expect(updatedState!.colorTemperature).to.equal(5000);
+      expect(updatedState!.colorTemperature).toBe(5000);
     });
 
     it("should set mqtt channel to true on status update", () => {
@@ -1220,7 +1219,7 @@ describe("DeviceManager", () => {
       });
 
       const device = dm.getDevices()[0];
-      expect(device.channels.mqtt).to.be.true;
+      expect(device.channels.mqtt).toBe(true);
     });
 
     it("should handle empty state object", () => {
@@ -1243,8 +1242,8 @@ describe("DeviceManager", () => {
       // is not a valid info.online source (broker buffering risk). The callback
       // still fires (other state could be updated) but with an empty/sparse
       // state object when nothing else came in.
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.online).to.be.undefined;
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.online).toBeUndefined();
     });
 
     it("should coerce string brightness from spoofed Govee push", () => {
@@ -1266,9 +1265,9 @@ describe("DeviceManager", () => {
         device: "AABBCCDDEEFF0011",
         state: { brightness: "50" as unknown as number },
       });
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.brightness).to.equal(50);
-      expect(typeof updatedState!.brightness).to.equal("number");
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.brightness).toBe(50);
+      expect(typeof updatedState!.brightness).toBe("number");
     });
 
     it("should drop completely garbage brightness (NaN, object, null)", () => {
@@ -1289,10 +1288,10 @@ describe("DeviceManager", () => {
       });
       // Lights: MQTT-push does not write online (LAN-only resolver owns it).
       // Garbage brightness/power are still rejected by coerce — both undefined.
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.online).to.be.undefined;
-      expect(updatedState!.brightness).to.be.undefined;
-      expect(updatedState!.power).to.be.undefined;
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.online).toBeUndefined();
+      expect(updatedState!.brightness).toBeUndefined();
+      expect(updatedState!.power).toBeUndefined();
     });
 
     it("should drop colorTemInKelvin=0 (Govee 'no colortemp mode' marker)", () => {
@@ -1311,8 +1310,8 @@ describe("DeviceManager", () => {
         device: "AABBCCDDEEFF0011",
         state: { colorTemInKelvin: 0 },
       });
-      expect(updatedState).to.not.be.null;
-      expect(updatedState!.colorTemperature).to.be.undefined;
+      expect(updatedState).not.toBeNull();
+      expect(updatedState!.colorTemperature).toBeUndefined();
     });
   });
 
@@ -1344,7 +1343,7 @@ describe("DeviceManager", () => {
         color: { r: 0, g: 0, b: 0 },
         colorTemInKelvin: 0,
       });
-      expect(updatedState!.brightness).to.equal(0);
+      expect(updatedState!.brightness).toBe(0);
     });
 
     it("should handle colorTemInKelvin 0 as no color temp", () => {
@@ -1366,7 +1365,7 @@ describe("DeviceManager", () => {
         colorTemInKelvin: 0,
       });
       // colorTemInKelvin 0 means RGB mode, not color temp
-      expect(updatedState!.colorTemperature).to.be.undefined;
+      expect(updatedState!.colorTemperature).toBeUndefined();
     });
   });
 
@@ -1391,9 +1390,9 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "diyScene", "1");
-      expect(lanTracker.calls).to.have.lengthOf(1);
-      expect(lanTracker.calls[0].method).to.equal("setDiyScene");
-      expect(lanTracker.calls[0].args[1]).to.equal("ABCD");
+      expect(lanTracker.calls).toHaveLength(1);
+      expect(lanTracker.calls[0].method).toBe("setDiyScene");
+      expect(lanTracker.calls[0].args[1]).toBe("ABCD");
     });
 
     it("should fall back to Cloud for DIY scene not in library", async () => {
@@ -1426,9 +1425,9 @@ describe("DeviceManager", () => {
 
       await dm.sendCommand(device, "diyScene", "1");
       // LAN setDiyScene should NOT be called
-      expect(lanTracker.calls.filter(c => c.method === "setDiyScene")).to.have.lengthOf(0);
+      expect(lanTracker.calls.filter(c => c.method === "setDiyScene")).toHaveLength(0);
       // Cloud should be called
-      expect(cloudTracker.calls).to.have.lengthOf(1);
+      expect(cloudTracker.calls).toHaveLength(1);
     });
   });
 
@@ -1447,9 +1446,9 @@ describe("DeviceManager", () => {
       (dm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await dm.sendCommand(device, "colorTemperature", 4500);
-      expect(tracker.calls).to.have.lengthOf(1);
-      expect(tracker.calls[0].method).to.equal("setColorTemperature");
-      expect(tracker.calls[0].args).to.deep.equal(["192.168.1.100", 4500]);
+      expect(tracker.calls).toHaveLength(1);
+      expect(tracker.calls[0].method).toBe("setColorTemperature");
+      expect(tracker.calls[0].args).toEqual(["192.168.1.100", 4500]);
     });
   });
 
@@ -1475,7 +1474,7 @@ describe("DeviceManager", () => {
       (noDm as any).devices.set("H6160_aabbccddeeff0011", device);
 
       await noDm.sendCommand(device, "power", true);
-      expect(warnings.some(w => w.includes("No channel available"))).to.be.true;
+      expect(warnings.some(w => w.includes("No channel available"))).toBe(true);
     });
   });
 
@@ -1490,27 +1489,27 @@ describe("DeviceManager", () => {
       });
 
       const result = dm.generateDiagnostics(device, "1.0.1");
-      expect(result.adapter).to.equal("iobroker.govee-smart");
-      expect(result.version).to.equal("1.0.1");
-      expect(result.exportedAt).to.be.a("string");
-      expect((result.device as any).sku).to.equal("H6160");
-      expect((result.device as any).channels).to.deep.equal({ lan: true, mqtt: true, cloud: true });
-      expect((result.scenes as any).count).to.equal(2);
-      expect((result.scenes as any).names).to.deep.equal(["Sunset", "Rainbow"]);
-      expect((result.sceneLibrary as any).count).to.equal(1);
+      expect(result.adapter).toBe("iobroker.govee-smart");
+      expect(result.version).toBe("1.0.1");
+      expect(typeof result.exportedAt).toBe("string");
+      expect((result.device as any).sku).toBe("H6160");
+      expect((result.device as any).channels).toEqual({ lan: true, mqtt: true, cloud: true });
+      expect((result.scenes as any).count).toBe(2);
+      expect((result.scenes as any).names).toEqual(["Sunset", "Rainbow"]);
+      expect((result.sceneLibrary as any).count).toBe(1);
       // v2.9.1 — sceneLibrary now exports full entries (incl. scenceParam +
       // speedInfo). Old shape projected `speedSupported: boolean` only.
-      expect((result.sceneLibrary as any).entries[0].speedInfo.supSpeed).to.be.true;
-      expect((result.musicLibrary as any).count).to.equal(1);
-      expect((result.diyLibrary as any).count).to.equal(1);
-      expect(result.quirks).to.be.null; // H6160 has no quirks
-      expect(result.state).to.deep.equal({ online: true });
+      expect((result.sceneLibrary as any).entries[0].speedInfo.supSpeed).toBe(true);
+      expect((result.musicLibrary as any).count).toBe(1);
+      expect((result.diyLibrary as any).count).toBe(1);
+      expect(result.quirks).toBeNull(); // H6160 has no quirks
+      expect(result.state).toEqual({ online: true });
     });
 
     it("should include quirks for known SKU", () => {
       const device = createTestDevice({ sku: "H6141" });
       const result = dm.generateDiagnostics(device, "1.0.1");
-      expect((result.quirks as any).brokenPlatformApi).to.be.true;
+      expect((result.quirks as any).brokenPlatformApi).toBe(true);
     });
   });
 
@@ -1519,27 +1518,27 @@ describe("DeviceManager", () => {
 
     it("should return raw value for NaN diyScene index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "diyScene", "abc");
-      expect(result).to.equal("abc");
+      expect(result).toBe("abc");
     });
 
     it("should return raw value for zero snapshot index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "snapshot", "0");
-      expect(result).to.equal("0");
+      expect(result).toBe("0");
     });
 
     it("should return raw value for out-of-range snapshot index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "snapshot", "999");
-      expect(result).to.equal("999");
+      expect(result).toBe("999");
     });
 
     it("should return raw value for invalid segment index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "segmentColor:-1", "#ff0000");
-      expect(result).to.equal("#ff0000");
+      expect(result).toBe("#ff0000");
     });
 
     it("should return raw value for NaN segment brightness index", () => {
       const result = (dm as any).commandRouter.toCloudValue(device, "segmentBrightness:abc", 50);
-      expect(result).to.equal(50);
+      expect(result).toBe(50);
     });
   });
 
@@ -1571,11 +1570,11 @@ describe("DeviceManager", () => {
         [1, 128, 128, 128], // seg 3: brightness 1 (not padding), grey
       ]);
       const result = parseMqttSegmentData([pkt]);
-      expect(result).to.have.lengthOf(4);
-      expect(result[0]).to.deep.equal({ index: 0, brightness: 100, r: 255, g: 0, b: 0 });
-      expect(result[1]).to.deep.equal({ index: 1, brightness: 50, r: 0, g: 255, b: 0 });
-      expect(result[2]).to.deep.equal({ index: 2, brightness: 75, r: 0, g: 0, b: 255 });
-      expect(result[3]).to.deep.equal({ index: 3, brightness: 1, r: 128, g: 128, b: 128 });
+      expect(result).toHaveLength(4);
+      expect(result[0]).toEqual({ index: 0, brightness: 100, r: 255, g: 0, b: 0 });
+      expect(result[1]).toEqual({ index: 1, brightness: 50, r: 0, g: 255, b: 0 });
+      expect(result[2]).toEqual({ index: 2, brightness: 75, r: 0, g: 0, b: 255 });
+      expect(result[3]).toEqual({ index: 3, brightness: 1, r: 128, g: 128, b: 128 });
     });
 
     it("should parse multiple packets and compute correct segment indices", () => {
@@ -1592,10 +1591,10 @@ describe("DeviceManager", () => {
         [20, 100, 110, 120],
       ]);
       const result = parseMqttSegmentData([pkt1, pkt2]);
-      expect(result).to.have.lengthOf(8);
+      expect(result).toHaveLength(8);
       // Packet 2 starts at segment index 4
-      expect(result[4]).to.deep.equal({ index: 4, brightness: 80, r: 10, g: 20, b: 30 });
-      expect(result[7]).to.deep.equal({ index: 7, brightness: 20, r: 100, g: 110, b: 120 });
+      expect(result[4]).toEqual({ index: 4, brightness: 80, r: 10, g: 20, b: 30 });
+      expect(result[7]).toEqual({ index: 7, brightness: 20, r: 100, g: 110, b: 120 });
     });
 
     it("should trim trailing all-zero padding slots from the final packet", () => {
@@ -1609,9 +1608,9 @@ describe("DeviceManager", () => {
         [0, 0, 0, 0], // padding
       ]);
       const result = parseMqttSegmentData([pkt]);
-      expect(result).to.have.lengthOf(2);
-      expect(result[0].index).to.equal(0);
-      expect(result[1].index).to.equal(1);
+      expect(result).toHaveLength(2);
+      expect(result[0].index).toBe(0);
+      expect(result[1].index).toBe(1);
     });
 
     it("should keep zero-slots that have real data AFTER them", () => {
@@ -1624,8 +1623,8 @@ describe("DeviceManager", () => {
         [1, 128, 128, 128], // non-padding last
       ]);
       const result = parseMqttSegmentData([pkt]);
-      expect(result).to.have.lengthOf(4);
-      expect(result[1]).to.deep.equal({ index: 1, brightness: 0, r: 0, g: 0, b: 0 });
+      expect(result).toHaveLength(4);
+      expect(result[1]).toEqual({ index: 1, brightness: 0, r: 0, g: 0, b: 0 });
     });
 
     it("should ignore non-AA-A5 packets", () => {
@@ -1642,13 +1641,13 @@ describe("DeviceManager", () => {
         [1, 1, 1, 1],
       ]);
       const result = parseMqttSegmentData([modePkt, segPkt]);
-      expect(result).to.have.lengthOf(4);
-      expect(result[0].index).to.equal(0);
+      expect(result).toHaveLength(4);
+      expect(result[0].index).toBe(0);
     });
 
     it("should return empty array for empty commands", () => {
       const result = parseMqttSegmentData([]);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should skip packets with invalid packet number", () => {
@@ -1658,7 +1657,7 @@ describe("DeviceManager", () => {
       bytes[2] = 6; // invalid: must be 1-5
       const pkt = Buffer.from(bytes).toString("base64");
       const result = parseMqttSegmentData([pkt]);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should skip packets shorter than 20 bytes", () => {
@@ -1668,7 +1667,7 @@ describe("DeviceManager", () => {
       shortBytes[2] = 1;
       const pkt = Buffer.from(shortBytes).toString("base64");
       const result = parseMqttSegmentData([pkt]);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should decode all 5 packets for a 20-segment strip", () => {
@@ -1685,31 +1684,31 @@ describe("DeviceManager", () => {
         );
       }
       const result = parseMqttSegmentData(pkts);
-      expect(result).to.have.lengthOf(20);
-      expect(result[0].index).to.equal(0);
-      expect(result[19].index).to.equal(19);
+      expect(result).toHaveLength(20);
+      expect(result[0].index).toBe(0);
+      expect(result[19].index).toBe(19);
       for (const seg of result) {
-        expect(seg.brightness).to.equal(100);
-        expect(seg.r).to.equal(255);
-        expect(seg.g).to.equal(202);
-        expect(seg.b).to.equal(145);
+        expect(seg.brightness).toBe(100);
+        expect(seg.r).toBe(255);
+        expect(seg.g).toBe(202);
+        expect(seg.b).toBe(145);
       }
     });
 
     // Drift guards — MQTT payload structure could change unexpectedly.
     it("should return [] for non-array commands input", () => {
       const result = parseMqttSegmentData(null as unknown as string[]);
-      expect(result).to.deep.equal([]);
+      expect(result).toEqual([]);
     });
 
     it("should return [] for undefined commands input", () => {
       const result = parseMqttSegmentData(undefined as unknown as string[]);
-      expect(result).to.deep.equal([]);
+      expect(result).toEqual([]);
     });
 
     it("should return [] for object instead of array", () => {
       const result = parseMqttSegmentData({} as unknown as string[]);
-      expect(result).to.deep.equal([]);
+      expect(result).toEqual([]);
     });
 
     it("should skip non-string entries in commands array", () => {
@@ -1725,9 +1724,9 @@ describe("DeviceManager", () => {
         goodPkt,
         {} as unknown as string,
       ]);
-      expect(result.length).to.equal(4);
-      expect(result[0].index).to.equal(0);
-      expect(result[0].r).to.equal(255);
+      expect(result.length).toBe(4);
+      expect(result[0].index).toBe(0);
+      expect(result[0].r).toBe(255);
     });
   });
 
@@ -1776,11 +1775,11 @@ describe("DeviceManager", () => {
         op: { command: [pkt] },
       });
 
-      expect(segmentUpdates).to.not.be.null;
+      expect(segmentUpdates).not.toBeNull();
       // Trailing zero slots (slots 2-3) are trimmed as packet padding.
-      expect(segmentUpdates).to.have.lengthOf(2);
-      expect(segmentUpdates![0]).to.deep.equal({ index: 0, brightness: 100, r: 255, g: 0, b: 0 });
-      expect(segmentUpdates![1]).to.deep.equal({ index: 1, brightness: 50, r: 0, g: 255, b: 0 });
+      expect(segmentUpdates).toHaveLength(2);
+      expect(segmentUpdates![0]).toEqual({ index: 0, brightness: 100, r: 255, g: 0, b: 0 });
+      expect(segmentUpdates![1]).toEqual({ index: 1, brightness: 50, r: 0, g: 255, b: 0 });
     });
 
     it("should discover segmentCount and call onSegmentCountGrown on first AA A5", () => {
@@ -1826,8 +1825,8 @@ describe("DeviceManager", () => {
         op: { command: [pkt] },
       });
 
-      expect(grownDevice).to.not.be.null;
-      expect(dm.getDevices()[0].segmentCount).to.equal(2);
+      expect(grownDevice).not.toBeNull();
+      expect(dm.getDevices()[0].segmentCount).toBe(2);
     });
 
     it("should grow segmentCount when MQTT reports more than Cloud said", () => {
@@ -1871,8 +1870,8 @@ describe("DeviceManager", () => {
         op: { command: packets },
       });
 
-      expect(grownDevice).to.not.be.null;
-      expect(dm.getDevices()[0].segmentCount).to.equal(20);
+      expect(grownDevice).not.toBeNull();
+      expect(dm.getDevices()[0].segmentCount).toBe(20);
     });
 
     it("should not call onMqttSegmentUpdate when no AA A5 packets in command", () => {
@@ -1905,7 +1904,7 @@ describe("DeviceManager", () => {
         op: { command: [pkt] },
       });
 
-      expect(called).to.be.false;
+      expect(called).toBe(false);
     });
   });
 });
@@ -1950,12 +1949,12 @@ describe("resolveSegmentCount", () => {
 
   it("returns device.segmentCount when already set (cache wins)", () => {
     const device = deviceWith([segCap("segmentedColorRgb", 14)], 20);
-    expect(resolveSegmentCount(device)).to.equal(20);
+    expect(resolveSegmentCount(device)).toBe(20);
   });
 
   it("returns 0 when no segment capability and no learned count", () => {
     const device = deviceWith([]);
-    expect(resolveSegmentCount(device)).to.equal(0);
+    expect(resolveSegmentCount(device)).toBe(0);
   });
 
   it("uses min of positive capability counts (H70D1: brightness=10, colorRgb=15 → 10)", () => {
@@ -1964,7 +1963,7 @@ describe("resolveSegmentCount", () => {
       segCap("segmentedBrightness", 9), // 10 segments
       segCap("segmentedColorRgb", 14), // 15 segments (lie)
     ]);
-    expect(resolveSegmentCount(device)).to.equal(10);
+    expect(resolveSegmentCount(device)).toBe(10);
   });
 
   it("ignores caps without positive count", () => {
@@ -1972,7 +1971,7 @@ describe("resolveSegmentCount", () => {
       segCap("segmentedBrightness", -1), // 0 segments
       segCap("segmentedColorRgb", 14), // 15 segments
     ]);
-    expect(resolveSegmentCount(device)).to.equal(15);
+    expect(resolveSegmentCount(device)).toBe(15);
   });
 
   it("defensive: handles non-array capabilities", () => {
@@ -1980,7 +1979,7 @@ describe("resolveSegmentCount", () => {
       ...deviceWith([]),
       capabilities: null as unknown as CloudCapability[],
     };
-    expect(resolveSegmentCount(device)).to.equal(0);
+    expect(resolveSegmentCount(device)).toBe(0);
   });
 
   it("defensive: handles cap without parameters", () => {
@@ -1990,7 +1989,7 @@ describe("resolveSegmentCount", () => {
         instance: "x",
       } as CloudCapability,
     ]);
-    expect(resolveSegmentCount(device)).to.equal(0);
+    expect(resolveSegmentCount(device)).toBe(0);
   });
 
   it("defensive: handles non-segment field names", () => {
@@ -2009,11 +2008,11 @@ describe("resolveSegmentCount", () => {
         },
       } as CloudCapability,
     ]);
-    expect(resolveSegmentCount(device)).to.equal(0);
+    expect(resolveSegmentCount(device)).toBe(0);
   });
 
   it("SEGMENT_HARD_MAX is the protocol ceiling (55)", () => {
-    expect(SEGMENT_HARD_MAX).to.equal(55);
+    expect(SEGMENT_HARD_MAX).toBe(55);
   });
 });
 
@@ -2079,10 +2078,10 @@ describe("DeviceManager — loadFromCache merge", () => {
     dm.loadFromCache();
 
     const [device] = dm.getDevices();
-    expect(device.sku).to.equal("H61BE");
-    expect(device.segmentCount).to.equal(22);
-    expect(device.manualMode).to.equal(true);
-    expect(device.manualSegments).to.deep.equal([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
+    expect(device.sku).toBe("H61BE");
+    expect(device.segmentCount).toBe(22);
+    expect(device.manualMode).toBe(true);
+    expect(device.manualSegments).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
   });
 
   it("leaves merged fields undefined when cache entry has none (no segment data ever captured)", () => {
@@ -2117,9 +2116,9 @@ describe("DeviceManager — loadFromCache merge", () => {
     dm.loadFromCache();
 
     const [device] = dm.getDevices();
-    expect(device.segmentCount).to.equal(undefined);
-    expect(device.manualMode).to.equal(undefined);
-    expect(device.manualSegments).to.equal(undefined);
+    expect(device.segmentCount).toBe(undefined);
+    expect(device.manualMode).toBe(undefined);
+    expect(device.manualSegments).toBe(undefined);
   });
 
   describe("buildCapabilitiesFromAppEntry", () => {
@@ -2139,23 +2138,23 @@ describe("DeviceManager — loadFromCache merge", () => {
         },
       };
       const caps = buildCapabilitiesFromAppEntry(entry);
-      expect(caps).to.have.lengthOf(4);
-      expect(caps[0]).to.deep.equal({
+      expect(caps).toHaveLength(4);
+      expect(caps[0]).toEqual({
         type: "devices.capabilities.online",
         instance: "online",
         state: { value: true },
       });
-      expect(caps[1]).to.deep.equal({
+      expect(caps[1]).toEqual({
         type: "devices.capabilities.property",
         instance: "sensorTemperature",
         state: { value: 23.7 },
       });
-      expect(caps[2]).to.deep.equal({
+      expect(caps[2]).toEqual({
         type: "devices.capabilities.property",
         instance: "sensorHumidity",
         state: { value: 42.9 },
       });
-      expect(caps[3]).to.deep.equal({
+      expect(caps[3]).toEqual({
         type: "devices.capabilities.property",
         instance: "battery",
         state: { value: 87 },
@@ -2168,7 +2167,7 @@ describe("DeviceManager — loadFromCache merge", () => {
         device: "AA:BB:CC:DD:EE:FF",
         deviceName: "x",
       };
-      expect(buildCapabilitiesFromAppEntry(entry)).to.deep.equal([]);
+      expect(buildCapabilitiesFromAppEntry(entry)).toEqual([]);
     });
 
     it("prefers lastData.battery over settings.battery", () => {
@@ -2180,8 +2179,8 @@ describe("DeviceManager — loadFromCache merge", () => {
         settings: { battery: 99 },
       };
       const caps = buildCapabilitiesFromAppEntry(entry);
-      expect(caps).to.have.lengthOf(1);
-      expect(caps[0].state?.value).to.equal(50);
+      expect(caps).toHaveLength(1);
+      expect(caps[0].state?.value).toBe(50);
     });
 
     it("falls back to settings.battery when lastData has none", () => {
@@ -2194,7 +2193,7 @@ describe("DeviceManager — loadFromCache merge", () => {
       };
       const caps = buildCapabilitiesFromAppEntry(entry);
       const battery = caps.find(c => c.instance === "battery");
-      expect(battery?.state?.value).to.equal(75);
+      expect(battery?.state?.value).toBe(75);
     });
 
     it("ignores non-finite tem/hum values defensively", () => {
@@ -2205,8 +2204,8 @@ describe("DeviceManager — loadFromCache merge", () => {
         lastData: { tem: NaN, hum: Infinity, online: false },
       };
       const caps = buildCapabilitiesFromAppEntry(entry);
-      expect(caps).to.have.lengthOf(1);
-      expect(caps[0].instance).to.equal("online");
+      expect(caps).toHaveLength(1);
+      expect(caps[0].instance).toBe("online");
     });
   });
 
@@ -2225,13 +2224,13 @@ describe("DeviceManager — loadFromCache merge", () => {
 
     it("returns 0 without an api client", async () => {
       const dm2 = new DeviceManager(mockLog, mockTimers);
-      expect(await dm2.pollAppApi()).to.equal(0);
+      expect(await dm2.pollAppApi()).toBe(0);
     });
 
     it("returns 0 when bearer token missing", async () => {
       const dm2 = new DeviceManager(mockLog, mockTimers);
       dm2.setApiClient(makeApiMock({ hasBearer: false }) as never);
-      expect(await dm2.pollAppApi()).to.equal(0);
+      expect(await dm2.pollAppApi()).toBe(0);
     });
 
     it("ignores app entries for unknown devices", async () => {
@@ -2248,7 +2247,7 @@ describe("DeviceManager — loadFromCache merge", () => {
           ],
         }) as never,
       );
-      expect(await dm2.pollAppApi()).to.equal(0);
+      expect(await dm2.pollAppApi()).toBe(0);
     });
 
     it("forwards synthetic caps for known devices via onCloudCapabilities", async () => {
@@ -2278,9 +2277,9 @@ describe("DeviceManager — loadFromCache merge", () => {
           ],
         }) as never,
       );
-      expect(await dm2.pollAppApi()).to.equal(1);
-      expect(seen).to.have.lengthOf(1);
-      expect(seen[0].caps).to.have.lengthOf(3);
+      expect(await dm2.pollAppApi()).toBe(1);
+      expect(seen).toHaveLength(1);
+      expect(seen[0].caps).toHaveLength(3);
     });
 
     it("returns 0 on fetch error and does not throw", async () => {
@@ -2289,7 +2288,7 @@ describe("DeviceManager — loadFromCache merge", () => {
       dm2.handleLanDiscovery({ ip: "192.168.1.99", device: "AABBCCDDEEFF0099", sku: "H5179" } as LanDevice);
       dm2.getDevices()[0].type = "devices.types.thermometer";
       dm2.setApiClient(makeApiMock({ throws: true }) as never);
-      expect(await dm2.pollAppApi()).to.equal(0);
+      expect(await dm2.pollAppApi()).toBe(0);
     });
 
     it("logs success-after-failure as warn again instead of debug-deduping it", async () => {
@@ -2316,16 +2315,16 @@ describe("DeviceManager — loadFromCache merge", () => {
       dm2.setApiClient(failingClient as never);
 
       await dm2.pollAppApi();
-      expect(warnings).to.have.lengthOf(1, "first failure warns");
+      expect(warnings, "first failure warns").toHaveLength(1);
       await dm2.pollAppApi();
-      expect(warnings).to.have.lengthOf(1, "repeated same-category failure stays at debug");
+      expect(warnings, "repeated same-category failure stays at debug").toHaveLength(1);
 
       // Success in between resets the dedup slot.
       fail = false;
       await dm2.pollAppApi();
       fail = true;
       await dm2.pollAppApi();
-      expect(warnings).to.have.lengthOf(2, "failure after success warns again");
+      expect(warnings, "failure after success warns again").toHaveLength(2);
     });
   });
 
@@ -2341,7 +2340,7 @@ describe("DeviceManager — loadFromCache merge", () => {
         device: "ZZ:ZZ:ZZ:ZZ:ZZ:ZZ",
         capabilities: [{ type: "x", instance: "y", state: { value: 1 } }],
       });
-      expect(called).to.equal(0);
+      expect(called).toBe(0);
     });
 
     it("forwards caps to onCloudCapabilities for known devices", () => {
@@ -2358,8 +2357,8 @@ describe("DeviceManager — loadFromCache merge", () => {
         device: "AABBCCDDEEFF0002",
         capabilities: [{ type: "devices.capabilities.event", instance: "lackWaterEvent", state: { value: true } }],
       });
-      expect(seen).to.have.lengthOf(1);
-      expect((seen[0] as Array<{ instance: string }>)[0].instance).to.equal("lackWaterEvent");
+      expect(seen).toHaveLength(1);
+      expect((seen[0] as Array<{ instance: string }>)[0].instance).toBe("lackWaterEvent");
     });
 
     it("ignores malformed input defensively", () => {
@@ -2373,7 +2372,7 @@ describe("DeviceManager — loadFromCache merge", () => {
       dm2.handleOpenApiEvent({ sku: 1 as never, device: "x", capabilities: [] });
       dm2.handleOpenApiEvent({ sku: "H5179", device: "x", capabilities: null as never });
       dm2.handleOpenApiEvent({ sku: "H5179", device: "x", capabilities: [] });
-      expect(called).to.equal(0);
+      expect(called).toBe(0);
     });
   });
 
@@ -2406,8 +2405,8 @@ describe("DeviceManager — loadFromCache merge", () => {
       dm2.setApiClient(apiClient as never);
       await dm2.pollAppApi();
 
-      expect(dev.state.online).to.equal(true);
-      expect(updates.some(u => u.online === true), "onDeviceUpdate fires for online flip").to.be.true;
+      expect(dev.state.online).toBe(true);
+      expect(updates.some(u => u.online === true), "onDeviceUpdate fires for online flip").toBe(true);
     });
 
     it("flips device.state.online when App-API delivers online:false", async () => {
@@ -2438,8 +2437,8 @@ describe("DeviceManager — loadFromCache merge", () => {
       dm2.setApiClient(apiClient as never);
       await dm2.pollAppApi();
 
-      expect(dev.state.online).to.equal(false);
-      expect(updates.some(u => u.online === false), "onDeviceUpdate fires for offline flip").to.be.true;
+      expect(dev.state.online).toBe(false);
+      expect(updates.some(u => u.online === false), "onDeviceUpdate fires for offline flip").toBe(true);
     });
 
     it("OpenAPI-MQTT events drive info.online via applyOnlineCap", () => {
@@ -2470,8 +2469,8 @@ describe("DeviceManager — loadFromCache merge", () => {
         ],
       });
 
-      expect(dev.state.online).to.equal(true);
-      expect(updates.some(u => u.online === true), "onDeviceUpdate fires for OpenAPI-MQTT online").to.be.true;
+      expect(dev.state.online).toBe(true);
+      expect(updates.some(u => u.online === true), "onDeviceUpdate fires for OpenAPI-MQTT online").toBe(true);
     });
 
     it("treats data-without-online-flag as online (matches LAN/MQTT convention)", () => {
@@ -2500,8 +2499,8 @@ describe("DeviceManager — loadFromCache merge", () => {
         ],
       });
 
-      expect(dev.state.online).to.equal(true);
-      expect(updates.some(u => u.online === true)).to.be.true;
+      expect(dev.state.online).toBe(true);
+      expect(updates.some(u => u.online === true)).toBe(true);
     });
   });
 });
@@ -2568,8 +2567,8 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
 
     await (dm as any).loadDeviceScenes(device, cd);
 
-    expect(device.snapshots).to.have.lengthOf(2);
-    expect(device.snapshots.map(s => s.name)).to.deep.equal(["OldSnap", "NewlyAdded"]);
+    expect(device.snapshots).toHaveLength(2);
+    expect(device.snapshots.map(s => s.name)).toEqual(["OldSnap", "NewlyAdded"]);
   });
 
   it("preserves cached snapshots when /device/scenes is empty AND /user/devices has no snapshot capability", async () => {
@@ -2592,8 +2591,8 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
 
     await (dm as any).loadDeviceScenes(device, cd);
 
-    expect(device.snapshots).to.have.lengthOf(1);
-    expect(device.snapshots[0].name).to.equal("CachedSnap");
+    expect(device.snapshots).toHaveLength(1);
+    expect(device.snapshots[0].name).toBe("CachedSnap");
   });
 
   it("clears the snapshot list when the user deleted everything in the Govee app", async () => {
@@ -2616,7 +2615,7 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
 
     await (dm as any).loadDeviceScenes(device, cd);
 
-    expect(device.snapshots).to.have.lengthOf(0);
+    expect(device.snapshots).toHaveLength(0);
   });
 
   it("/device/scenes returning snapshots wins over the capability fallback", async () => {
@@ -2643,7 +2642,7 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
 
     await (dm as any).loadDeviceScenes(device, cd);
 
-    expect(device.snapshots.map(s => s.name)).to.deep.equal(["FromScenesEndpoint1", "FromScenesEndpoint2"]);
+    expect(device.snapshots.map(s => s.name)).toEqual(["FromScenesEndpoint1", "FromScenesEndpoint2"]);
   });
 
   it("refreshSceneDataForDevice refetches /user/devices before re-running loadDeviceScenes", async () => {
@@ -2688,10 +2687,10 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
 
     const changed = await dm.refreshSceneDataForDevice("AABBCCDDEEFF0011");
 
-    expect(getDevicesCallCount, "getDevices must be called by refreshSceneDataForDevice").to.equal(1);
-    expect(getScenesCallCount, "getScenes must be called after device-list refresh").to.equal(1);
-    expect(device.snapshots.map(s => s.name)).to.deep.equal(["OldSnap", "NewSnap"]);
-    expect(changed).to.equal(true);
+    expect(getDevicesCallCount, "getDevices must be called by refreshSceneDataForDevice").toBe(1);
+    expect(getScenesCallCount, "getScenes must be called after device-list refresh").toBe(1);
+    expect(device.snapshots.map(s => s.name)).toEqual(["OldSnap", "NewSnap"]);
+    expect(changed).toBe(true);
   });
 
   it("loadDeviceLibraries(force=true) refetches snapshotBleCmds even when already cached (Issue #13 v2.8.2)", async () => {
@@ -2739,16 +2738,16 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
     expect(
       fetchSnapshotsCallCount,
       "fetchSnapshots MUST NOT be called when force=false and snapshotBleCmds already cached",
-    ).to.equal(0);
-    expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).to.equal("STALE_CACHE_PACKET_A");
+    ).toBe(0);
+    expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).toBe("STALE_CACHE_PACKET_A");
 
     // With force the BLE packets are refreshed
     await (dm as any).loadDeviceLibraries(device, cd.sku, /* force */ true);
     expect(
       fetchSnapshotsCallCount,
       "fetchSnapshots MUST be called when force=true even with existing snapshotBleCmds",
-    ).to.equal(1);
-    expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).to.equal("FRESH_PACKET_1");
-    expect(device.snapshotBleCmds?.[1]?.[0]?.[0]).to.equal("FRESH_PACKET_2");
+    ).toBe(1);
+    expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).toBe("FRESH_PACKET_1");
+    expect(device.snapshotBleCmds?.[1]?.[0]?.[0]).toBe("FRESH_PACKET_2");
   });
 });

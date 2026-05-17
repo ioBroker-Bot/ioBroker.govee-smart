@@ -79,10 +79,6 @@ async function persistCredsToState(adapter, creds) {
 async function cleanupLegacyMqttNativeOnce(adapter) {
   var _a;
   try {
-    const markerState = await adapter.getStateAsync("info.legacyMqttCleaned");
-    if ((markerState == null ? void 0 : markerState.val) === true) {
-      return;
-    }
     const obj = await adapter.getForeignObjectAsync(`system.adapter.${adapter.namespace}`);
     const native = (_a = obj == null ? void 0 : obj.native) != null ? _a : {};
     const legacy = [
@@ -96,7 +92,6 @@ async function cleanupLegacyMqttNativeOnce(adapter) {
     ];
     const dirty = legacy.some((k) => k in native && native[k] !== "" && native[k] !== 0);
     if (!dirty) {
-      await adapter.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => void 0);
       return;
     }
     adapter.log.info(`Removing legacy plaintext MQTT credentials from native (one-time migration)`);
@@ -105,7 +100,6 @@ async function cleanupLegacyMqttNativeOnce(adapter) {
       wipe[k] = k === "mqttTokenExpiresAt" ? 0 : "";
     }
     await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, { native: wipe });
-    await adapter.setStateAsync("info.legacyMqttCleaned", { val: true, ack: true }).catch(() => void 0);
   } catch (e) {
     adapter.log.debug(`legacy MQTT cleanup skipped: ${(0, import_types.errMessage)(e)}`);
   }

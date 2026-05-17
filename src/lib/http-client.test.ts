@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import * as http from "node:http";
 import { httpsRequest, HttpError } from "./http-client";
 
@@ -181,24 +180,24 @@ function httpRequestPlain<T>(options: {
 describe("HttpError", () => {
   it("stores statusCode + headers + responseBody separately from message", () => {
     const e = new HttpError("HTTP 404", 404, { "x-foo": "bar" }, "not found body");
-    expect(e.statusCode).to.equal(404);
-    expect(e.headers["x-foo"]).to.equal("bar");
-    expect(e.responseBody).to.equal("not found body");
+    expect(e.statusCode).toBe(404);
+    expect(e.headers["x-foo"]).toBe("bar");
+    expect(e.responseBody).toBe("not found body");
     // Body MUST NOT leak into message — token-safety guarantee.
-    expect(e.message).to.equal("HTTP 404");
-    expect(e.message).to.not.include("not found body");
+    expect(e.message).toBe("HTTP 404");
+    expect(e.message).not.toContain("not found body");
   });
 
   it("defaults headers and responseBody when omitted", () => {
     const e = new HttpError("oops", 500);
-    expect(e.headers).to.deep.equal({});
-    expect(e.responseBody).to.equal("");
+    expect(e.headers).toEqual({});
+    expect(e.responseBody).toBe("");
   });
 
   it("name is HttpError so `e instanceof Error` works alongside name-based checks", () => {
     const e = new HttpError("x", 400);
-    expect(e.name).to.equal("HttpError");
-    expect(e instanceof Error).to.be.true;
+    expect(e.name).toBe("HttpError");
+    expect(e instanceof Error).toBe(true);
   });
 });
 
@@ -218,11 +217,11 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/foo`,
       headers: { Accept: "application/json" },
     });
-    expect(result.statusCode).to.equal(200);
-    expect(result.fallback).to.be.undefined;
-    expect(result.value?.hello).to.equal("world");
-    expect(stub.requests[0].method).to.equal("GET");
-    expect(stub.requests[0].path).to.equal("/foo");
+    expect(result.statusCode).toBe(200);
+    expect(result.fallback).toBeUndefined();
+    expect(result.value?.hello).toBe("world");
+    expect(stub.requests[0].method).toBe("GET");
+    expect(stub.requests[0].path).toBe("/foo");
   });
 
   it("sends POST body with content-type + content-length headers", async () => {
@@ -234,10 +233,10 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       body: { a: 1, b: "two" },
     });
     const req = stub.requests[0];
-    expect(req.method).to.equal("POST");
-    expect(req.headers["content-type"]).to.equal("application/json");
-    expect(req.headers["content-length"]).to.equal(String(JSON.stringify({ a: 1, b: "two" }).length));
-    expect(JSON.parse(req.body)).to.deep.equal({ a: 1, b: "two" });
+    expect(req.method).toBe("POST");
+    expect(req.headers["content-type"]).toBe("application/json");
+    expect(req.headers["content-length"]).toBe(String(JSON.stringify({ a: 1, b: "two" }).length));
+    expect(JSON.parse(req.body)).toEqual({ a: 1, b: "two" });
   });
 
   it("rejects with HttpError on 4xx/5xx, body in responseBody not message", async () => {
@@ -248,15 +247,15 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
         url: `http://127.0.0.1:${stub.port}/auth`,
         headers: {},
       });
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
-      expect(e).to.be.instanceOf(HttpError);
+      expect(e).toBeInstanceOf(HttpError);
       if (e instanceof HttpError) {
-        expect(e.statusCode).to.equal(401);
+        expect(e.statusCode).toBe(401);
         // Body MUST stay out of the message — caller can opt into the body
         // explicitly via e.responseBody when needed for debug.
-        expect(e.message).to.not.include("your-secret-token-leaked");
-        expect(e.responseBody).to.include("your-secret-token-leaked");
+        expect(e.message).not.toContain("your-secret-token-leaked");
+        expect(e.responseBody).toContain("your-secret-token-leaked");
       }
     }
   });
@@ -269,11 +268,11 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
         url: `http://127.0.0.1:${stub.port}/notjson`,
         headers: {},
       });
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
-      expect(e).to.be.instanceOf(Error);
+      expect(e).toBeInstanceOf(Error);
       // Snippet prefix gives the user a starting point without enabling debug
-      expect((e as Error).message).to.include("body starts with: <html>oops</html>");
+      expect((e as Error).message).toContain("body starts with: <html>oops</html>");
     }
   });
 
@@ -286,9 +285,9 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/empty`,
       headers: {},
     });
-    expect(result.value).to.be.null;
-    expect(result.fallback).to.equal("empty");
-    expect(result.statusCode).to.equal(200);
+    expect(result.value).toBeNull();
+    expect(result.fallback).toBe("empty");
+    expect(result.statusCode).toBe(200);
   });
 
   it("resolves null+fallback='empty' on whitespace-only body (Pattern #56)", async () => {
@@ -298,8 +297,8 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/whitespace`,
       headers: {},
     });
-    expect(result.value).to.be.null;
-    expect(result.fallback).to.equal("empty");
+    expect(result.value).toBeNull();
+    expect(result.fallback).toBe("empty");
   });
 
   it("resolves null+fallback='plain-text-status' with body snippet on '403 Forbbiden' (Issue #13 v2.8.2/v2.8.3)", async () => {
@@ -313,10 +312,10 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/forbidden`,
       headers: {},
     });
-    expect(result.value).to.be.null;
-    expect(result.fallback).to.equal("plain-text-status");
-    expect(result.bodySnippet).to.equal("403 Forbbiden");
-    expect(result.statusCode).to.equal(200);
+    expect(result.value).toBeNull();
+    expect(result.fallback).toBe("plain-text-status");
+    expect(result.bodySnippet).toBe("403 Forbbiden");
+    expect(result.statusCode).toBe(200);
   });
 
   it("resolves null+fallback='plain-text-status' on '401 Unauthorized' plain-text body", async () => {
@@ -326,9 +325,9 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/unauth`,
       headers: {},
     });
-    expect(result.value).to.be.null;
-    expect(result.fallback).to.equal("plain-text-status");
-    expect(result.bodySnippet).to.equal("401 Unauthorized");
+    expect(result.value).toBeNull();
+    expect(result.fallback).toBe("plain-text-status");
+    expect(result.bodySnippet).toBe("401 Unauthorized");
   });
 
   it("does NOT swallow JSON literals that start with a number (e.g. `123.45`)", async () => {
@@ -341,8 +340,8 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
       url: `http://127.0.0.1:${stub.port}/jsonnumber`,
       headers: {},
     });
-    expect(result.value).to.equal(123.45);
-    expect(result.fallback).to.be.undefined;
+    expect(result.value).toBe(123.45);
+    expect(result.fallback).toBeUndefined();
   });
 
   it("does NOT swallow HTML-like error pages even if short", async () => {
@@ -355,9 +354,9 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
         url: `http://127.0.0.1:${stub.port}/htmlerror`,
         headers: {},
       });
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
-      expect((e as Error).message).to.include("body starts with:");
+      expect((e as Error).message).toContain("body starts with:");
     }
   });
 
@@ -373,9 +372,9 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
         url: `http://127.0.0.1:${stub.port}/longerror`,
         headers: {},
       });
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
-      expect((e as Error).message).to.include("Invalid JSON");
+      expect((e as Error).message).toContain("Invalid JSON");
     }
   });
 
@@ -390,11 +389,11 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
         headers: {},
         timeout: 2_000,
       });
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
       // Either a stream error or the JSON-parse on the truncated body —
       // both are fine; the point is we reject quickly, not hang.
-      expect(e).to.be.instanceOf(Error);
+      expect(e).toBeInstanceOf(Error);
     }
   });
 
@@ -408,9 +407,9 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
         headers: {},
         signal: ctrl.signal,
       });
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
-      expect((e as Error).message).to.equal("Aborted");
+      expect((e as Error).message).toBe("Aborted");
     }
   });
 
@@ -427,9 +426,9 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
     setTimeout(() => ctrl.abort(), 50);
     try {
       await reqPromise;
-      expect.fail("expected throw");
+      throw new Error("expected throw");
     } catch (e) {
-      expect((e as Error).message).to.equal("Aborted");
+      expect((e as Error).message).toBe("Aborted");
     }
     // After abort, no listener should remain on the signal — `aborted`
     // listeners on a one-shot signal are documented as auto-removed via
@@ -437,6 +436,6 @@ describe("httpsRequest (HTTPS impl unit-tested via plain HTTP shim)", () => {
   });
 
   it("verifies real httpsRequest is exported and callable (compile-time only)", () => {
-    expect(typeof httpsRequest).to.equal("function");
+    expect(typeof httpsRequest).toBe("function");
   });
 });

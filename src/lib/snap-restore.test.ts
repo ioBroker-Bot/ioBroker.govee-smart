@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import type { LocalSnapshot, LocalSnapshotStore, SnapshotSegment } from "./local-snapshots";
 import { SnapshotHandler, type SnapshotHandlerHost } from "./snapshot-handler";
 import type { GoveeDevice } from "./types";
@@ -106,27 +105,27 @@ describe("SnapshotHandler", () => {
       });
       const handler = new SnapshotHandler(host);
       await handler.save(makeDevice(), "MySnap");
-      expect(saved).to.have.length(1);
-      expect(saved[0].name).to.equal("MySnap");
-      expect(saved[0].power).to.be.true;
-      expect(saved[0].brightness).to.equal(80);
-      expect(saved[0].colorRgb).to.equal("#ff0000");
-      expect(saved[0].segments).to.have.length(6);
-      expect(saved[0].segments![0]).to.deep.equal({ color: "#aabbcc", brightness: 50 });
-      expect(saved[0].segments![1]).to.deep.equal({ color: "#112233", brightness: 75 });
+      expect(saved).toHaveLength(1);
+      expect(saved[0].name).toBe("MySnap");
+      expect(saved[0].power).toBe(true);
+      expect(saved[0].brightness).toBe(80);
+      expect(saved[0].colorRgb).toBe("#ff0000");
+      expect(saved[0].segments).toHaveLength(6);
+      expect(saved[0].segments![0]).toEqual({ color: "#aabbcc", brightness: 50 });
+      expect(saved[0].segments![1]).toEqual({ color: "#112233", brightness: 75 });
       // Default fallback for missing segments
-      expect(saved[0].segments![2]).to.deep.equal({ color: "#000000", brightness: 100 });
-      expect(refreshes).to.have.length(1);
+      expect(saved[0].segments![2]).toEqual({ color: "#000000", brightness: 100 });
+      expect(refreshes).toHaveLength(1);
     });
 
     it("falls back to safe defaults when state values are unset", async () => {
       const { host, saved } = makeHost({});
       const handler = new SnapshotHandler(host);
       await handler.save(makeDevice(), "Empty");
-      expect(saved[0].power).to.be.false;
-      expect(saved[0].brightness).to.equal(0);
-      expect(saved[0].colorRgb).to.equal("#000000");
-      expect(saved[0].colorTemperature).to.equal(0);
+      expect(saved[0].power).toBe(false);
+      expect(saved[0].brightness).toBe(0);
+      expect(saved[0].colorRgb).toBe("#000000");
+      expect(saved[0].colorTemperature).toBe(0);
     });
   });
 
@@ -143,7 +142,7 @@ describe("SnapshotHandler", () => {
       const { host, commands } = makeHost({ initialSnapshots: [snap] });
       const handler = new SnapshotHandler(host);
       await handler.restore(makeDevice(), "1");
-      expect(commands).to.deep.equal([{ command: "power", value: false }]);
+      expect(commands).toEqual([{ command: "power", value: false }]);
     });
 
     it("sends colorRgb when colorTemperature=0", async () => {
@@ -159,10 +158,10 @@ describe("SnapshotHandler", () => {
       const handler = new SnapshotHandler(host);
       await handler.restore(makeDevice(), "1");
       const cmds = commands.map(c => c.command);
-      expect(cmds).to.include("power");
-      expect(cmds).to.include("brightness");
-      expect(cmds).to.include("colorRgb");
-      expect(cmds).to.not.include("colorTemperature");
+      expect(cmds).toContain("power");
+      expect(cmds).toContain("brightness");
+      expect(cmds).toContain("colorRgb");
+      expect(cmds).not.toContain("colorTemperature");
     });
 
     it("sends colorTemperature when set instead of colorRgb", async () => {
@@ -178,8 +177,8 @@ describe("SnapshotHandler", () => {
       const handler = new SnapshotHandler(host);
       await handler.restore(makeDevice(), "1");
       const cmds = commands.map(c => c.command);
-      expect(cmds).to.include("colorTemperature");
-      expect(cmds).to.not.include("colorRgb");
+      expect(cmds).toContain("colorTemperature");
+      expect(cmds).not.toContain("colorRgb");
     });
 
     it("groups uniform segments into a single segmentBatch (SH1 fix)", async () => {
@@ -198,11 +197,11 @@ describe("SnapshotHandler", () => {
       await handler.restore(makeDevice(), "1");
       const segmentBatchCalls = commands.filter(c => c.command === "segmentBatch");
       // All 6 segments share (color, brightness) → exactly one batch.
-      expect(segmentBatchCalls).to.have.length(1);
+      expect(segmentBatchCalls).toHaveLength(1);
       const payload = segmentBatchCalls[0].value as { segments: number[]; color: number; brightness: number };
-      expect(payload.segments).to.deep.equal([0, 1, 2, 3, 4, 5]);
-      expect(payload.color).to.equal(0x0000ff);
-      expect(payload.brightness).to.equal(100);
+      expect(payload.segments).toEqual([0, 1, 2, 3, 4, 5]);
+      expect(payload.color).toBe(0x0000ff);
+      expect(payload.brightness).toBe(100);
     });
 
     it("groups segments by (color, brightness) — 3 zones → 3 batches", async () => {
@@ -227,7 +226,7 @@ describe("SnapshotHandler", () => {
       const handler = new SnapshotHandler(host);
       await handler.restore(makeDevice(), "1");
       const segmentBatchCalls = commands.filter(c => c.command === "segmentBatch");
-      expect(segmentBatchCalls).to.have.length(3);
+      expect(segmentBatchCalls).toHaveLength(3);
     });
 
     it("warns and bails on out-of-range index", async () => {
@@ -242,7 +241,7 @@ describe("SnapshotHandler", () => {
       const { host, commands } = makeHost({ initialSnapshots: [snap] });
       const handler = new SnapshotHandler(host);
       await handler.restore(makeDevice(), "99");
-      expect(commands).to.have.length(0);
+      expect(commands).toHaveLength(0);
     });
 
     it("ignores idx<1 (dropdown reset to '---')", async () => {
@@ -257,7 +256,7 @@ describe("SnapshotHandler", () => {
       const { host, commands } = makeHost({ initialSnapshots: [snap] });
       const handler = new SnapshotHandler(host);
       await handler.restore(makeDevice(), "0");
-      expect(commands).to.have.length(0);
+      expect(commands).toHaveLength(0);
     });
 
     it("handles malformed segment color hex by defaulting to black", async () => {
@@ -279,7 +278,7 @@ describe("SnapshotHandler", () => {
         color: number;
         brightness: number;
       };
-      expect(batch.color).to.equal(0); // black fallback
+      expect(batch.color).toBe(0); // black fallback
     });
   });
 
@@ -296,16 +295,16 @@ describe("SnapshotHandler", () => {
       const { host, deletedNames, refreshes } = makeHost({ initialSnapshots: [snap] });
       const handler = new SnapshotHandler(host);
       await handler.delete(makeDevice(), "GoAway");
-      expect(deletedNames).to.deep.equal(["GoAway"]);
-      expect(refreshes).to.have.length(1);
+      expect(deletedNames).toEqual(["GoAway"]);
+      expect(refreshes).toHaveLength(1);
     });
 
     it("warns when name not found, no refresh fired", async () => {
       const { host, deletedNames, refreshes } = makeHost({});
       const handler = new SnapshotHandler(host);
       await handler.delete(makeDevice(), "NonExistent");
-      expect(deletedNames).to.have.length(0);
-      expect(refreshes).to.have.length(0);
+      expect(deletedNames).toHaveLength(0);
+      expect(refreshes).toHaveLength(0);
     });
   });
 });

@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { RateLimiter } from "./rate-limiter";
 
 const mockLog: ioBroker.Logger = {
@@ -21,7 +20,7 @@ const mockTimers = {
 describe("RateLimiter", () => {
   it("should allow calls within limits", () => {
     const rl = new RateLimiter(mockLog, mockTimers, 5, 100);
-    expect(rl.canMakeCall()).to.be.true;
+    expect(rl.canMakeCall()).toBe(true);
   });
 
   it("should track daily usage", async () => {
@@ -38,8 +37,8 @@ describe("RateLimiter", () => {
       called++;
     });
 
-    expect(called).to.equal(3);
-    expect(rl.dailyUsage).to.equal(3);
+    expect(called).toBe(3);
+    expect(rl.dailyUsage).toBe(3);
   });
 
   it("should queue calls when minute limit exceeded", async () => {
@@ -56,8 +55,8 @@ describe("RateLimiter", () => {
       called++;
     }); // 3 — queued
 
-    expect(called).to.equal(2);
-    expect(queued).to.be.false;
+    expect(called).toBe(2);
+    expect(queued).toBe(false);
   });
 
   it("should respect daily limit", async () => {
@@ -74,9 +73,9 @@ describe("RateLimiter", () => {
       called++;
     }); // queued
 
-    expect(called).to.equal(2);
-    expect(queued).to.be.false;
-    expect(rl.dailyUsage).to.equal(2);
+    expect(called).toBe(2);
+    expect(queued).toBe(false);
+    expect(rl.dailyUsage).toBe(2);
   });
 
   it("should enqueue with priority sorting", () => {
@@ -95,10 +94,10 @@ describe("RateLimiter", () => {
 
     // Access internal queue to verify order
     const queue = (rl as any).queue;
-    expect(queue).to.have.lengthOf(3);
-    expect(queue[0].priority).to.equal(0);
-    expect(queue[1].priority).to.equal(1);
-    expect(queue[2].priority).to.equal(2);
+    expect(queue).toHaveLength(3);
+    expect(queue[0].priority).toBe(0);
+    expect(queue[1].priority).toBe(1);
+    expect(queue[2].priority).toBe(2);
   });
 
   it("should clear queue on stop", () => {
@@ -106,16 +105,16 @@ describe("RateLimiter", () => {
 
     rl.enqueue(async () => {}, 1);
     rl.enqueue(async () => {}, 2);
-    expect((rl as any).queue).to.have.lengthOf(2);
+    expect((rl as any).queue).toHaveLength(2);
 
     rl.stop();
-    expect((rl as any).queue).to.have.lengthOf(0);
+    expect((rl as any).queue).toHaveLength(0);
   });
 
   it("should return true when executed immediately", async () => {
     const rl = new RateLimiter(mockLog, mockTimers, 10, 100);
     const result = await rl.tryExecute(async () => {});
-    expect(result).to.be.true;
+    expect(result).toBe(true);
   });
 
   it("should track both minute and daily counters", async () => {
@@ -124,15 +123,15 @@ describe("RateLimiter", () => {
     await rl.tryExecute(async () => {});
     await rl.tryExecute(async () => {});
 
-    expect((rl as any).callsThisMinute).to.equal(2);
-    expect(rl.dailyUsage).to.equal(2);
+    expect((rl as any).callsThisMinute).toBe(2);
+    expect(rl.dailyUsage).toBe(2);
   });
 
   it("should block when both limits are independently exceeded", async () => {
     // Daily limit reached first
     const rl = new RateLimiter(mockLog, mockTimers, 100, 1);
     await rl.tryExecute(async () => {});
-    expect(rl.canMakeCall()).to.be.false;
+    expect(rl.canMakeCall()).toBe(false);
   });
 
   it("should update limits dynamically", async () => {
@@ -145,16 +144,16 @@ describe("RateLimiter", () => {
     await rl.tryExecute(async () => {
       called++;
     });
-    expect(rl.canMakeCall()).to.be.false;
+    expect(rl.canMakeCall()).toBe(false);
 
     // Increase limit — should allow more calls
     rl.updateLimits(4, 100);
-    expect(rl.canMakeCall()).to.be.true;
+    expect(rl.canMakeCall()).toBe(true);
 
     await rl.tryExecute(async () => {
       called++;
     });
-    expect(called).to.equal(3);
+    expect(called).toBe(3);
   });
 
   it("should reduce limits dynamically", async () => {
@@ -170,6 +169,6 @@ describe("RateLimiter", () => {
 
     // Reduce to 2/min — should now be blocked
     rl.updateLimits(2, 100);
-    expect(rl.canMakeCall()).to.be.false;
+    expect(rl.canMakeCall()).toBe(false);
   });
 });

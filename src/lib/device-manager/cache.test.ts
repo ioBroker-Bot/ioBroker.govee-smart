@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import type { GoveeDevice } from "../types";
 import { cachedToGoveeDevice, goveeDeviceToCached } from "./cache";
 
@@ -48,34 +47,34 @@ describe("cache.cachedToGoveeDevice / goveeDeviceToCached", () => {
     it("does NOT persist 'state' to cache (recomputed from LAN/MQTT each boot)", () => {
       const original = makeFullDevice();
       const cached = goveeDeviceToCached(original);
-      expect(cached).to.not.have.property("state");
+      expect(cached).not.toHaveProperty("state");
     });
 
     it("does NOT persist 'channels' to cache (recomputed from connection results each boot)", () => {
       const original = makeFullDevice();
       const cached = goveeDeviceToCached(original);
-      expect(cached).to.not.have.property("channels");
+      expect(cached).not.toHaveProperty("channels");
     });
 
     it("does NOT persist 'lanIp' to cache (re-discovered by LAN UDP scan each boot)", () => {
       const original = makeFullDevice();
       const cached = goveeDeviceToCached(original);
-      expect(cached).to.not.have.property("lanIp");
+      expect(cached).not.toHaveProperty("lanIp");
     });
 
     it("does NOT persist 'groupMembers' to cache (re-resolved by loadGroupMembers each boot)", () => {
       const original = makeFullDevice();
       const cached = goveeDeviceToCached(original);
-      expect(cached).to.not.have.property("groupMembers");
+      expect(cached).not.toHaveProperty("groupMembers");
     });
 
     it("restored device has runtime-defaults for state/channels/lanIp/groupMembers", () => {
       const cached = goveeDeviceToCached(makeFullDevice());
       const restored = cachedToGoveeDevice(cached);
-      expect(restored.state).to.deep.equal({ online: false });
-      expect(restored.channels).to.deep.equal({ lan: false, mqtt: false, cloud: false });
-      expect(restored.lanIp).to.equal(undefined);
-      expect(restored.groupMembers).to.equal(undefined);
+      expect(restored.state).toEqual({ online: false });
+      expect(restored.channels).toEqual({ lan: false, mqtt: false, cloud: false });
+      expect(restored.lanIp).toBe(undefined);
+      expect(restored.groupMembers).toBe(undefined);
     });
 
     it("restored device cannot carry a forged lanIp from a tampered cache entry", () => {
@@ -85,7 +84,7 @@ describe("cache.cachedToGoveeDevice / goveeDeviceToCached", () => {
       // tampered value cannot survive into runtime.
       (cached as unknown as Record<string, unknown>).lanIp = "10.0.0.1";
       const restored = cachedToGoveeDevice(cached);
-      expect(restored.lanIp).to.equal(undefined);
+      expect(restored.lanIp).toBe(undefined);
     });
   });
 
@@ -95,33 +94,33 @@ describe("cache.cachedToGoveeDevice / goveeDeviceToCached", () => {
       const restored = cachedToGoveeDevice(goveeDeviceToCached(original));
 
       // Identity + display
-      expect(restored.sku).to.equal(original.sku);
-      expect(restored.deviceId).to.equal(original.deviceId);
-      expect(restored.name).to.equal(original.name);
-      expect(restored.type).to.equal(original.type);
+      expect(restored.sku).toBe(original.sku);
+      expect(restored.deviceId).toBe(original.deviceId);
+      expect(restored.name).toBe(original.name);
+      expect(restored.type).toBe(original.type);
 
       // Cloud data
-      expect(restored.capabilities).to.deep.equal(original.capabilities);
-      expect(restored.scenes).to.deep.equal(original.scenes);
-      expect(restored.diyScenes).to.deep.equal(original.diyScenes);
-      expect(restored.snapshots).to.deep.equal(original.snapshots);
+      expect(restored.capabilities).toEqual(original.capabilities);
+      expect(restored.scenes).toEqual(original.scenes);
+      expect(restored.diyScenes).toEqual(original.diyScenes);
+      expect(restored.snapshots).toEqual(original.snapshots);
 
       // Libraries
-      expect(restored.sceneLibrary).to.deep.equal(original.sceneLibrary);
-      expect(restored.musicLibrary).to.deep.equal(original.musicLibrary);
-      expect(restored.diyLibrary).to.deep.equal(original.diyLibrary);
-      expect(restored.skuFeatures).to.deep.equal(original.skuFeatures);
+      expect(restored.sceneLibrary).toEqual(original.sceneLibrary);
+      expect(restored.musicLibrary).toEqual(original.musicLibrary);
+      expect(restored.diyLibrary).toEqual(original.diyLibrary);
+      expect(restored.skuFeatures).toEqual(original.skuFeatures);
 
       // Segment state (cut-strip + learned)
-      expect(restored.segmentCount).to.equal(original.segmentCount);
-      expect(restored.manualMode).to.equal(original.manualMode);
-      expect(restored.manualSegments).to.deep.equal(original.manualSegments);
-      expect(restored.sceneSpeed).to.equal(original.sceneSpeed);
+      expect(restored.segmentCount).toBe(original.segmentCount);
+      expect(restored.manualMode).toBe(original.manualMode);
+      expect(restored.manualSegments).toEqual(original.manualSegments);
+      expect(restored.sceneSpeed).toBe(original.sceneSpeed);
 
       // BLE + diagnostic
-      expect(restored.snapshotBleCmds).to.deep.equal(original.snapshotBleCmds);
-      expect(restored.scenesChecked).to.equal(original.scenesChecked);
-      expect(restored.lastSeenOnNetwork).to.equal(original.lastSeenOnNetwork);
+      expect(restored.snapshotBleCmds).toEqual(original.snapshotBleCmds);
+      expect(restored.scenesChecked).toBe(original.scenesChecked);
+      expect(restored.lastSeenOnNetwork).toBe(original.lastSeenOnNetwork);
     });
 
     it("normalize drops segmentCount=0, manualMode=false, sceneSpeed=0 from the cache", () => {
@@ -131,10 +130,10 @@ describe("cache.cachedToGoveeDevice / goveeDeviceToCached", () => {
       original.manualSegments = [];
       original.sceneSpeed = 0;
       const cached = goveeDeviceToCached(original);
-      expect(cached.segmentCount).to.equal(undefined);
-      expect(cached.manualMode).to.equal(undefined);
-      expect(cached.manualSegments).to.equal(undefined);
-      expect(cached.sceneSpeed).to.equal(undefined);
+      expect(cached.segmentCount).toBe(undefined);
+      expect(cached.manualMode).toBe(undefined);
+      expect(cached.manualSegments).toBe(undefined);
+      expect(cached.sceneSpeed).toBe(undefined);
     });
   });
 });

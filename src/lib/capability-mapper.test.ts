@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import {
   applyQuirksToStates as applyQuirksToStatesRaw,
   buildCloudStateDefs as buildCloudStateDefsRaw,
@@ -85,11 +84,11 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("power");
-      expect(result[0].type).to.equal("boolean");
-      expect(result[0].role).to.equal("switch");
-      expect(result[0].write).to.be.true;
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("power");
+      expect(result[0].type).toBe("boolean");
+      expect(result[0].role).toBe("switch");
+      expect(result[0].write).toBe(true);
     });
 
     it("should map range brightness with min/max", () => {
@@ -102,12 +101,12 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("brightness");
-      expect(result[0].type).to.equal("number");
-      expect(result[0].role).to.equal("level.brightness");
-      expect(result[0].min).to.equal(0);
-      expect(result[0].max).to.equal(100);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("brightness");
+      expect(result[0].type).toBe("number");
+      expect(result[0].role).toBe("level.brightness");
+      expect(result[0].min).toBe(0);
+      expect(result[0].max).toBe(100);
     });
 
     it("should map colorRgb to string state", () => {
@@ -120,10 +119,10 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("colorRgb");
-      expect(result[0].type).to.equal("string");
-      expect(result[0].role).to.equal("level.color.rgb");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("colorRgb");
+      expect(result[0].type).toBe("string");
+      expect(result[0].role).toBe("level.color.rgb");
     });
 
     it("should map colorTemperatureK to number state", () => {
@@ -136,11 +135,11 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("colorTemperature");
-      expect(result[0].min).to.equal(2000);
-      expect(result[0].max).to.equal(9000);
-      expect(result[0].unit).to.equal("K");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("colorTemperature");
+      expect(result[0].min).toBe(2000);
+      expect(result[0].max).toBe(9000);
+      expect(result[0].unit).toBe("K");
     });
 
     it("should map presetScene with dropdown states", () => {
@@ -160,10 +159,10 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("scene");
-      expect(result[0].states).to.deep.equal({ "1": "Sunset", "2": "Rainbow", "3": "Movie" });
-      expect(result[0].write).to.be.true;
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("scene");
+      expect(result[0].states).toEqual({ "1": "Sunset", "2": "Rainbow", "3": "Movie" });
+      expect(result[0].write).toBe(true);
     });
 
     it("should map property as read-only", () => {
@@ -176,9 +175,9 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].write).to.be.false;
-      expect(result[0].role).to.equal("value.temperature");
+      expect(result).toHaveLength(1);
+      expect(result[0].write).toBe(false);
+      expect(result[0].role).toBe("value.temperature");
     });
 
     it("should map toggle to boolean switch", () => {
@@ -197,9 +196,9 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].type).to.equal("boolean");
-      expect(result[0].role).to.equal("switch");
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe("boolean");
+      expect(result[0].role).toBe("switch");
     });
 
     it("should skip online capability", () => {
@@ -212,7 +211,7 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should handle multiple capabilities for a typical light", () => {
@@ -233,40 +232,40 @@ describe("CapabilityMapper", () => {
       ];
 
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(4);
-      expect(result.map(r => r.id)).to.deep.equal(["power", "brightness", "colorRgb", "colorTemperature"]);
+      expect(result).toHaveLength(4);
+      expect(result.map(r => r.id)).toEqual(["power", "brightness", "colorRgb", "colorTemperature"]);
     });
   });
 
   describe("getDefaultLanStates", () => {
     it("should return power, brightness, colorRgb, colorTemperature", () => {
       const defs = getDefaultLanStates();
-      expect(defs).to.have.lengthOf(4);
-      expect(defs.map(d => d.id)).to.deep.equal(["power", "brightness", "colorRgb", "colorTemperature"]);
+      expect(defs).toHaveLength(4);
+      expect(defs.map(d => d.id)).toEqual(["power", "brightness", "colorRgb", "colorTemperature"]);
     });
 
     it("should have correct types and roles", () => {
       const defs = getDefaultLanStates();
       const power = defs.find(d => d.id === "power")!;
-      expect(power.type).to.equal("boolean");
-      expect(power.role).to.equal("switch");
-      expect(power.write).to.be.true;
+      expect(power.type).toBe("boolean");
+      expect(power.role).toBe("switch");
+      expect(power.write).toBe(true);
 
       const brightness = defs.find(d => d.id === "brightness")!;
-      expect(brightness.type).to.equal("number");
-      expect(brightness.role).to.equal("level.brightness");
-      expect(brightness.min).to.equal(0);
-      expect(brightness.max).to.equal(100);
+      expect(brightness.type).toBe("number");
+      expect(brightness.role).toBe("level.brightness");
+      expect(brightness.min).toBe(0);
+      expect(brightness.max).toBe(100);
 
       const color = defs.find(d => d.id === "colorRgb")!;
-      expect(color.type).to.equal("string");
-      expect(color.role).to.equal("level.color.rgb");
+      expect(color.type).toBe("string");
+      expect(color.role).toBe("level.color.rgb");
 
       const temp = defs.find(d => d.id === "colorTemperature")!;
-      expect(temp.type).to.equal("number");
-      expect(temp.min).to.equal(2000);
-      expect(temp.max).to.equal(9000);
-      expect(temp.unit).to.equal("K");
+      expect(temp.type).toBe("number");
+      expect(temp.min).toBe(2000);
+      expect(temp.max).toBe(9000);
+      expect(temp.unit).toBe("K");
     });
   });
 
@@ -280,10 +279,10 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("_segment_segmented_color_rgb");
-      expect(result[0].type).to.equal("string");
-      expect(result[0].role).to.equal("json");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("_segment_segmented_color_rgb");
+      expect(result[0].type).toBe("string");
+      expect(result[0].role).toBe("json");
     });
 
     it("should skip dynamic_scene for lightScene/diyScene/snapshot (handled by buildCloudStateDefs SCENE_DROPDOWN_RULES)", () => {
@@ -307,7 +306,7 @@ describe("CapabilityMapper", () => {
       // These three instances become real dropdowns in buildCloudStateDefs (SCENE_DROPDOWN_RULES)
       // fed from device.scenes / diyScenes / snapshots — mapCapabilities
       // returns nothing so no generic stub has to be filtered out later.
-      expect(mapCapabilities(caps)).to.have.lengthOf(0);
+      expect(mapCapabilities(caps)).toHaveLength(0);
     });
 
     it("should skip music_setting without fields", () => {
@@ -319,7 +318,7 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should map music_setting with fields to dropdown + slider + toggle", () => {
@@ -357,24 +356,24 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(3);
+      expect(result).toHaveLength(3);
 
       // Mode dropdown
-      expect(result[0].id).to.equal("music_mode");
-      expect(result[0].role).to.equal("text");
+      expect(result[0].id).toBe("music_mode");
+      expect(result[0].role).toBe("text");
       // mixed lets users write the mode key ("5") or the label ("Energic")
-      expect(result[0].type).to.equal("mixed");
-      expect(result[0].states).to.deep.include({ 5: "Energic", 3: "Rhythm", 6: "Spectrum" });
+      expect(result[0].type).toBe("mixed");
+      expect(result[0].states).toMatchObject({ 5: "Energic", 3: "Rhythm", 6: "Spectrum" });
 
       // Sensitivity slider
-      expect(result[1].id).to.equal("music_sensitivity");
-      expect(result[1].type).to.equal("number");
-      expect(result[1].min).to.equal(0);
-      expect(result[1].max).to.equal(100);
+      expect(result[1].id).toBe("music_sensitivity");
+      expect(result[1].type).toBe("number");
+      expect(result[1].min).toBe(0);
+      expect(result[1].max).toBe(100);
 
       // Auto color toggle
-      expect(result[2].id).to.equal("music_auto_color");
-      expect(result[2].type).to.equal("boolean");
+      expect(result[2].id).toBe("music_auto_color");
+      expect(result[2].type).toBe("boolean");
     });
 
     it("should fall back to mixed work_mode state when STRUCT has no fields", () => {
@@ -386,10 +385,10 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("work_mode");
-      expect(result[0].type).to.equal("mixed");
-      expect(result[0].role).to.equal("level.mode");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("work_mode");
+      expect(result[0].type).toBe("mixed");
+      expect(result[0].role).toBe("level.mode");
     });
 
     it("should map work_mode STRUCT with workMode field options to dropdown", () => {
@@ -414,11 +413,11 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("work_mode");
-      expect(result[0].type).to.equal("mixed");
-      expect(result[0].states).to.deep.equal({ "1": "Manual", "2": "Auto", "3": "Sleep" });
-      expect(result[0].def).to.equal("1");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("work_mode");
+      expect(result[0].type).toBe("mixed");
+      expect(result[0].states).toEqual({ "1": "Manual", "2": "Auto", "3": "Sleep" });
+      expect(result[0].def).toBe("1");
     });
 
     it("should map work_mode STRUCT with modeValue options as dropdown", () => {
@@ -447,11 +446,11 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(2);
+      expect(result).toHaveLength(2);
       const modeValue = result.find(s => s.id === "mode_value");
-      expect(modeValue).to.exist;
-      expect(modeValue!.states).to.deep.equal({ "1": "Low", "2": "High" });
-      expect(modeValue!.type).to.equal("mixed");
+      expect(modeValue).toBeDefined();
+      expect(modeValue!.states).toEqual({ "1": "Low", "2": "High" });
+      expect(modeValue!.type).toBe("mixed");
     });
 
     it("should map work_mode STRUCT with modeValue range as slider", () => {
@@ -478,10 +477,10 @@ describe("CapabilityMapper", () => {
       ];
       const result = mapCapabilities(caps);
       const modeValue = result.find(s => s.id === "mode_value");
-      expect(modeValue).to.exist;
-      expect(modeValue!.type).to.equal("number");
-      expect(modeValue!.min).to.equal(0);
-      expect(modeValue!.max).to.equal(100);
+      expect(modeValue).toBeDefined();
+      expect(modeValue!.type).toBe("number");
+      expect(modeValue!.min).toBe(0);
+      expect(modeValue!.max).toBe(100);
     });
 
     it("should map temperature_setting STRUCT with targetTemperature field", () => {
@@ -503,13 +502,13 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("target_temperature");
-      expect(result[0].type).to.equal("number");
-      expect(result[0].role).to.equal("level.temperature");
-      expect(result[0].min).to.equal(16);
-      expect(result[0].max).to.equal(32);
-      expect(result[0].unit).to.equal("°C");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("target_temperature");
+      expect(result[0].type).toBe("number");
+      expect(result[0].role).toBe("level.temperature");
+      expect(result[0].min).toBe(16);
+      expect(result[0].max).toBe(32);
+      expect(result[0].unit).toBe("°C");
     });
 
     it("should map temperature_setting with simple range to slider", () => {
@@ -525,11 +524,11 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("target_temperature");
-      expect(result[0].type).to.equal("number");
-      expect(result[0].min).to.equal(60);
-      expect(result[0].max).to.equal(90);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("target_temperature");
+      expect(result[0].type).toBe("number");
+      expect(result[0].min).toBe(60);
+      expect(result[0].max).toBe(90);
     });
 
     it("should fall back to JSON state when temperature_setting has no schema", () => {
@@ -541,10 +540,10 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("target_temperature");
-      expect(result[0].type).to.equal("string");
-      expect(result[0].role).to.equal("json");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("target_temperature");
+      expect(result[0].type).toBe("string");
+      expect(result[0].role).toBe("json");
     });
 
     it("should map event capability to boolean indicator in events channel", () => {
@@ -556,12 +555,12 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("lack_water");
-      expect(result[0].type).to.equal("boolean");
-      expect(result[0].role).to.equal("indicator.alarm");
-      expect(result[0].write).to.be.false;
-      expect(result[0].channel).to.equal("events");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("lack_water");
+      expect(result[0].type).toBe("boolean");
+      expect(result[0].role).toBe("indicator.alarm");
+      expect(result[0].write).toBe(false);
+      expect(result[0].channel).toBe("events");
     });
 
     it("should route property/temperature into sensor channel", () => {
@@ -573,10 +572,10 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].id).to.equal("sensor_temperature");
-      expect(result[0].role).to.equal("value.temperature");
-      expect(result[0].channel).to.equal("sensor");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("sensor_temperature");
+      expect(result[0].role).toBe("value.temperature");
+      expect(result[0].channel).toBe("sensor");
     });
 
     it("should route property/battery into sensor channel with %", () => {
@@ -588,9 +587,9 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result[0].role).to.equal("value.battery");
-      expect(result[0].unit).to.equal("%");
-      expect(result[0].channel).to.equal("sensor");
+      expect(result[0].role).toBe("value.battery");
+      expect(result[0].unit).toBe("%");
+      expect(result[0].channel).toBe("sensor");
     });
 
     it("should route property/humidity into sensor channel with %", () => {
@@ -602,9 +601,9 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result[0].role).to.equal("value.humidity");
-      expect(result[0].unit).to.equal("%");
-      expect(result[0].channel).to.equal("sensor");
+      expect(result[0].role).toBe("value.humidity");
+      expect(result[0].unit).toBe("%");
+      expect(result[0].channel).toBe("sensor");
     });
 
     it("should skip mode with non-presetScene instance", () => {
@@ -616,7 +615,7 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should return empty for unknown color_setting instance", () => {
@@ -628,7 +627,7 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should skip unknown capability types", () => {
@@ -640,7 +639,7 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should normalize unit.percent to %", () => {
@@ -652,7 +651,7 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result[0].unit).to.equal("%");
+      expect(result[0].unit).toBe("%");
     });
 
     it("should map property humidity with correct role", () => {
@@ -664,13 +663,13 @@ describe("CapabilityMapper", () => {
         },
       ];
       const result = mapCapabilities(caps);
-      expect(result[0].role).to.equal("value.humidity");
-      expect(result[0].unit).to.equal("%");
+      expect(result[0].role).toBe("value.humidity");
+      expect(result[0].unit).toBe("%");
     });
 
     it("should handle empty capabilities array", () => {
       const result = mapCapabilities([]);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
   });
 
@@ -682,9 +681,9 @@ describe("CapabilityMapper", () => {
         state: { value: 1 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result).to.not.be.null;
-      expect(result!.stateId).to.equal("power");
-      expect(result!.value).to.be.true;
+      expect(result).not.toBeNull();
+      expect(result!.stateId).toBe("power");
+      expect(result!.value).toBe(true);
     });
 
     it("should map on_off 0 to false", () => {
@@ -694,7 +693,7 @@ describe("CapabilityMapper", () => {
         state: { value: 0 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.value).to.be.false;
+      expect(result!.value).toBe(false);
     });
 
     it("should map colorRgb integer to hex string", () => {
@@ -704,8 +703,8 @@ describe("CapabilityMapper", () => {
         state: { value: 0xff8000 }, // orange
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("colorRgb");
-      expect(result!.value).to.equal("#ff8000");
+      expect(result!.stateId).toBe("colorRgb");
+      expect(result!.value).toBe("#ff8000");
     });
 
     it("should map colorRgb 0 to black", () => {
@@ -715,7 +714,7 @@ describe("CapabilityMapper", () => {
         state: { value: 0 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.value).to.equal("#000000");
+      expect(result!.value).toBe("#000000");
     });
 
     it("should map colorRgb white (16777215)", () => {
@@ -725,7 +724,7 @@ describe("CapabilityMapper", () => {
         state: { value: 16777215 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.value).to.equal("#ffffff");
+      expect(result!.value).toBe("#ffffff");
     });
 
     it("should map colorTemperatureK to number", () => {
@@ -735,8 +734,8 @@ describe("CapabilityMapper", () => {
         state: { value: 4000 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("colorTemperature");
-      expect(result!.value).to.equal(4000);
+      expect(result!.stateId).toBe("colorTemperature");
+      expect(result!.value).toBe(4000);
     });
 
     it("should map range brightness to number", () => {
@@ -746,8 +745,8 @@ describe("CapabilityMapper", () => {
         state: { value: 75 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("brightness");
-      expect(result!.value).to.equal(75);
+      expect(result!.stateId).toBe("brightness");
+      expect(result!.value).toBe(75);
     });
 
     it("should map toggle to boolean", () => {
@@ -757,8 +756,8 @@ describe("CapabilityMapper", () => {
         state: { value: 1 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("gradient_toggle");
-      expect(result!.value).to.be.true;
+      expect(result!.stateId).toBe("gradient_toggle");
+      expect(result!.value).toBe(true);
     });
 
     it("should map toggle 0 to false", () => {
@@ -768,7 +767,7 @@ describe("CapabilityMapper", () => {
         state: { value: 0 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.value).to.be.false;
+      expect(result!.value).toBe(false);
     });
 
     it("should map dynamic_scene object to JSON string", () => {
@@ -778,8 +777,8 @@ describe("CapabilityMapper", () => {
         state: { value: { id: 123, paramId: "abc" } },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("light_scene");
-      expect(result!.value).to.equal('{"id":123,"paramId":"abc"}');
+      expect(result!.stateId).toBe("light_scene");
+      expect(result!.value).toBe('{"id":123,"paramId":"abc"}');
     });
 
     it("should map property to number", () => {
@@ -789,8 +788,8 @@ describe("CapabilityMapper", () => {
         state: { value: 22.5 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("sensor_temperature");
-      expect(result!.value).to.equal(22.5);
+      expect(result!.stateId).toBe("sensor_temperature");
+      expect(result!.value).toBe(22.5);
     });
 
     it("should map presetScene to string", () => {
@@ -800,8 +799,8 @@ describe("CapabilityMapper", () => {
         state: { value: 42 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result!.stateId).to.equal("scene");
-      expect(result!.value).to.equal("42");
+      expect(result!.stateId).toBe("scene");
+      expect(result!.value).toBe("42");
     });
 
     it("should return null for null state value", () => {
@@ -811,7 +810,7 @@ describe("CapabilityMapper", () => {
         state: { value: null },
       };
       const result = mapCloudStateValue(cap);
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should return null for undefined state value", () => {
@@ -821,7 +820,7 @@ describe("CapabilityMapper", () => {
         state: { value: undefined },
       };
       const result = mapCloudStateValue(cap);
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should return null for unknown capability type", () => {
@@ -831,7 +830,7 @@ describe("CapabilityMapper", () => {
         state: { value: 1 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should return null for non-presetScene mode", () => {
@@ -841,7 +840,7 @@ describe("CapabilityMapper", () => {
         state: { value: 1 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
 
     it("should return null for unknown color_setting instance", () => {
@@ -851,7 +850,7 @@ describe("CapabilityMapper", () => {
         state: { value: 100 },
       };
       const result = mapCloudStateValue(cap);
-      expect(result).to.be.null;
+      expect(result).toBeNull();
     });
   });
 
@@ -860,26 +859,26 @@ describe("CapabilityMapper", () => {
       const states = getDefaultLanStates();
       applyQuirksToStates("H60A1", states);
       const ct = states.find(s => s.id === "colorTemperature");
-      expect(ct).to.not.be.undefined;
-      expect(ct!.min).to.equal(2200);
-      expect(ct!.max).to.equal(6500);
-      expect(ct!.def).to.equal(2200);
+      expect(ct).toBeDefined();
+      expect(ct!.min).toBe(2200);
+      expect(ct!.max).toBe(6500);
+      expect(ct!.def).toBe(2200);
     });
 
     it("should not change colorTemperature range for unknown SKU", () => {
       const states = getDefaultLanStates();
       applyQuirksToStates("H9999", states);
       const ct = states.find(s => s.id === "colorTemperature");
-      expect(ct!.min).to.equal(2000);
-      expect(ct!.max).to.equal(9000);
+      expect(ct!.min).toBe(2000);
+      expect(ct!.max).toBe(9000);
     });
 
     it("should not affect non-colorTemperature states", () => {
       const states = getDefaultLanStates();
       applyQuirksToStates("H60A1", states);
       const brightness = states.find(s => s.id === "brightness");
-      expect(brightness!.min).to.equal(0);
-      expect(brightness!.max).to.equal(100);
+      expect(brightness!.min).toBe(0);
+      expect(brightness!.max).toBe(100);
     });
   });
 
@@ -919,9 +918,9 @@ describe("CapabilityMapper", () => {
       // tree which the quirk says we shouldn't trust. State id is
       // `light_scene` (snake_case) — the dropdown synthesizer's contract.
       const lightSceneDropdown = defs.find(d => d.id === "light_scene");
-      expect(lightSceneDropdown, "light_scene dropdown should not appear when brokenPlatformApi is set").to.be.undefined;
+      expect(lightSceneDropdown, "light_scene dropdown should not appear when brokenPlatformApi is set").toBeUndefined();
       const brightness = defs.find(d => d.id === "brightness");
-      expect(brightness, "capability-derived brightness should not come through buildCloudStateDefs").to.be.undefined;
+      expect(brightness, "capability-derived brightness should not come through buildCloudStateDefs").toBeUndefined();
     });
 
     it("normal SKU without brokenPlatformApi: scene dropdown appears as expected", () => {
@@ -945,7 +944,7 @@ describe("CapabilityMapper", () => {
       };
       const defs = buildCloudStateDefs(device);
       const lightSceneDropdown = defs.find(d => d.id === "light_scene");
-      expect(lightSceneDropdown, "light_scene dropdown should appear for normal SKU").to.exist;
+      expect(lightSceneDropdown, "light_scene dropdown should appear for normal SKU").toBeDefined();
     });
   });
 
@@ -989,9 +988,9 @@ describe("CapabilityMapper", () => {
       });
       const defs = buildAllStateDefsForTest(device);
       const sceneDef = defs.find(d => d.id === "light_scene");
-      expect(sceneDef).to.exist;
-      expect(sceneDef!.type).to.equal("mixed");
-      expect(sceneDef!.states).to.deep.equal({
+      expect(sceneDef).toBeDefined();
+      expect(sceneDef!.type).toBe("mixed");
+      expect(sceneDef!.states).toEqual({
         0: "---",
         1: "Aurora",
         2: "Movie",
@@ -1005,8 +1004,8 @@ describe("CapabilityMapper", () => {
       });
       const defs = buildAllStateDefsForTest(device);
       const diyDef = defs.find(d => d.id === "diy_scene");
-      expect(diyDef).to.exist;
-      expect(diyDef!.type).to.equal("mixed");
+      expect(diyDef).toBeDefined();
+      expect(diyDef!.type).toBe("mixed");
     });
 
     it("snapshot_cloud must be type:mixed", () => {
@@ -1015,17 +1014,17 @@ describe("CapabilityMapper", () => {
       });
       const defs = buildAllStateDefsForTest(device);
       const snapDef = defs.find(d => d.id === "snapshot_cloud");
-      expect(snapDef).to.exist;
-      expect(snapDef!.type).to.equal("mixed");
+      expect(snapDef).toBeDefined();
+      expect(snapDef!.type).toBe("mixed");
     });
 
     it("snapshot_local must be type:mixed even with empty list", () => {
       const device = makeDevice();
       const defs = buildAllStateDefsForTest(device, undefined);
       const localDef = defs.find(d => d.id === "snapshot_local");
-      expect(localDef).to.exist;
-      expect(localDef!.type).to.equal("mixed");
-      expect(localDef!.states).to.deep.equal({ 0: "---" });
+      expect(localDef).toBeDefined();
+      expect(localDef!.type).toBe("mixed");
+      expect(localDef!.states).toEqual({ 0: "---" });
     });
 
     it("light_scene/diy_scene/snapshot_cloud created from capability even with empty arrays", () => {
@@ -1043,12 +1042,12 @@ describe("CapabilityMapper", () => {
       const sceneDef = defs.find(d => d.id === "light_scene");
       const diyDef = defs.find(d => d.id === "diy_scene");
       const snapDef = defs.find(d => d.id === "snapshot_cloud");
-      expect(sceneDef, "light_scene must exist").to.exist;
-      expect(diyDef, "diy_scene must exist").to.exist;
-      expect(snapDef, "snapshot_cloud must exist").to.exist;
-      expect(sceneDef!.states).to.deep.equal({ 0: "---" });
-      expect(diyDef!.states).to.deep.equal({ 0: "---" });
-      expect(snapDef!.states).to.deep.equal({ 0: "---" });
+      expect(sceneDef, "light_scene must exist").toBeDefined();
+      expect(diyDef, "diy_scene must exist").toBeDefined();
+      expect(snapDef, "snapshot_cloud must exist").toBeDefined();
+      expect(sceneDef!.states).toEqual({ 0: "---" });
+      expect(diyDef!.states).toEqual({ 0: "---" });
+      expect(snapDef!.states).toEqual({ 0: "---" });
     });
 
     it("dropdown states NOT created when device lacks dynamic_scene capability", () => {
@@ -1060,21 +1059,21 @@ describe("CapabilityMapper", () => {
         ],
       });
       const defs = buildAllStateDefsForTest(device);
-      expect(defs.find(d => d.id === "light_scene"), "light_scene must NOT exist").to.be.undefined;
-      expect(defs.find(d => d.id === "diy_scene"), "diy_scene must NOT exist").to.be.undefined;
-      expect(defs.find(d => d.id === "snapshot_cloud"), "snapshot_cloud must NOT exist").to.be.undefined;
+      expect(defs.find(d => d.id === "light_scene"), "light_scene must NOT exist").toBeUndefined();
+      expect(defs.find(d => d.id === "diy_scene"), "diy_scene must NOT exist").toBeUndefined();
+      expect(defs.find(d => d.id === "snapshot_cloud"), "snapshot_cloud must NOT exist").toBeUndefined();
     });
 
     it("refresh_cloud button is created for lights with any dynamic_scene capability", () => {
       const device = makeDevice();
       const defs = buildAllStateDefsForTest(device);
       const refreshDef = defs.find(d => d.id === "refresh_cloud");
-      expect(refreshDef, "refresh_cloud must exist on a light with dynamic_scene caps").to.exist;
-      expect(refreshDef!.type).to.equal("boolean");
-      expect(refreshDef!.role).to.equal("button");
-      expect(refreshDef!.channel).to.equal("snapshots");
-      expect(refreshDef!.write).to.equal(true);
-      expect(refreshDef!.def).to.equal(false);
+      expect(refreshDef, "refresh_cloud must exist on a light with dynamic_scene caps").toBeDefined();
+      expect(refreshDef!.type).toBe("boolean");
+      expect(refreshDef!.role).toBe("button");
+      expect(refreshDef!.channel).toBe("snapshots");
+      expect(refreshDef!.write).toBe(true);
+      expect(refreshDef!.def).toBe(false);
     });
 
     it("refresh_cloud is created when only lightScene cap is present (no snapshot/diy)", () => {
@@ -1085,7 +1084,7 @@ describe("CapabilityMapper", () => {
         ],
       });
       const defs = buildAllStateDefsForTest(device);
-      expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must exist for lightScene-only").to.exist;
+      expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must exist for lightScene-only").toBeDefined();
     });
 
     it("refresh_cloud is NOT created when device has no dynamic_scene capability", () => {
@@ -1096,8 +1095,7 @@ describe("CapabilityMapper", () => {
         ],
       });
       const defs = buildAllStateDefsForTest(device);
-      expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must NOT exist on caps-less device").to.be
-        .undefined;
+      expect(defs.find(d => d.id === "refresh_cloud")).toBeUndefined();
     });
   });
 
@@ -1154,7 +1152,7 @@ describe("CapabilityMapper", () => {
     it("should return empty for group with no members", () => {
       const group = createGroup();
       const result = buildAllStateDefsForTest(group, undefined, []);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
 
     it("should return control states from LAN member intersection", () => {
@@ -1163,10 +1161,10 @@ describe("CapabilityMapper", () => {
       const m2 = createMember({ sku: "H61BC", lanIp: "192.168.1.2" });
       const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       const ids = result.map(d => d.id);
-      expect(ids).to.include("power");
-      expect(ids).to.include("brightness");
-      expect(ids).to.include("colorRgb");
-      expect(ids).to.include("colorTemperature");
+      expect(ids).toContain("power");
+      expect(ids).toContain("brightness");
+      expect(ids).toContain("colorRgb");
+      expect(ids).toContain("colorTemperature");
     });
 
     it("should not include local snapshots for groups but DOES include diag states (v2.9.1)", () => {
@@ -1175,15 +1173,15 @@ describe("CapabilityMapper", () => {
       const result = buildAllStateDefsForTest(group, undefined, [m1]);
       const ids = result.map(d => d.id);
       // No snapshots for groups — group-fan-out for snapshots wasn't built.
-      expect(ids).to.not.include("snapshot_local");
-      expect(ids).to.not.include("snapshot_save");
-      expect(ids).to.not.include("snapshot_delete");
-      expect(ids).to.not.include("snapshot");
+      expect(ids).not.toContain("snapshot_local");
+      expect(ids).not.toContain("snapshot_save");
+      expect(ids).not.toContain("snapshot_delete");
+      expect(ids).not.toContain("snapshot");
       // v2.9.1 — BaseGroups now get diag.export/result/tier so users can
       // export group-specific issues ("fan-out doesn't reach member X").
-      expect(ids).to.include("export");
-      expect(ids).to.include("result");
-      expect(ids).to.include("tier");
+      expect(ids).toContain("export");
+      expect(ids).toContain("result");
+      expect(ids).toContain("tier");
     });
 
     it("should compute scene intersection across members", () => {
@@ -1203,15 +1201,15 @@ describe("CapabilityMapper", () => {
       const group = createGroup();
       const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       const sceneDef = result.find(d => d.id === "light_scene");
-      expect(sceneDef).to.exist;
+      expect(sceneDef).toBeDefined();
       // "---" + 2 common scenes (Rainbow, Ocean)
-      expect(Object.keys(sceneDef!.states!)).to.have.lengthOf(3);
-      expect(Object.values(sceneDef!.states!)).to.include("Rainbow");
-      expect(Object.values(sceneDef!.states!)).to.include("Ocean");
-      expect(Object.values(sceneDef!.states!)).to.not.include("Sunset");
+      expect(Object.keys(sceneDef!.states!)).toHaveLength(3);
+      expect(Object.values(sceneDef!.states!)).toContain("Rainbow");
+      expect(Object.values(sceneDef!.states!)).toContain("Ocean");
+      expect(Object.values(sceneDef!.states!)).not.toContain("Sunset");
       // Dropdown writability: type must be "mixed" so users can write
       // either the index ("1"/1) or the scene name from Blockly.
-      expect(sceneDef!.type).to.equal("mixed");
+      expect(sceneDef!.type).toBe("mixed");
     });
 
     it("should compute music intersection across members", () => {
@@ -1230,10 +1228,10 @@ describe("CapabilityMapper", () => {
       const group = createGroup();
       const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
       const musicDef = result.find(d => d.id === "music_mode");
-      expect(musicDef).to.exist;
-      expect(Object.values(musicDef!.states!)).to.include("Rhythm");
-      expect(Object.values(musicDef!.states!)).to.not.include("Energic");
-      expect(Object.values(musicDef!.states!)).to.not.include("Spectrum");
+      expect(musicDef).toBeDefined();
+      expect(Object.values(musicDef!.states!)).toContain("Rhythm");
+      expect(Object.values(musicDef!.states!)).not.toContain("Energic");
+      expect(Object.values(musicDef!.states!)).not.toContain("Spectrum");
     });
 
     it("should skip scenes when a member has no scenes", () => {
@@ -1241,7 +1239,7 @@ describe("CapabilityMapper", () => {
       const m2 = createMember({ scenes: [] });
       const group = createGroup();
       const result = buildAllStateDefsForTest(group, undefined, [m1, m2]);
-      expect(result.find(d => d.id === "light_scene")).to.be.undefined;
+      expect(result.find(d => d.id === "light_scene")).toBeUndefined();
     });
 
     it("should filter control states by Cloud caps when no LAN", () => {
@@ -1256,17 +1254,17 @@ describe("CapabilityMapper", () => {
       const group = createGroup();
       const result = buildAllStateDefsForTest(group, undefined, [m1]);
       const ids = result.map(d => d.id);
-      expect(ids).to.include("power");
-      expect(ids).to.include("brightness");
-      expect(ids).to.not.include("colorRgb");
-      expect(ids).to.not.include("colorTemperature");
+      expect(ids).toContain("power");
+      expect(ids).toContain("brightness");
+      expect(ids).not.toContain("colorRgb");
+      expect(ids).not.toContain("colorTemperature");
     });
 
     it("should skip unreachable members (no LAN, no Cloud)", () => {
       const m1 = createMember({ lanIp: undefined, channels: { lan: false, mqtt: false, cloud: false } });
       const group = createGroup();
       const result = buildAllStateDefsForTest(group, undefined, [m1]);
-      expect(result).to.have.lengthOf(0);
+      expect(result).toHaveLength(0);
     });
   });
 
@@ -1274,65 +1272,65 @@ describe("CapabilityMapper", () => {
     describe("mapCapabilities non-array / malformed input", () => {
       it("should return empty for non-array input", () => {
         const result = mapCapabilities(undefined as unknown as CloudCapability[]);
-        expect(result).to.deep.equal([]);
+        expect(result).toEqual([]);
       });
 
       it("should return empty for null input", () => {
         const result = mapCapabilities(null as unknown as CloudCapability[]);
-        expect(result).to.deep.equal([]);
+        expect(result).toEqual([]);
       });
 
       it("should return empty for object-instead-of-array", () => {
         const result = mapCapabilities({} as unknown as CloudCapability[]);
-        expect(result).to.deep.equal([]);
+        expect(result).toEqual([]);
       });
 
       it("should skip capability with non-string type", () => {
         const caps = [{ type: null, instance: "foo", parameters: {} }] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("should skip capability with non-string instance", () => {
         const caps = [
           { type: "devices.capabilities.on_off", instance: 42, parameters: {} },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("should skip null/undefined capability entries", () => {
         const caps = [null, undefined] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
     });
 
     describe("missing parameters field (Cloud API drift)", () => {
       it("mapRange should not throw when parameters is missing", () => {
         const caps = [{ type: "devices.capabilities.range", instance: "brightness" }] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
+        expect(() => mapCapabilities(caps)).not.toThrow();
         const result = mapCapabilities(caps);
-        expect(result).to.have.lengthOf(1);
-        expect(result[0].min).to.equal(0);
-        expect(result[0].max).to.equal(100);
+        expect(result).toHaveLength(1);
+        expect(result[0].min).toBe(0);
+        expect(result[0].max).toBe(100);
       });
 
       it("mapColorSetting colorTem should not throw when parameters is missing", () => {
         const caps = [
           { type: "devices.capabilities.color_setting", instance: "colorTemperatureK" },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
+        expect(() => mapCapabilities(caps)).not.toThrow();
         const result = mapCapabilities(caps);
-        expect(result).to.have.lengthOf(1);
-        expect(result[0].min).to.equal(2000);
-        expect(result[0].max).to.equal(9000);
+        expect(result).toHaveLength(1);
+        expect(result[0].min).toBe(2000);
+        expect(result[0].max).toBe(9000);
       });
 
       it("mapMode should return empty when parameters is missing", () => {
         const caps = [{ type: "devices.capabilities.mode", instance: "presetScene" }] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("mapMode should return empty when options is not an array", () => {
@@ -1343,26 +1341,26 @@ describe("CapabilityMapper", () => {
             parameters: { dataType: "ENUM", options: "not-an-array" },
           },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("mapProperty should not throw when parameters is missing", () => {
         const caps = [
           { type: "devices.capabilities.property", instance: "sensorTemperature" },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
+        expect(() => mapCapabilities(caps)).not.toThrow();
         const result = mapCapabilities(caps);
-        expect(result).to.have.lengthOf(1);
-        expect(result[0].unit).to.equal("°C");
+        expect(result).toHaveLength(1);
+        expect(result[0].unit).toBe("°C");
       });
 
       it("mapMusicSetting should return empty when parameters is missing", () => {
         const caps = [
           { type: "devices.capabilities.music_setting", instance: "musicMode" },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("mapMusicSetting should return empty when fields is non-array", () => {
@@ -1373,8 +1371,8 @@ describe("CapabilityMapper", () => {
             parameters: { dataType: "STRUCT", fields: "oops" },
           },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("mapMusicSetting should skip fields with non-string fieldName", () => {
@@ -1391,8 +1389,8 @@ describe("CapabilityMapper", () => {
             },
           },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
-        expect(mapCapabilities(caps)).to.deep.equal([]);
+        expect(() => mapCapabilities(caps)).not.toThrow();
+        expect(mapCapabilities(caps)).toEqual([]);
       });
 
       it("mapMode should skip options with non-string name", () => {
@@ -1410,11 +1408,11 @@ describe("CapabilityMapper", () => {
             },
           },
         ] as unknown as CloudCapability[];
-        expect(() => mapCapabilities(caps)).to.not.throw();
+        expect(() => mapCapabilities(caps)).not.toThrow();
         const result = mapCapabilities(caps);
-        expect(result).to.have.lengthOf(1);
-        expect(Object.values(result[0].states!)).to.include("Valid");
-        expect(Object.values(result[0].states!)).to.not.include("999");
+        expect(result).toHaveLength(1);
+        expect(Object.values(result[0].states!)).toContain("Valid");
+        expect(Object.values(result[0].states!)).not.toContain("999");
       });
     });
 
@@ -1426,7 +1424,7 @@ describe("CapabilityMapper", () => {
           state: { value: "1" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.be.true;
+        expect(result!.value).toBe(true);
       });
 
       it("should coerce on_off raw='true' to true", () => {
@@ -1436,7 +1434,7 @@ describe("CapabilityMapper", () => {
           state: { value: "true" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.be.true;
+        expect(result!.value).toBe(true);
       });
 
       it("should coerce on_off raw='0' to false", () => {
@@ -1446,7 +1444,7 @@ describe("CapabilityMapper", () => {
           state: { value: "0" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.be.false;
+        expect(result!.value).toBe(false);
       });
 
       it("should coerce toggle raw='1' to true", () => {
@@ -1456,7 +1454,7 @@ describe("CapabilityMapper", () => {
           state: { value: "1" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.be.true;
+        expect(result!.value).toBe(true);
       });
 
       it("should coerce range numeric-string to number", () => {
@@ -1466,7 +1464,7 @@ describe("CapabilityMapper", () => {
           state: { value: "75" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.equal(75);
+        expect(result!.value).toBe(75);
       });
 
       it("should return null for range non-numeric string", () => {
@@ -1476,7 +1474,7 @@ describe("CapabilityMapper", () => {
           state: { value: "abc" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result).to.be.null;
+        expect(result).toBeNull();
       });
 
       it("should coerce colorTemperature numeric-string to number", () => {
@@ -1486,7 +1484,7 @@ describe("CapabilityMapper", () => {
           state: { value: "5000" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.equal(5000);
+        expect(result!.value).toBe(5000);
       });
 
       it("should coerce property numeric-string to number", () => {
@@ -1496,7 +1494,7 @@ describe("CapabilityMapper", () => {
           state: { value: "22.5" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.equal(22.5);
+        expect(result!.value).toBe(22.5);
       });
 
       it("should return null for property garbage string", () => {
@@ -1506,7 +1504,7 @@ describe("CapabilityMapper", () => {
           state: { value: "garbage" as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result).to.be.null;
+        expect(result).toBeNull();
       });
 
       it("should return null when cap.type is non-string", () => {
@@ -1515,8 +1513,8 @@ describe("CapabilityMapper", () => {
           instance: "powerSwitch",
           state: { value: 1 },
         } as unknown as CloudStateCapability;
-        expect(() => mapCloudStateValue(cap)).to.not.throw();
-        expect(mapCloudStateValue(cap)).to.be.null;
+        expect(() => mapCloudStateValue(cap)).not.toThrow();
+        expect(mapCloudStateValue(cap)).toBeNull();
       });
 
       it("should return null when cap.instance is non-string", () => {
@@ -1525,13 +1523,13 @@ describe("CapabilityMapper", () => {
           instance: 42,
           state: { value: 1 },
         } as unknown as CloudStateCapability;
-        expect(() => mapCloudStateValue(cap)).to.not.throw();
-        expect(mapCloudStateValue(cap)).to.be.null;
+        expect(() => mapCloudStateValue(cap)).not.toThrow();
+        expect(mapCloudStateValue(cap)).toBeNull();
       });
 
       it("should not throw on undefined cap", () => {
-        expect(() => mapCloudStateValue(undefined as unknown as CloudStateCapability)).to.not.throw();
-        expect(mapCloudStateValue(undefined as unknown as CloudStateCapability)).to.be.null;
+        expect(() => mapCloudStateValue(undefined as unknown as CloudStateCapability)).not.toThrow();
+        expect(mapCloudStateValue(undefined as unknown as CloudStateCapability)).toBeNull();
       });
 
       it("should coerce music_setting mode when musicMode is string", () => {
@@ -1541,8 +1539,8 @@ describe("CapabilityMapper", () => {
           state: { value: { musicMode: "7" } as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.stateId).to.equal("music_mode");
-        expect(result!.value).to.equal("7");
+        expect(result!.stateId).toBe("music_mode");
+        expect(result!.value).toBe("7");
       });
 
       it("should default music_setting to '0' when musicMode is garbage", () => {
@@ -1552,7 +1550,7 @@ describe("CapabilityMapper", () => {
           state: { value: { musicMode: "abc" } as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.equal("0");
+        expect(result!.value).toBe("0");
       });
 
       it("should coerce colorRgb numeric-string to hex", () => {
@@ -1562,7 +1560,7 @@ describe("CapabilityMapper", () => {
           state: { value: String(0xff8000) as unknown as number },
         };
         const result = mapCloudStateValue(cap);
-        expect(result!.value).to.equal("#ff8000");
+        expect(result!.value).toBe("#ff8000");
       });
     });
   });
@@ -1576,9 +1574,9 @@ describe("CapabilityMapper", () => {
         { type: "devices.capabilities.range", instance: "brightness", state: { value: 50 } },
       ];
       const result = planCloudCapabilityWrites(caps, false, lanStateIds);
-      expect(result).to.have.lengthOf(2);
-      expect(result[0]).to.deep.equal({ stateId: "power", value: true });
-      expect(result[1]).to.deep.equal({ stateId: "brightness", value: 50 });
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ stateId: "power", value: true });
+      expect(result[1]).toEqual({ stateId: "brightness", value: 50 });
     });
 
     it("skips LAN-shadowed states when the device has a LAN IP", () => {
@@ -1587,8 +1585,8 @@ describe("CapabilityMapper", () => {
         { type: "devices.capabilities.property", instance: "battery", state: { value: 75 } },
       ];
       const result = planCloudCapabilityWrites(caps, true, lanStateIds);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0]).to.deep.equal({ stateId: "battery", value: 75 });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ stateId: "battery", value: 75 });
     });
 
     it("includes every state when the device has no LAN IP (sensors / appliances)", () => {
@@ -1598,7 +1596,7 @@ describe("CapabilityMapper", () => {
         { type: "devices.capabilities.property", instance: "battery", state: { value: 75 } },
       ];
       const result = planCloudCapabilityWrites(caps, false, lanStateIds);
-      expect(result).to.have.lengthOf(3);
+      expect(result).toHaveLength(3);
     });
 
     it("silently drops capabilities that mapCloudStateValue rejects", () => {
@@ -1607,17 +1605,17 @@ describe("CapabilityMapper", () => {
         { type: "devices.capabilities.on_off", instance: "powerSwitch", state: { value: 1 } },
       ];
       const result = planCloudCapabilityWrites(caps, false, lanStateIds);
-      expect(result).to.have.lengthOf(1);
-      expect(result[0].stateId).to.equal("power");
+      expect(result).toHaveLength(1);
+      expect(result[0].stateId).toBe("power");
     });
 
     it("handles non-array input defensively", () => {
       const result = planCloudCapabilityWrites(null as never, false, lanStateIds);
-      expect(result).to.deep.equal([]);
+      expect(result).toEqual([]);
     });
 
     it("returns empty array for empty input", () => {
-      expect(planCloudCapabilityWrites([], false, lanStateIds)).to.deep.equal([]);
+      expect(planCloudCapabilityWrites([], false, lanStateIds)).toEqual([]);
     });
   });
 
@@ -1631,11 +1629,10 @@ describe("CapabilityMapper", () => {
       // nicht erweitert: das neue Feld läuft in den cloud-owned cleanup → wird
       // beim nächsten Restart gelöscht.
       for (const def of getDefaultLanStates()) {
-        expect(LAN_STATE_IDS.has(def.id), `LAN_STATE_IDS missing entry for ${def.id}`).to.be.true;
+        expect(LAN_STATE_IDS.has(def.id), `LAN_STATE_IDS missing entry for ${def.id}`).toBe(true);
       }
-      expect(LAN_STATE_IDS.size).to.equal(
+      expect(LAN_STATE_IDS.size, "LAN_STATE_IDS has entries not backed by getDefaultLanStates — drift in the other direction").toBe(
         getDefaultLanStates().length,
-        "LAN_STATE_IDS has entries not backed by getDefaultLanStates — drift in the other direction",
       );
     });
 
@@ -1681,10 +1678,10 @@ describe("CapabilityMapper", () => {
       } as never;
       const cloudDefs = buildCloudStateDefs(device);
       for (const def of cloudDefs) {
-        expect(LAN_STATE_IDS.has(def.id), `buildCloudStateDefs emitted LAN-owned id ${def.id}`).to.be.false;
+        expect(LAN_STATE_IDS.has(def.id), `buildCloudStateDefs emitted LAN-owned id ${def.id}`).toBe(false);
       }
       // Sanity: cap-derived non-LAN states (gradient_toggle) DO make it through
-      expect(cloudDefs.some(d => d.id === "gradient_toggle")).to.be.true;
+      expect(cloudDefs.some(d => d.id === "gradient_toggle")).toBe(true);
     });
   });
 
@@ -1713,10 +1710,10 @@ describe("CapabilityMapper", () => {
       } as never;
       const cloudDefs = buildCloudStateDefs(device, undefined, undefined, "en");
       const tier = cloudDefs.find(d => d.id === "tier");
-      expect(tier, "tier state-def must exist for non-group devices").to.exist;
-      expect(tier!.states, "tier state-def must have common.states").to.exist;
+      expect(tier, "tier state-def must exist for non-group devices").toBeDefined();
+      expect(tier!.states, "tier state-def must have common.states").toBeDefined();
       for (const [k, v] of Object.entries(tier!.states!)) {
-        expect(typeof v).to.equal("string", `tier states[${k}] must be plain-string, got ${typeof v}`);
+        expect(typeof v, `tier states[${k}] must be plain-string, got ${typeof v}`).toBe("string");
       }
     });
 
@@ -1740,14 +1737,14 @@ describe("CapabilityMapper", () => {
       const deDefs = buildCloudStateDefs(device, undefined, undefined, "de");
       const deTier = deDefs.find(d => d.id === "tier");
       // verified label differs en/de; smoke-check de is rendered
-      expect(deTier!.states!.verified).to.match(/Verifiziert|Verified/);
+      expect(deTier!.states!.verified).toMatch(/Verifiziert|Verified/);
       const enDefs = buildCloudStateDefs(device, undefined, undefined, "en");
       const enTier = enDefs.find(d => d.id === "tier");
-      expect(enTier!.states!.verified).to.match(/Verified/);
+      expect(enTier!.states!.verified).toMatch(/Verified/);
       // Unknown lang falls back to EN
       const xxDefs = buildCloudStateDefs(device, undefined, undefined, "xx");
       const xxTier = xxDefs.find(d => d.id === "tier");
-      expect(xxTier!.states!.verified).to.match(/Verified/);
+      expect(xxTier!.states!.verified).toMatch(/Verified/);
     });
 
     it("all common.states VALUES across cloud-defs are plain-string", () => {
@@ -1775,7 +1772,7 @@ describe("CapabilityMapper", () => {
       for (const def of defs) {
         if (!def.states) continue;
         for (const [k, v] of Object.entries(def.states)) {
-          expect(typeof v).to.equal("string", `${def.id} states[${k}] must be plain-string, got ${typeof v}`);
+          expect(typeof v, `${def.id} states[${k}] must be plain-string, got ${typeof v}`).toBe("string");
         }
       }
     });

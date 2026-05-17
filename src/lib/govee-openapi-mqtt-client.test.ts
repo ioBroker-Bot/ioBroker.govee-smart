@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { GoveeOpenapiMqttClient } from "./govee-openapi-mqtt-client";
 
 /**
@@ -29,21 +28,21 @@ describe("GoveeOpenapiMqttClient", () => {
   describe("constructor", () => {
     it("creates a client with the given API key", () => {
       const client = new GoveeOpenapiMqttClient("test-api-key", mockLog, mockTimers as never);
-      expect(client).to.exist;
-      expect(client.connected).to.be.false;
+      expect(client).toBeDefined();
+      expect(client.connected).toBe(false);
     });
   });
 
   describe("disconnect", () => {
     it("handles disconnect when not connected", () => {
       const client = new GoveeOpenapiMqttClient("test-api-key", mockLog, mockTimers as never);
-      expect(() => client.disconnect()).to.not.throw();
+      expect(() => client.disconnect()).not.toThrow();
     });
 
     it("leaves the connected flag false after disconnect", () => {
       const client = new GoveeOpenapiMqttClient("test-api-key", mockLog, mockTimers as never);
       client.disconnect();
-      expect(client.connected).to.be.false;
+      expect(client.connected).toBe(false);
     });
   });
 
@@ -53,7 +52,7 @@ describe("GoveeOpenapiMqttClient", () => {
     it("generates a UUID-shaped session id once per instance", () => {
       const client = new GoveeOpenapiMqttClient("test-api-key", mockLog, mockTimers as never);
       const sid = (client as unknown as { sessionUuid: string }).sessionUuid;
-      expect(sid).to.match(UUID_RE);
+      expect(sid).toMatch(UUID_RE);
     });
 
     it("keeps the same session id for the lifetime of the instance", () => {
@@ -62,7 +61,7 @@ describe("GoveeOpenapiMqttClient", () => {
       // Simulate adapter activity that previously rotated the id
       client.disconnect();
       const after = (client as unknown as { sessionUuid: string }).sessionUuid;
-      expect(after).to.equal(before);
+      expect(after).toBe(before);
     });
 
     it("uses a different session id per client instance", () => {
@@ -70,7 +69,7 @@ describe("GoveeOpenapiMqttClient", () => {
       const b = new GoveeOpenapiMqttClient("k", mockLog, mockTimers as never);
       const sa = (a as unknown as { sessionUuid: string }).sessionUuid;
       const sb = (b as unknown as { sessionUuid: string }).sessionUuid;
-      expect(sa).to.not.equal(sb);
+      expect(sa).not.toBe(sb);
     });
   });
 });

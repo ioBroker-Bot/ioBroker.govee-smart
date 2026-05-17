@@ -540,6 +540,138 @@ const STATE_NAMES = {
     pl: "Status grup",
     uk: "\u0421\u0442\u0430\u0442\u0443\u0441 \u0433\u0440\u0443\u043F",
     "zh-cn": "\u5206\u7EC4\u72B6\u6001"
+  },
+  // ---- instanceObjects: folders ----
+  information: {
+    en: "Information",
+    de: "Information",
+    ru: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
+    pt: "Informa\xE7\xE3o",
+    nl: "Informatie",
+    fr: "Information",
+    it: "Informazioni",
+    es: "Informaci\xF3n",
+    pl: "Informacja",
+    uk: "\u0406\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0456\u044F",
+    "zh-cn": "\u4FE1\u606F"
+  },
+  devicesFolder: {
+    en: "Devices",
+    de: "Ger\xE4te",
+    ru: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430",
+    pt: "Dispositivos",
+    nl: "Apparaten",
+    fr: "Appareils",
+    it: "Dispositivi",
+    es: "Dispositivos",
+    pl: "Urz\u0105dzenia",
+    uk: "\u041F\u0440\u0438\u0441\u0442\u0440\u043E\u0457",
+    "zh-cn": "\u8BBE\u5907"
+  },
+  localSnapshotsFolder: {
+    en: "User-saved local snapshots",
+    de: "Vom Benutzer gespeicherte lokale Snapshots",
+    ru: "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u043C \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043D\u0438\u043C\u043A\u0438",
+    pt: "Snapshots locais salvos pelo utilizador",
+    nl: "Door gebruiker opgeslagen lokale snapshots",
+    fr: "Snapshots locaux enregistr\xE9s par l'utilisateur",
+    it: "Snapshot locali salvati dall'utente",
+    es: "Instant\xE1neas locales guardadas por el usuario",
+    pl: "Lokalne migawki zapisane przez u\u017Cytkownika",
+    uk: "\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u0456 \u043A\u043E\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0435\u043C \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0456 \u0437\u043D\u0456\u043C\u043A\u0438",
+    "zh-cn": "\u7528\u6237\u4FDD\u5B58\u7684\u672C\u5730\u5FEB\u7167"
+  },
+  // ---- instanceObjects: info.* states ----
+  infoConnection: {
+    en: "Adapter connected",
+    de: "Adapter verbunden",
+    ru: "\u0410\u0434\u0430\u043F\u0442\u0435\u0440 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D",
+    pt: "Adaptador conectado",
+    nl: "Adapter verbonden",
+    fr: "Adaptateur connect\xE9",
+    it: "Adattatore connesso",
+    es: "Adaptador conectado",
+    pl: "Adapter po\u0142\u0105czony",
+    uk: "\u0410\u0434\u0430\u043F\u0442\u0435\u0440 \u043F\u0456\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+    "zh-cn": "\u9002\u914D\u5668\u5DF2\u8FDE\u63A5"
+  },
+  infoMqttConnected: {
+    en: "MQTT connected",
+    de: "MQTT verbunden",
+    ru: "MQTT \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D",
+    pt: "MQTT conectado",
+    nl: "MQTT verbonden",
+    fr: "MQTT connect\xE9",
+    it: "MQTT connesso",
+    es: "MQTT conectado",
+    pl: "MQTT po\u0142\u0105czony",
+    uk: "MQTT \u043F\u0456\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+    "zh-cn": "MQTT \u5DF2\u8FDE\u63A5"
+  },
+  infoCloudConnected: {
+    en: "Cloud API connected",
+    de: "Cloud-API verbunden",
+    ru: "Cloud API \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D",
+    pt: "Cloud API conectada",
+    nl: "Cloud-API verbonden",
+    fr: "API Cloud connect\xE9e",
+    it: "Cloud API connesso",
+    es: "Cloud API conectado",
+    pl: "Cloud API po\u0142\u0105czony",
+    uk: "Cloud API \u043F\u0456\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+    "zh-cn": "\u4E91 API \u5DF2\u8FDE\u63A5"
+  },
+  infoOpenapiMqttConnected: {
+    en: "Govee OpenAPI MQTT connected",
+    de: "Govee OpenAPI MQTT verbunden",
+    ru: "Govee OpenAPI MQTT \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D",
+    pt: "Govee OpenAPI MQTT conectado",
+    nl: "Govee OpenAPI MQTT verbonden",
+    fr: "Govee OpenAPI MQTT connect\xE9",
+    it: "Govee OpenAPI MQTT connesso",
+    es: "Govee OpenAPI MQTT conectado",
+    pl: "Govee OpenAPI MQTT po\u0142\u0105czony",
+    uk: "Govee OpenAPI MQTT \u043F\u0456\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+    "zh-cn": "Govee OpenAPI MQTT \u5DF2\u8FDE\u63A5"
+  },
+  infoWizardStatus: {
+    en: "Segment-Wizard status",
+    de: "Segment-Wizard Status",
+    ru: "\u0421\u0442\u0430\u0442\u0443\u0441 \u043C\u0430\u0441\u0442\u0435\u0440\u0430 \u0441\u0435\u0433\u043C\u0435\u043D\u0442\u043E\u0432",
+    pt: "Estado do assistente de segmentos",
+    nl: "Segment-wizard status",
+    fr: "\xC9tat de l'assistant de segments",
+    it: "Stato del wizard segmenti",
+    es: "Estado del asistente de segmentos",
+    pl: "Status kreatora segment\xF3w",
+    uk: "\u0421\u0442\u0430\u0442\u0443\u0441 \u043C\u0430\u0439\u0441\u0442\u0440\u0430 \u0441\u0435\u0433\u043C\u0435\u043D\u0442\u0456\u0432",
+    "zh-cn": "\u5206\u6BB5\u5411\u5BFC\u72B6\u6001"
+  },
+  infoMqttCredentials: {
+    en: "Persisted MQTT credentials",
+    de: "Gespeicherte MQTT-Anmeldedaten",
+    ru: "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0443\u0447\u0451\u0442\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 MQTT",
+    pt: "Credenciais MQTT persistidas",
+    nl: "Opgeslagen MQTT-referenties",
+    fr: "Identifiants MQTT enregistr\xE9s",
+    it: "Credenziali MQTT salvate",
+    es: "Credenciales MQTT guardadas",
+    pl: "Zapisane dane uwierzytelniaj\u0105ce MQTT",
+    uk: "\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u0456 \u043E\u0431\u043B\u0456\u043A\u043E\u0432\u0456 \u0434\u0430\u043D\u0456 MQTT",
+    "zh-cn": "\u5DF2\u4FDD\u5B58\u7684 MQTT \u51ED\u636E"
+  },
+  infoAppVersionDrift: {
+    en: "Govee App Version drift",
+    de: "Govee App Versionsabweichung",
+    ru: "\u0420\u0430\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0435 \u0432\u0435\u0440\u0441\u0438\u0438 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F Govee",
+    pt: "Desvio de vers\xE3o do app Govee",
+    nl: "Govee App versieafwijking",
+    fr: "D\xE9rive de version de l'app Govee",
+    it: "Scostamento versione app Govee",
+    es: "Desviaci\xF3n de versi\xF3n de la app Govee",
+    pl: "Odchylenie wersji aplikacji Govee",
+    uk: "\u0420\u043E\u0437\u0431\u0456\u0436\u043D\u0456\u0441\u0442\u044C \u0432\u0435\u0440\u0441\u0456\u0457 \u0434\u043E\u0434\u0430\u0442\u043A\u0443 Govee",
+    "zh-cn": "Govee \u5E94\u7528\u7248\u672C\u504F\u5DEE"
   }
 };
 function tName(key) {

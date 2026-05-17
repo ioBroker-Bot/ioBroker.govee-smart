@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import { CloudRetryLoop, type CloudRetryHost } from "./cloud-retry";
 import type { CloudLoadResult } from "./types";
 
@@ -60,7 +59,7 @@ class TestHost implements CloudRetryHost {
   /** Fire the most-recently scheduled timer — returns its delay. */
   public fireLatestTimer(): number {
     const last = this.timers[this.timers.length - 1];
-    expect(last, "no timer scheduled").to.not.be.undefined;
+    expect(last).toBeDefined();
     last.cb();
     return last.ms;
   }
@@ -91,9 +90,9 @@ describe("CloudRetryLoop", () => {
         reason: "auth-failed",
         message: "HTTP 403",
       });
-      expect(loop.isStopped()).to.be.true;
-      expect(host.timers).to.have.lengthOf(0);
-      expect(host.lastWarn()).to.include("authentication failed");
+      expect(loop.isStopped()).toBe(true);
+      expect(host.timers).toHaveLength(0);
+      expect(host.lastWarn()).toContain("authentication failed");
     });
 
     it("should stop even if called twice", () => {
@@ -107,21 +106,21 @@ describe("CloudRetryLoop", () => {
         reason: "auth-failed",
         message: "x",
       });
-      expect(loop.isStopped()).to.be.true;
-      expect(host.timers).to.have.lengthOf(0);
+      expect(loop.isStopped()).toBe(true);
+      expect(host.timers).toHaveLength(0);
     });
 
     it("should cancel any pending transient retry when auth fails later", () => {
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.timers).to.have.lengthOf(1);
+      expect(host.timers).toHaveLength(1);
       loop.handleResult({
         ok: false,
         reason: "auth-failed",
         message: "x",
       });
-      expect(loop.isStopped()).to.be.true;
+      expect(loop.isStopped()).toBe(true);
       // clearTimeout should have been called on the pending timer
-      expect(host.clearedTimers).to.be.greaterThan(0);
+      expect(host.clearedTimers).toBeGreaterThan(0);
     });
   });
 
@@ -132,9 +131,9 @@ describe("CloudRetryLoop", () => {
         reason: "rate-limited",
         retryAfterMs: 30_000,
       });
-      expect(host.timers).to.have.lengthOf(1);
-      expect(host.timers[0].ms).to.equal(30_000);
-      expect(host.lastWarn()).to.include("30s");
+      expect(host.timers).toHaveLength(1);
+      expect(host.timers[0].ms).toBe(30_000);
+      expect(host.lastWarn()).toContain("30s");
     });
 
     it("should not double-schedule when called twice", () => {
@@ -148,8 +147,8 @@ describe("CloudRetryLoop", () => {
         reason: "rate-limited",
         retryAfterMs: 60_000,
       });
-      expect(host.timers).to.have.lengthOf(1);
-      expect(host.timers[0].ms).to.equal(30_000);
+      expect(host.timers).toHaveLength(1);
+      expect(host.timers[0].ms).toBe(30_000);
     });
 
     it("should honour Retry-After on every consecutive 429", async () => {
@@ -163,23 +162,23 @@ describe("CloudRetryLoop", () => {
         reason: "rate-limited",
         retryAfterMs: 30_000,
       });
-      expect(host.timers[0].ms).to.equal(30_000);
+      expect(host.timers[0].ms).toBe(30_000);
 
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
 
       // After retry still rate-limited → new timer with next Retry-After
-      expect(host.timers).to.have.lengthOf(2);
-      expect(host.timers[1].ms).to.equal(45_000);
+      expect(host.timers).toHaveLength(2);
+      expect(host.timers[1].ms).toBe(45_000);
     });
   });
 
   describe("handleResult — transient", () => {
     it("should schedule a retry after 5 minutes", () => {
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.timers).to.have.lengthOf(1);
-      expect(host.timers[0].ms).to.equal(5 * 60_000);
+      expect(host.timers).toHaveLength(1);
+      expect(host.timers[0].ms).toBe(5 * 60_000);
     });
 
     it("should treat unknown reasons as transient", () => {
@@ -187,20 +186,20 @@ describe("CloudRetryLoop", () => {
         ok: false,
         reason: "weird" as unknown as "transient",
       });
-      expect(host.timers[0].ms).to.equal(5 * 60_000);
+      expect(host.timers[0].ms).toBe(5 * 60_000);
     });
 
     it("should not log a warning for transient (noise budget)", () => {
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.logs.filter(l => l.level === "warn")).to.have.lengthOf(0);
+      expect(host.logs.filter(l => l.level === "warn")).toHaveLength(0);
     });
   });
 
   describe("handleResult — ok", () => {
     it("should be a no-op", () => {
       loop.handleResult({ ok: true });
-      expect(host.timers).to.have.lengthOf(0);
-      expect(host.logs).to.have.lengthOf(0);
+      expect(host.timers).toHaveLength(0);
+      expect(host.logs).toHaveLength(0);
     });
   });
 
@@ -211,8 +210,8 @@ describe("CloudRetryLoop", () => {
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
-      expect(host.restoredCalls).to.equal(1);
-      expect(loop.isConnected()).to.be.true;
+      expect(host.restoredCalls).toBe(1);
+      expect(loop.isConnected()).toBe(true);
     });
 
     it("should log 'Govee Cloud connection restored' on success", async () => {
@@ -222,7 +221,7 @@ describe("CloudRetryLoop", () => {
       await Promise.resolve();
       await Promise.resolve();
       const info = host.logs.filter(l => l.level === "info");
-      expect(info.some(l => l.msg.includes("restored"))).to.be.true;
+      expect(info.some(l => l.msg.includes("restored"))).toBe(true);
     });
 
     it("should re-arm when the retry still fails", async () => {
@@ -232,11 +231,11 @@ describe("CloudRetryLoop", () => {
       await Promise.resolve();
       await Promise.resolve();
       // After failed retry, second timer queued
-      expect(host.timers).to.have.lengthOf(2);
+      expect(host.timers).toHaveLength(2);
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
-      expect(loop.isConnected()).to.be.true;
+      expect(loop.isConnected()).toBe(true);
     });
   });
 
@@ -248,27 +247,27 @@ describe("CloudRetryLoop", () => {
       await Promise.resolve();
       // Because the timer was cleared by setConnected, the callback that
       // would call loadFromCloud is replaced with a no-op.
-      expect(host.loadCalls).to.equal(0);
+      expect(host.loadCalls).toBe(0);
     });
 
     it("should not schedule a new retry while already connected", () => {
       loop.setConnected(true);
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.timers).to.have.lengthOf(0);
+      expect(host.timers).toHaveLength(0);
     });
 
     it("setConnected(true) should cancel any pending timer", () => {
       loop.handleResult({ ok: false, reason: "transient" });
       const before = host.clearedTimers;
       loop.setConnected(true);
-      expect(host.clearedTimers).to.be.greaterThan(before);
+      expect(host.clearedTimers).toBeGreaterThan(before);
     });
 
     it("setConnected(false) should allow the loop to resume scheduling", () => {
       loop.setConnected(true);
       loop.setConnected(false);
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.timers).to.have.lengthOf(1);
+      expect(host.timers).toHaveLength(1);
     });
   });
 
@@ -281,8 +280,8 @@ describe("CloudRetryLoop", () => {
       });
       // Even if a future handleResult is called with transient, no retry
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.timers).to.have.lengthOf(0);
-      expect(host.loadCalls).to.equal(0);
+      expect(host.timers).toHaveLength(0);
+      expect(host.loadCalls).toBe(0);
     });
   });
 
@@ -291,17 +290,17 @@ describe("CloudRetryLoop", () => {
       loop.handleResult({ ok: false, reason: "transient" });
       const before = host.clearedTimers;
       loop.dispose();
-      expect(host.clearedTimers).to.be.greaterThan(before);
+      expect(host.clearedTimers).toBeGreaterThan(before);
     });
 
     it("should be safe when no timer is pending", () => {
-      expect(() => loop.dispose()).to.not.throw();
+      expect(() => loop.dispose()).not.toThrow();
     });
 
     it("should be safe to call twice", () => {
       loop.handleResult({ ok: false, reason: "transient" });
       loop.dispose();
-      expect(() => loop.dispose()).to.not.throw();
+      expect(() => loop.dispose()).not.toThrow();
     });
   });
 
@@ -317,7 +316,7 @@ describe("CloudRetryLoop", () => {
       await Promise.resolve();
       await Promise.resolve();
       const dbg = host.logs.filter(l => l.level === "debug");
-      expect(dbg.some(l => l.msg.includes("downstream crashed"))).to.be.true;
+      expect(dbg.some(l => l.msg.includes("downstream crashed"))).toBe(true);
     });
 
     it("should not log 'restored' when the retry itself returns transient", async () => {
@@ -327,8 +326,8 @@ describe("CloudRetryLoop", () => {
       await Promise.resolve();
       await Promise.resolve();
       const info = host.logs.filter(l => l.level === "info");
-      expect(info.some(l => l.msg.includes("restored"))).to.be.false;
-      expect(host.restoredCalls).to.equal(0);
+      expect(info.some(l => l.msg.includes("restored"))).toBe(false);
+      expect(host.restoredCalls).toBe(0);
     });
 
     it("should allow a new transient after a successful restore cycle", async () => {
@@ -337,14 +336,14 @@ describe("CloudRetryLoop", () => {
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
-      expect(loop.isConnected()).to.be.true;
+      expect(loop.isConnected()).toBe(true);
 
       // Later, the host notices the connection dropped
       loop.setConnected(false);
       loop.handleResult({ ok: false, reason: "transient" });
-      expect(host.timers.length).to.be.greaterThanOrEqual(2);
+      expect(host.timers.length).toBeGreaterThanOrEqual(2);
       const lastTimer = host.timers[host.timers.length - 1];
-      expect(lastTimer.ms).to.equal(5 * 60_000);
+      expect(lastTimer.ms).toBe(5 * 60_000);
     });
   });
 });
