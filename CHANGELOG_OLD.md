@@ -1,4 +1,5 @@
 # Older Changes
+
 ## 2.9.1 (2026-05-13)
 
 - Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable directly from the export.

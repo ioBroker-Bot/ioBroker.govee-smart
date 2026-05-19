@@ -7,7 +7,6 @@
       "python3 ../scripts/pre-release.py --audit-current",
       "python3 ../scripts/fix-changelog-footer.py",
       "python3 scripts/sync-govee-app-version.py",
-      "npm update",
       "npm test",
       "npm run build",
       "git add build/"

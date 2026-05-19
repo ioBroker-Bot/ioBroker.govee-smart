@@ -28,10 +28,7 @@ function makeProbe(opts: FakeProbeOpts): GoveeMqttClient {
         throw opts.requestError;
       }
     },
-    connect: async (
-      _onStatus: unknown,
-      onConnection: (connected: boolean) => void,
-    ): Promise<void> => {
+    connect: async (_onStatus: unknown, onConnection: (connected: boolean) => void): Promise<void> => {
       if (opts.connectError) {
         throw opts.connectError;
       }

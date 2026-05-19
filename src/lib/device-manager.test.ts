@@ -232,14 +232,14 @@ describe("DeviceManager", () => {
       let updateCount = 0;
       let lastUpdate: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updateCount++;
           lastUpdate = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       // First Discovery — must flip online to true and emit one update
       dm.handleLanDiscovery({ ip: "192.168.1.100", device: "AABBCCDDEEFF0011", sku: "H6160" });
@@ -264,13 +264,13 @@ describe("DeviceManager", () => {
 
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       const update: MqttStatusUpdate = {
         sku: "H6160",
@@ -293,13 +293,13 @@ describe("DeviceManager", () => {
     it("should ignore unknown devices", () => {
       let updateCalled = false;
       dm.setCallbacks({
-      onUpdate: () => {
+        onUpdate: () => {
           updateCalled = true;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleMqttStatus({
         sku: "UNKNOWN",
@@ -322,13 +322,13 @@ describe("DeviceManager", () => {
 
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleLanStatus("192.168.1.100", {
         onOff: 0,
@@ -347,13 +347,13 @@ describe("DeviceManager", () => {
     it("should ignore unknown IP addresses", () => {
       let updateCalled = false;
       dm.setCallbacks({
-      onUpdate: () => {
+        onUpdate: () => {
           updateCalled = true;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleLanStatus("10.0.0.1", {
         onOff: 1,
@@ -1164,13 +1164,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1187,13 +1187,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1206,11 +1206,11 @@ describe("DeviceManager", () => {
     it("should set mqtt channel to true on status update", () => {
       setupDevice();
       dm.setCallbacks({
-      onUpdate: () => {},
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: () => {},
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1226,13 +1226,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleMqttStatus({
         sku: "H6160",
@@ -1250,13 +1250,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       // Govee schickt gelegentlich `brightness: "50"` (String) — der Adapter
       // muss das via coerceFiniteNumber zu 50 (Number) coerce'n und nicht
       // den String unverändert in den number-typed State propagieren.
@@ -1274,13 +1274,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       dm.handleMqttStatus({
         sku: "H6160",
         device: "AABBCCDDEEFF0011",
@@ -1298,13 +1298,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       dm.handleMqttStatus({
         sku: "H6160",
         device: "AABBCCDDEEFF0011",
@@ -1329,13 +1329,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleLanStatus("192.168.1.100", {
         onOff: 1,
@@ -1350,13 +1350,13 @@ describe("DeviceManager", () => {
       setupDevice();
       let updatedState: Partial<import("./types").DeviceState> | null = null;
       dm.setCallbacks({
-      onUpdate: (_dev, state) => {
+        onUpdate: (_dev, state) => {
           updatedState = state;
         },
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm.handleLanStatus("192.168.1.100", {
         onOff: 1,
@@ -1741,11 +1741,11 @@ describe("DeviceManager", () => {
 
       let segmentUpdates: import("./device-manager").MqttSegmentData[] | null = null;
       dm.setCallbacks({
-      onUpdate: () => {},
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: () => {},
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       dm.onMqttSegmentUpdate = (_dev, segs) => {
         segmentUpdates = segs;
       };
@@ -1789,11 +1789,11 @@ describe("DeviceManager", () => {
 
       let grownDevice: GoveeDevice | null = null;
       dm.setCallbacks({
-      onUpdate: () => {},
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: () => {},
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       dm.onSegmentCountGrown = d => {
         grownDevice = d;
       };
@@ -1838,11 +1838,11 @@ describe("DeviceManager", () => {
 
       let grownDevice: GoveeDevice | null = null;
       dm.setCallbacks({
-      onUpdate: () => {},
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: () => {},
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       dm.onSegmentCountGrown = d => {
         grownDevice = d;
       };
@@ -1882,11 +1882,11 @@ describe("DeviceManager", () => {
 
       let called = false;
       dm.setCallbacks({
-      onUpdate: () => {},
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: () => {},
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
       dm.onMqttSegmentUpdate = () => {
         called = true;
       };
@@ -2386,11 +2386,11 @@ describe("DeviceManager — loadFromCache merge", () => {
 
       const updates: Array<Partial<DeviceState>> = [];
       dm2.setCallbacks({
-      onUpdate: (_, s) => updates.push(s),
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: (_, s) => updates.push(s),
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       const apiClient = {
         hasBearerToken: () => true,
@@ -2406,7 +2406,10 @@ describe("DeviceManager — loadFromCache merge", () => {
       await dm2.pollAppApi();
 
       expect(dev.state.online).toBe(true);
-      expect(updates.some(u => u.online === true), "onDeviceUpdate fires for online flip").toBe(true);
+      expect(
+        updates.some(u => u.online === true),
+        "onDeviceUpdate fires for online flip",
+      ).toBe(true);
     });
 
     it("flips device.state.online when App-API delivers online:false", async () => {
@@ -2418,11 +2421,11 @@ describe("DeviceManager — loadFromCache merge", () => {
 
       const updates: Array<Partial<DeviceState>> = [];
       dm2.setCallbacks({
-      onUpdate: (_, s) => updates.push(s),
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: (_, s) => updates.push(s),
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       const apiClient = {
         hasBearerToken: () => true,
@@ -2438,7 +2441,10 @@ describe("DeviceManager — loadFromCache merge", () => {
       await dm2.pollAppApi();
 
       expect(dev.state.online).toBe(false);
-      expect(updates.some(u => u.online === false), "onDeviceUpdate fires for offline flip").toBe(true);
+      expect(
+        updates.some(u => u.online === false),
+        "onDeviceUpdate fires for offline flip",
+      ).toBe(true);
     });
 
     it("OpenAPI-MQTT events drive info.online via applyOnlineCap", () => {
@@ -2454,11 +2460,11 @@ describe("DeviceManager — loadFromCache merge", () => {
 
       const updates: Array<Partial<DeviceState>> = [];
       dm2.setCallbacks({
-      onUpdate: (_, s) => updates.push(s),
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: (_, s) => updates.push(s),
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm2.handleOpenApiEvent({
         sku: "H5179",
@@ -2470,7 +2476,10 @@ describe("DeviceManager — loadFromCache merge", () => {
       });
 
       expect(dev.state.online).toBe(true);
-      expect(updates.some(u => u.online === true), "onDeviceUpdate fires for OpenAPI-MQTT online").toBe(true);
+      expect(
+        updates.some(u => u.online === true),
+        "onDeviceUpdate fires for OpenAPI-MQTT online",
+      ).toBe(true);
     });
 
     it("treats data-without-online-flag as online (matches LAN/MQTT convention)", () => {
@@ -2483,11 +2492,11 @@ describe("DeviceManager — loadFromCache merge", () => {
 
       const updates: Array<Partial<DeviceState>> = [];
       dm2.setCallbacks({
-      onUpdate: (_, s) => updates.push(s),
-      onLanDeviceReady: () => {},
-      onCloudDataReady: () => {},
-      onGroupMembersReady: () => {},
-    });
+        onUpdate: (_, s) => updates.push(s),
+        onLanDeviceReady: () => {},
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
 
       dm2.handleOpenApiEvent({
         sku: "H5179",

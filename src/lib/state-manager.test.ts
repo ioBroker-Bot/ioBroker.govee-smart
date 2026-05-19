@@ -715,13 +715,9 @@ describe("StateManager", () => {
           channel: "scenes",
         },
       ]);
-      expect(sm.resolveStatePath("devices.h6160_0011", "light_scene")).toBe(
-        "devices.h6160_0011.scenes.light_scene",
-      );
+      expect(sm.resolveStatePath("devices.h6160_0011", "light_scene")).toBe("devices.h6160_0011.scenes.light_scene");
       expect(sm.resolveStatePath("devices.h6160_0011", "diy_scene")).toBe("devices.h6160_0011.scenes.diy_scene");
-      expect(sm.resolveStatePath("devices.h6160_0011", "scene_speed")).toBe(
-        "devices.h6160_0011.scenes.scene_speed",
-      );
+      expect(sm.resolveStatePath("devices.h6160_0011", "scene_speed")).toBe("devices.h6160_0011.scenes.scene_speed");
     });
 
     it("should route music states to music channel", async () => {
@@ -860,9 +856,7 @@ describe("StateManager", () => {
           channel: "sensor",
         },
       ]);
-      expect(sm.resolveStatePath("devices.h6160_0011", "temperature")).toBe(
-        "devices.h6160_0011.sensor.temperature",
-      );
+      expect(sm.resolveStatePath("devices.h6160_0011", "temperature")).toBe("devices.h6160_0011.sensor.temperature");
       expect(sm.resolveStatePath("devices.h6160_0011", "humidity")).toBe("devices.h6160_0011.sensor.humidity");
       expect(sm.resolveStatePath("devices.h6160_0011", "battery")).toBe("devices.h6160_0011.sensor.battery");
     });
@@ -924,15 +918,9 @@ describe("StateManager", () => {
       expect(sm.resolveStatePath("devices.hxxxx_yy", "lack_water_event")).toBe(
         "devices.hxxxx_yy.events.lack_water_event",
       );
-      expect(sm.resolveStatePath("devices.hxxxx_yy", "ice_full_event")).toBe(
-        "devices.hxxxx_yy.events.ice_full_event",
-      );
-      expect(sm.resolveStatePath("devices.hxxxx_yy", "body_appeared")).toBe(
-        "devices.hxxxx_yy.events.body_appeared",
-      );
-      expect(sm.resolveStatePath("devices.hxxxx_yy", "dirt_detected")).toBe(
-        "devices.hxxxx_yy.events.dirt_detected",
-      );
+      expect(sm.resolveStatePath("devices.hxxxx_yy", "ice_full_event")).toBe("devices.hxxxx_yy.events.ice_full_event");
+      expect(sm.resolveStatePath("devices.hxxxx_yy", "body_appeared")).toBe("devices.hxxxx_yy.events.body_appeared");
+      expect(sm.resolveStatePath("devices.hxxxx_yy", "dirt_detected")).toBe("devices.hxxxx_yy.events.dirt_detected");
     });
   });
 

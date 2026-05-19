@@ -635,7 +635,9 @@ describe("CommandRouter", () => {
       const fs = require("node:fs") as typeof import("node:fs");
       const path = require("node:path") as typeof import("node:path");
       const raw = fs.readFileSync(path.resolve(__dirname, "..", "..", "devices.json"), "utf-8");
-      const parsed = JSON.parse(raw) as { devices: Record<string, { quirks?: { transportOverrides?: Record<string, string> } }> };
+      const parsed = JSON.parse(raw) as {
+        devices: Record<string, { quirks?: { transportOverrides?: Record<string, string> } }>;
+      };
       const validKeys = [
         "power",
         "brightness",

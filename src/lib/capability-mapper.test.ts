@@ -918,7 +918,10 @@ describe("CapabilityMapper", () => {
       // tree which the quirk says we shouldn't trust. State id is
       // `light_scene` (snake_case) — the dropdown synthesizer's contract.
       const lightSceneDropdown = defs.find(d => d.id === "light_scene");
-      expect(lightSceneDropdown, "light_scene dropdown should not appear when brokenPlatformApi is set").toBeUndefined();
+      expect(
+        lightSceneDropdown,
+        "light_scene dropdown should not appear when brokenPlatformApi is set",
+      ).toBeUndefined();
       const brightness = defs.find(d => d.id === "brightness");
       expect(brightness, "capability-derived brightness should not come through buildCloudStateDefs").toBeUndefined();
     });
@@ -1059,9 +1062,18 @@ describe("CapabilityMapper", () => {
         ],
       });
       const defs = buildAllStateDefsForTest(device);
-      expect(defs.find(d => d.id === "light_scene"), "light_scene must NOT exist").toBeUndefined();
-      expect(defs.find(d => d.id === "diy_scene"), "diy_scene must NOT exist").toBeUndefined();
-      expect(defs.find(d => d.id === "snapshot_cloud"), "snapshot_cloud must NOT exist").toBeUndefined();
+      expect(
+        defs.find(d => d.id === "light_scene"),
+        "light_scene must NOT exist",
+      ).toBeUndefined();
+      expect(
+        defs.find(d => d.id === "diy_scene"),
+        "diy_scene must NOT exist",
+      ).toBeUndefined();
+      expect(
+        defs.find(d => d.id === "snapshot_cloud"),
+        "snapshot_cloud must NOT exist",
+      ).toBeUndefined();
     });
 
     it("refresh_cloud button is created for lights with any dynamic_scene capability", () => {
@@ -1084,7 +1096,10 @@ describe("CapabilityMapper", () => {
         ],
       });
       const defs = buildAllStateDefsForTest(device);
-      expect(defs.find(d => d.id === "refresh_cloud"), "refresh_cloud must exist for lightScene-only").toBeDefined();
+      expect(
+        defs.find(d => d.id === "refresh_cloud"),
+        "refresh_cloud must exist for lightScene-only",
+      ).toBeDefined();
     });
 
     it("refresh_cloud is NOT created when device has no dynamic_scene capability", () => {
@@ -1631,9 +1646,10 @@ describe("CapabilityMapper", () => {
       for (const def of getDefaultLanStates()) {
         expect(LAN_STATE_IDS.has(def.id), `LAN_STATE_IDS missing entry for ${def.id}`).toBe(true);
       }
-      expect(LAN_STATE_IDS.size, "LAN_STATE_IDS has entries not backed by getDefaultLanStates — drift in the other direction").toBe(
-        getDefaultLanStates().length,
-      );
+      expect(
+        LAN_STATE_IDS.size,
+        "LAN_STATE_IDS has entries not backed by getDefaultLanStates — drift in the other direction",
+      ).toBe(getDefaultLanStates().length);
     });
 
     it("Invariante 2: buildCloudStateDefs hat keinen Overlap mit LAN_STATE_IDS", () => {

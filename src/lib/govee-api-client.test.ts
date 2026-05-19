@@ -22,12 +22,8 @@ describe("AppApiClient — lastDeviceData parser", () => {
   });
 
   it("accepts numeric online=1/0 (older firmware variants)", () => {
-    expect(parseLastData('{"online":1,"tem":100}')).toEqual(
-      expect.objectContaining({ online: true }),
-    );
-    expect(parseLastData('{"online":0}')).toEqual(
-      expect.objectContaining({ online: false }),
-    );
+    expect(parseLastData('{"online":1,"tem":100}')).toEqual(expect.objectContaining({ online: true }));
+    expect(parseLastData('{"online":0}')).toEqual(expect.objectContaining({ online: false }));
   });
 
   it("ignores unexpected types for each field", () => {
@@ -47,9 +43,7 @@ describe("AppApiClient — lastDeviceData parser", () => {
   });
 
   it("preserves battery when present", () => {
-    expect(parseLastData('{"battery":75,"tem":2000}')).toEqual(
-      expect.objectContaining({ battery: 75 }),
-    );
+    expect(parseLastData('{"battery":75,"tem":2000}')).toEqual(expect.objectContaining({ battery: 75 }));
   });
 });
 

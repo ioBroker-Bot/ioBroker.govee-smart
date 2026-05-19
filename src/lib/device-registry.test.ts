@@ -262,9 +262,7 @@ describe("DeviceRegistry", () => {
     // No AJV dependency — manual check is bordmittel and runs as a normal
     // unit test.
     it("all transportOverrides entries use known command names and valid targets", () => {
-      const realDevices = JSON.parse(
-        fs.readFileSync(path.resolve(__dirname, "..", "..", "devices.json"), "utf-8"),
-      ) as {
+      const realDevices = JSON.parse(fs.readFileSync(path.resolve(__dirname, "..", "..", "devices.json"), "utf-8")) as {
         devices: Record<string, { quirks?: { transportOverrides?: Record<string, string> } }>;
       };
       const validCommands = [

@@ -120,7 +120,9 @@ describe("GoveeCloudClient", () => {
     });
 
     it("should fire the hook on getDeviceState", async () => {
-      const fake = makeFakeHttps(() => ({ data: { capabilities: [{ type: "x", instance: "y", state: { value: 1 } }] } }));
+      const fake = makeFakeHttps(() => ({
+        data: { capabilities: [{ type: "x", instance: "y", state: { value: 1 } }] },
+      }));
       const client = new GoveeCloudClient("test-api-key", mockLog, fake.fn);
       const captured: Array<{ deviceId: string; endpoint: string }> = [];
       client.setResponseHook((deviceId, endpoint, _body) => captured.push({ deviceId, endpoint }));
@@ -205,7 +207,9 @@ describe("GoveeCloudClient", () => {
       await client.controlDevice("H6160", "AABB", "devices.capabilities.on_off", "powerSwitch", 1);
       expect(fake.calls[0].method).toBe("POST");
       expect(fake.calls[0].url).toContain("/router/api/v1/device/control");
-      const body = fake.calls[0].body as { payload: { capability: { type: string; instance: string; value: unknown } } };
+      const body = fake.calls[0].body as {
+        payload: { capability: { type: string; instance: string; value: unknown } };
+      };
       expect(body.payload.capability.type).toBe("devices.capabilities.on_off");
       expect(body.payload.capability.instance).toBe("powerSwitch");
       expect(body.payload.capability.value).toBe(1);

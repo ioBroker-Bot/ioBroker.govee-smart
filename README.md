@@ -98,11 +98,11 @@ All ports are fixed by the Govee LAN protocol and cannot be changed.
 
 Each device shows where its model sits in the catalogue under `diag.tier`:
 
-| Tier         | Meaning                                                                                                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **verified** | Confirmed on real hardware — known per-SKU corrections active.                                                                     |
-| **reported** | Community-reported, treated as verified.                                                                                           |
-| **seed**     | Beta. Known per-SKU corrections only apply when **Enable experimental device support** is on in adapter settings.                  |
+| Tier         | Meaning                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **verified** | Confirmed on real hardware — known per-SKU corrections active.                                                                            |
+| **reported** | Community-reported, treated as verified.                                                                                                  |
+| **seed**     | Beta. Known per-SKU corrections only apply when **Enable experimental device support** is on in adapter settings.                         |
 | **unknown**  | The model isn't in the catalogue yet. Press `diag.export` on the device and post the resulting JSON in a GitHub issue so it can be added. |
 
 The adapter writes one log line per model on startup if the model is `seed` (without the toggle) or `unknown` — once per startup, not on every reconnect.
@@ -124,10 +124,16 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ---
 
 ## Changelog
+
 <!--
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### **WORK IN PROGRESS**
+
+- Code quality enforced with standard formatting.
+
 ### 2.12.0 (2026-05-17)
 
 - Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)

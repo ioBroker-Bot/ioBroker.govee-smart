@@ -16,10 +16,7 @@ interface RecordedCommand {
   value: unknown;
 }
 
-function makeHost(opts: {
-  initialSnapshots?: LocalSnapshot[];
-  initialState?: Record<string, ioBroker.State>;
-}): {
+function makeHost(opts: { initialSnapshots?: LocalSnapshot[]; initialState?: Record<string, ioBroker.State> }): {
   host: SnapshotHandlerHost;
   commands: RecordedCommand[];
   saved: LocalSnapshot[];

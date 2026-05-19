@@ -7,11 +7,15 @@ function makeAdapter(native: Record<string, unknown> = {}): CloudCredsAdapter & 
     log: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} } as unknown as ioBroker.Logger,
     namespace: "govee-smart.0",
     getStateAsync: async () => null,
-    setStateAsync: async (id) => { calls.push(`setState:${id}`); },
+    setStateAsync: async id => {
+      calls.push(`setState:${id}`);
+    },
     getForeignObjectAsync: async () => ({ native }),
-    extendForeignObjectAsync: async (_id, obj) => { calls.push(`extend:${JSON.stringify(obj.native)}`); },
-    encrypt: (v) => v,
-    decrypt: (v) => v,
+    extendForeignObjectAsync: async (_id, obj) => {
+      calls.push(`extend:${JSON.stringify(obj.native)}`);
+    },
+    encrypt: v => v,
+    decrypt: v => v,
   };
 }
 

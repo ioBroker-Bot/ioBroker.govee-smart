@@ -20,9 +20,9 @@ updates:
       # type defs cannot drift ahead of the supported runtime range.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # typescript pinned to ~5.9.x because @iobroker/eslint-config@2 ships
-      # typescript-eslint@8 which requires TS ~5.x. Bump only when eslint-config
-      # adds TS 6 support.
+      # typescript pinned to ~6.0.x because @iobroker/eslint-config@2 ships
+      # typescript-eslint@8 which requires TS <6.1.0. Bump only when eslint-config
+      # adds TS 6.1+ support.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       # eslint pinned to v9 because @iobroker/eslint-config@2 expects v9 API.

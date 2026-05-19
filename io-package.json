@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.12.0",
     "news": {
+      "NEXT": {
+        "en": "Code quality enforced with standard formatting.",
+        "de": "Codequalität durch einheitliche Formatierung sichergestellt.",
+        "ru": "Качество кода обеспечено единым форматированием.",
+        "pt": "Qualidade do código garantida com formatação padronizada.",
+        "nl": "Codekwaliteit gewaarborgd met standaard opmaak.",
+        "fr": "Qualité du code assurée par un formatage standardisé.",
+        "it": "Qualità del codice assicurata con formattazione standard.",
+        "es": "Calidad del código asegurada con formato estándar.",
+        "pl": "Jakość kodu zapewniona przez standardowe formatowanie.",
+        "uk": "Якість коду забезпечено стандартним форматуванням.",
+        "zh-cn": "通过标准格式化确保代码质量。"
+      },
       "2.12.0": {
         "en": "Removed unused info.legacyMqttCleaned datapoint. All info datapoint names now show in 11 languages instead of English-only.",
         "de": "Unbenutzter Datenpunkt info.legacyMqttCleaned entfernt. Alle Info-Datenpunktnamen werden jetzt in 11 Sprachen angezeigt statt nur Englisch.",
@@ -80,19 +93,6 @@
         "pl": "Raporty zawierają teraz zapisane dane scen, snapshotów i efektów urządzenia. Problemy analizowalne z samego eksportu. Grupy mają teraz własny przycisk diagnostyki.",
         "uk": "Звіти про проблеми тепер містять збережені дані сцен, снапшотів і ефектів пристрою. Проблеми аналізуються з самого експорту. У груп — своя кнопка діагностики.",
         "zh-cn": "故障报告现在包含设备保存的场景、快照与效果数据，设备问题可直接通过导出分析。分组也拥有独立的诊断按钮。"
-      },
-      "2.9.0": {
-        "en": "info.online for Lights now tracks real LAN reachability (90 s window). Cloud and MQTT push no longer write it — they produced false-positive true during real outages.",
-        "de": "info.online für Lights spiegelt jetzt die echte LAN-Erreichbarkeit wider (90-s-Fenster). Cloud und MQTT-Push schreiben den State nicht mehr — sie haben bei echten Ausfällen fälschlich true geliefert.",
-        "ru": "info.online для светильников теперь отражает реальную LAN-доступность (окно 90 с). Cloud и MQTT-push больше не записывают этот state — раньше они выдавали ложные true во время реальных отключений.",
-        "pt": "info.online para luzes agora reflete a acessibilidade LAN real (janela de 90 s). Cloud e MQTT push já não escrevem o estado — anteriormente geravam true falsos durante falhas reais.",
-        "nl": "info.online voor lampen volgt nu de echte LAN-bereikbaarheid (90 s venster). Cloud en MQTT-push schrijven het niet meer — ze leverden eerder onterechte true tijdens echte storingen.",
-        "fr": "info.online pour les lumières reflète maintenant la véritable joignabilité LAN (fenêtre de 90 s). Cloud et MQTT push ne l'écrivent plus — ils produisaient des true erronés lors de vraies pannes.",
-        "it": "info.online per le luci ora rispecchia la reale raggiungibilità LAN (finestra di 90 s). Cloud e MQTT push non lo scrivono più — in passato producevano true erronei durante interruzioni reali.",
-        "es": "info.online para luces ahora refleja la accesibilidad LAN real (ventana de 90 s). Cloud y MQTT push ya no lo escriben — antes producían true falsos durante apagones reales.",
-        "pl": "info.online dla lamp odzwierciedla teraz rzeczywistą dostępność LAN (okno 90 s). Chmura i MQTT-push już go nie zapisują — wcześniej dawały fałszywe true podczas prawdziwych awarii.",
-        "uk": "info.online для світильників тепер відображає реальну LAN-доступність (вікно 90 с). Cloud та MQTT-push більше не записують стан — раніше вони видавали хибні true під час реальних відключень.",
-        "zh-cn": "灯具的 info.online 现在反映真实的 LAN 可达性（90 秒窗口）。Cloud 与 MQTT 推送不再写入该状态——它们曾在真实掉线时产生错误的 true。"
       }
     },
     "titleLang": {
@@ -121,9 +121,7 @@
       "uk": "Керування пристроями Govee WiFi через LAN, MQTT та Cloud API.",
       "zh-cn": "通过 LAN、MQTT 和 Cloud API 控制 Govee WiFi 设备。"
     },
-    "authors": [
-      "krobi <krobi@power-dreams.com>"
-    ],
+    "authors": ["krobi <krobi@power-dreams.com>"],
     "licenseInformation": {
       "license": "MIT",
       "type": "free"
@@ -137,16 +135,7 @@
     "loglevel": "info",
     "mode": "daemon",
     "messagebox": true,
-    "keywords": [
-      "govee",
-      "lights",
-      "led",
-      "lan",
-      "mqtt",
-      "ble",
-      "sensor",
-      "thermometer"
-    ],
+    "keywords": ["govee", "lights", "led", "lan", "mqtt", "ble", "sensor", "thermometer"],
     "type": "lighting",
     "compact": true,
     "connectionType": "local",
@@ -168,17 +157,8 @@
       }
     ]
   },
-  "encryptedNative": [
-    "apiKey",
-    "goveePassword",
-    "mqttVerificationCode"
-  ],
-  "protectedNative": [
-    "apiKey",
-    "goveeEmail",
-    "goveePassword",
-    "mqttVerificationCode"
-  ],
+  "encryptedNative": ["apiKey", "goveePassword", "mqttVerificationCode"],
+  "protectedNative": ["apiKey", "goveeEmail", "goveePassword", "mqttVerificationCode"],
   "instanceObjects": [
     {
       "_id": "info",

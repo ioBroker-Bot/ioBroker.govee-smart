@@ -178,7 +178,6 @@ describe("DiagnosticsCollector", () => {
       expect(list[0].statusCode).toBe(403);
       expect(list[0].body).toEqual({ error: "403 Forbidden", status: 403 });
     });
-
   });
 
   describe("forget / clear", () => {
@@ -223,25 +222,27 @@ describe("DiagnosticsCollector", () => {
       const c = new DiagnosticsCollector();
       const result = c.generate(makeDevice(), "2.0.0");
       const keys = Object.keys(result).sort();
-      expect(keys).toEqual(expect.arrayContaining([
-        "adapter",
-        "version",
-        "exportedAt",
-        "device",
-        "capabilities",
-        "scenes",
-        "diyScenes",
-        "snapshots",
-        "sceneLibrary",
-        "musicLibrary",
-        "diyLibrary",
-        "quirks",
-        "skuFeatures",
-        "state",
-        "recentLogs",
-        "lastMqttPackets",
-        "apiHistory",
-      ]));
+      expect(keys).toEqual(
+        expect.arrayContaining([
+          "adapter",
+          "version",
+          "exportedAt",
+          "device",
+          "capabilities",
+          "scenes",
+          "diyScenes",
+          "snapshots",
+          "sceneLibrary",
+          "musicLibrary",
+          "diyLibrary",
+          "quirks",
+          "skuFeatures",
+          "state",
+          "recentLogs",
+          "lastMqttPackets",
+          "apiHistory",
+        ]),
+      );
     });
 
     it("attaches active quirks for known SKUs", () => {
@@ -303,7 +304,7 @@ describe("DiagnosticsCollector", () => {
               name: "Easter",
               sceneCode: 11217,
               scenceParam: "AyYAAQAKAgH/GQG0Cgo=",
-              speedInfo: { supSpeed: true, speedIndex: 1, config: "[{\"page\":0,\"moveIn\":[252,253,255]}]" },
+              speedInfo: { supSpeed: true, speedIndex: 1, config: '[{"page":0,"moveIn":[252,253,255]}]' },
             },
           ],
         }),
@@ -335,16 +336,18 @@ describe("DiagnosticsCollector", () => {
   describe("v2.9.1 Class C3 — HttpError.responseBody flows into recordApiFailure", () => {
     it("captures responseBody so the diag JSON shows the body, not just the status", () => {
       const c = new DiagnosticsCollector();
-      const err = new HttpError("HTTP 401", 401, {}, "{\"message\":\"API key invalid\"}");
+      const err = new HttpError("HTTP 401", 401, {}, '{"message":"API key invalid"}');
       c.recordApiFailure("dev1", "/router/api/v1/user/devices", err, 401);
-      const list = (c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").apiHistory as Record<
-        string,
-        Array<Record<string, unknown>>
-      >)["/router/api/v1/user/devices"];
+      const list = (
+        c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").apiHistory as Record<
+          string,
+          Array<Record<string, unknown>>
+        >
+      )["/router/api/v1/user/devices"];
       const body = list[0].body as Record<string, unknown>;
       expect(body.error).toBe("HTTP 401");
       expect(body.status).toBe(401);
-      expect(body.responseBody).toBe("{\"message\":\"API key invalid\"}");
+      expect(body.responseBody).toBe('{"message":"API key invalid"}');
     });
 
     it("truncates the responseBody when it would exceed the cap", () => {
@@ -352,10 +355,12 @@ describe("DiagnosticsCollector", () => {
       const huge = "x".repeat(80_000);
       const err = new HttpError("HTTP 500", 500, {}, huge);
       c.recordApiFailure("dev1", "/api/oops", err, 500);
-      const list = (c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").apiHistory as Record<
-        string,
-        Array<Record<string, unknown>>
-      >)["/api/oops"];
+      const list = (
+        c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").apiHistory as Record<
+          string,
+          Array<Record<string, unknown>>
+        >
+      )["/api/oops"];
       const body = list[0].body as Record<string, unknown>;
       expect((body.responseBody as string).length).toBeLessThan(80_000);
       expect((body.responseBody as string).endsWith("…")).toBe(true);
@@ -409,7 +414,7 @@ describe("DiagnosticsCollector", () => {
       const c = new DiagnosticsCollector();
       const envelope = JSON.stringify({ sku: "H61BE", device: "23:3E:CA", state: { onOff: 1 } });
       c.addMqttPacket("dev1", "GA/account", { rawJson: envelope });
-      const packets = (c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").lastMqttPackets) as Array<
+      const packets = c.generate(makeDevice({ deviceId: "dev1" }), "2.9.1").lastMqttPackets as Array<
         Record<string, unknown>
       >;
       expect(packets[0].hex).toBeUndefined();

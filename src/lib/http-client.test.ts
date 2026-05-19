@@ -102,9 +102,7 @@ function httpRequestPlain<T>(options: {
       path: u.pathname + u.search,
       headers: {
         ...options.headers,
-        ...(postData
-          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(postData) }
-          : {}),
+        ...(postData ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(postData) } : {}),
       },
       timeout: options.timeout ?? 15_000,
     };

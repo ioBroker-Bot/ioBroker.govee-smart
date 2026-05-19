@@ -1,10 +1,5 @@
 import { HttpError } from "./http-client";
-import {
-  formatChannelFail,
-  logChannelFail,
-  logChannelRestored,
-  type ChannelDedupState,
-} from "./log-channel-fail";
+import { formatChannelFail, logChannelFail, logChannelRestored, type ChannelDedupState } from "./log-channel-fail";
 
 interface CapturedLog {
   level: "debug" | "info" | "warn" | "error";
@@ -54,7 +49,9 @@ describe("formatChannelFail (pure formatter)", () => {
   it("UNKNOWN: includes err.message + retryHint", () => {
     const err = new Error("Govee returned weird payload");
     const out = formatChannelFail("Cloud REST", "UNKNOWN", err, "retrying every 5 min", "loading device list");
-    expect(out).toBe("Cloud REST: request failed (loading device list) — Govee returned weird payload — retrying every 5 min");
+    expect(out).toBe(
+      "Cloud REST: request failed (loading device list) — Govee returned weird payload — retrying every 5 min",
+    );
   });
 
   it("VERIFICATION_PENDING: directs user to Settings, no retry hint inserted", () => {
