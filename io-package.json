@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.12.0",
+    "version": "2.12.1",
     "news": {
-      "NEXT": {
+      "2.12.1": {
         "en": "Code quality enforced with standard formatting.",
         "de": "Codequalität durch einheitliche Formatierung sichergestellt.",
         "ru": "Качество кода обеспечено единым форматированием.",
@@ -121,7 +121,9 @@
       "uk": "Керування пристроями Govee WiFi через LAN, MQTT та Cloud API.",
       "zh-cn": "通过 LAN、MQTT 和 Cloud API 控制 Govee WiFi 设备。"
     },
-    "authors": ["krobi <krobi@power-dreams.com>"],
+    "authors": [
+      "krobi <krobi@power-dreams.com>"
+    ],
     "licenseInformation": {
       "license": "MIT",
       "type": "free"
@@ -135,7 +137,16 @@
     "loglevel": "info",
     "mode": "daemon",
     "messagebox": true,
-    "keywords": ["govee", "lights", "led", "lan", "mqtt", "ble", "sensor", "thermometer"],
+    "keywords": [
+      "govee",
+      "lights",
+      "led",
+      "lan",
+      "mqtt",
+      "ble",
+      "sensor",
+      "thermometer"
+    ],
     "type": "lighting",
     "compact": true,
     "connectionType": "local",
@@ -157,8 +168,17 @@
       }
     ]
   },
-  "encryptedNative": ["apiKey", "goveePassword", "mqttVerificationCode"],
-  "protectedNative": ["apiKey", "goveeEmail", "goveePassword", "mqttVerificationCode"],
+  "encryptedNative": [
+    "apiKey",
+    "goveePassword",
+    "mqttVerificationCode"
+  ],
+  "protectedNative": [
+    "apiKey",
+    "goveeEmail",
+    "goveePassword",
+    "mqttVerificationCode"
+  ],
   "instanceObjects": [
     {
       "_id": "info",
