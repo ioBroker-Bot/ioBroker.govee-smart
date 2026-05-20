@@ -152,8 +152,10 @@ export class MessageRouter {
     if (action === "requestCode") {
       const now = Date.now();
       if (now - this.lastVerificationRequestMs < VERIFICATION_REQUEST_THROTTLE_MS) {
-        const wait = Math.ceil((VERIFICATION_REQUEST_THROTTLE_MS - (now - this.lastVerificationRequestMs)) / 1000);
-        return { result: `Bitte ${wait}s warten — gerade wurde schon ein Code angefordert.` };
+        const remainingSec = Math.ceil(
+          (VERIFICATION_REQUEST_THROTTLE_MS - (now - this.lastVerificationRequestMs)) / 1000,
+        );
+        return { result: `Bitte ${remainingSec}s warten — gerade wurde schon ein Code angefordert.` };
       }
       this.lastVerificationRequestMs = now;
       const probe = this.host.createMqttProbeClient();

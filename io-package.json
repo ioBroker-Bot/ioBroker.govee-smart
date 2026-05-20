@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.12.1",
     "news": {
+      "NEXT": {
+        "en": "Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.",
+        "de": "Getestet mit Node.js 24. Interne Bereinigung für strengere ioBroker-Repochecker-Konformität.",
+        "ru": "Проверено с Node.js 24. Внутренняя оптимизация для строгого соответствия проверке ioBroker.",
+        "pt": "Verificado com Node.js 24. Limpeza interna para conformidade mais rigorosa com o repochecker do ioBroker.",
+        "nl": "Getest met Node.js 24. Interne opruiming voor striktere ioBroker-repochecker-naleving.",
+        "fr": "Vérifié avec Node.js 24. Nettoyage interne pour une conformité plus stricte avec le repochecker ioBroker.",
+        "it": "Verificato con Node.js 24. Pulizia interna per una conformità più rigorosa con il repochecker ioBroker.",
+        "es": "Verificado con Node.js 24. Limpieza interna para un cumplimiento más estricto del repochecker de ioBroker.",
+        "pl": "Zweryfikowano z Node.js 24. Wewnętrzne porządki dla ściślejszej zgodności z repocheckerem ioBroker.",
+        "uk": "Перевірено з Node.js 24. Внутрішнє прибирання для суворішої відповідності repochecker ioBroker.",
+        "zh-cn": "已通过 Node.js 24 验证。内部清理以更严格符合 ioBroker repochecker 要求。"
+      },
       "2.12.1": {
         "en": "Code quality enforced with standard formatting.",
         "de": "Codequalität durch einheitliche Formatierung sichergestellt.",
@@ -80,19 +93,6 @@
         "pl": "Snapshoty na Curtain Lights (H70B3), Christmas Strings (H70C5) i Outdoor Neon (H61A8) działają; sceny matrix też. Nowy system quirks: poprawki przez katalog, bez releasu.",
         "uk": "Знімки на Curtain Lights (H70B3), Christmas Strings (H70C5) і Outdoor Neon (H61A8) працюють; сцени матричних теж. Нова система квірків: правки через каталог, без релізу.",
         "zh-cn": "Curtain Lights (H70B3)、Christmas Strings (H70C5) 和 Outdoor Neon (H61A8) 的快照可用；矩阵场景也是。新增 quirks 系统：设备修复通过目录，无需新版本。"
-      },
-      "2.9.1": {
-        "en": "Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable from the export alone. Groups now have their own diagnostics button.",
-        "de": "Issue-Berichte enthalten jetzt die gespeicherten Szenen-, Snapshot- und Effekt-Daten. Probleme aus dem Export analysierbar. Gruppen haben jetzt einen eigenen Diagnose-Button.",
-        "ru": "Отчёты об ошибках теперь содержат сохранённые данные сцен, снимков и эффектов устройства. Проблемы анализируются прямо из экспорта. У групп — своя кнопка диагностики.",
-        "pt": "Relatórios incluem agora os dados de cenas, snapshots e efeitos guardados no dispositivo. Problemas analisáveis a partir do próprio export. Grupos têm botão de diagnóstico próprio.",
-        "nl": "Issue-rapporten bevatten nu de opgeslagen scène-, snapshot- en effect-data. Problemen alleen al uit de export analyseerbaar. Groepen krijgen een eigen diagnose-knop.",
-        "fr": "Les rapports d'incident contiennent maintenant les données de scènes, snapshots et effets. Problèmes analysables depuis le seul export. Les groupes ont leur propre bouton diagnostic.",
-        "it": "I rapporti includono ora i dati di scene, snapshot ed effetti salvati nel dispositivo. Problemi analizzabili dal solo export. I gruppi hanno un proprio pulsante di diagnostica.",
-        "es": "Los informes incluyen ahora los datos de escenas, snapshots y efectos guardados. Los problemas se analizan desde la propia exportación. Los grupos tienen su propio botón de diagnóstico.",
-        "pl": "Raporty zawierają teraz zapisane dane scen, snapshotów i efektów urządzenia. Problemy analizowalne z samego eksportu. Grupy mają teraz własny przycisk diagnostyki.",
-        "uk": "Звіти про проблеми тепер містять збережені дані сцен, снапшотів і ефектів пристрою. Проблеми аналізуються з самого експорту. У груп — своя кнопка діагностики.",
-        "zh-cn": "故障报告现在包含设备保存的场景、快照与效果数据，设备问题可直接通过导出分析。分组也拥有独立的诊断按钮。"
       }
     },
     "titleLang": {

@@ -32,6 +32,7 @@ export const mockTimers = {
     return undefined;
   },
   clearTimeout: () => undefined,
+  delay: () => Promise.resolve(),
 } as never;
 
 /**

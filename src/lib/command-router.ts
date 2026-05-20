@@ -131,10 +131,7 @@ export class CommandRouter {
     const current = typeof device.state.colorRgb === "string" ? device.state.colorRgb : null;
     const { r, g, b } = current ? hexToRgb(current) : { r: 255, g: 255, b: 255 };
     this.lanClient.setColor(device.lanIp, r, g, b);
-    // Delay routed through the adapter's timer wrapper so it gets cancelled
-    // if the adapter unloads mid-delay. Native setTimeout would leave a
-    // pending handle that fires into a half-torn-down adapter.
-    await new Promise<void>(resolve => this.timers.setTimeout(() => resolve(), FORCE_COLOR_MODE_SETTLE_MS));
+    await this.timers.delay(FORCE_COLOR_MODE_SETTLE_MS);
   }
 
   /**

@@ -302,14 +302,12 @@ const defaultWikiDir = path.resolve(repoRoot, "..", "ioBroker.govee-smart.wiki")
 const wikiDir = process.argv[2] || defaultWikiDir;
 
 if (!fs.existsSync(devicesJson)) {
-  console.error(`devices.json not found at ${devicesJson}`);
-  process.exit(1);
+  throw new Error(`devices.json not found at ${devicesJson}`);
 }
 if (!fs.existsSync(wikiDir)) {
-  console.error(
+  throw new Error(
     `Wiki directory not found at ${wikiDir}. Clone the wiki repo first:\n  git clone https://github.com/krobipd/ioBroker.govee-smart.wiki.git ../ioBroker.govee-smart.wiki`,
   );
-  process.exit(1);
 }
 
 const data = JSON.parse(fs.readFileSync(devicesJson, "utf-8")) as DevicesFile;

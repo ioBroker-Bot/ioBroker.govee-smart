@@ -76,6 +76,7 @@ const noopTimers: TimerAdapter = {
     return undefined;
   },
   clearTimeout: () => undefined,
+  delay: () => Promise.resolve(),
 };
 
 function makeDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {

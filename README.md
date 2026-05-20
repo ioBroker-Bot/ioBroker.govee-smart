@@ -129,6 +129,11 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### **WORK IN PROGRESS**
+
+- Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.
+
 ### 2.12.1 (2026-05-19)
 
 - Code quality enforced with standard formatting.

@@ -15,6 +15,7 @@ const mockTimers = {
   clearInterval: () => {},
   setTimeout: () => ({}) as ioBroker.Timeout,
   clearTimeout: () => {},
+  delay: () => Promise.resolve(),
 };
 
 describe("RateLimiter", () => {

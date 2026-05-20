@@ -45,7 +45,8 @@ const mockTimers = {
     cb();
     return void 0;
   },
-  clearTimeout: () => void 0
+  clearTimeout: () => void 0,
+  delay: () => Promise.resolve()
 };
 function lightCapabilities() {
   return [

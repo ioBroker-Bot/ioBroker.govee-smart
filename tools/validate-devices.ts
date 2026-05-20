@@ -177,8 +177,7 @@ function validate(devicesJsonPath: string): Issue[] {
 const devicesJson = path.resolve(process.cwd(), "devices.json");
 
 if (!fs.existsSync(devicesJson)) {
-  console.error(`devices.json not found at ${devicesJson}`);
-  process.exit(1);
+  throw new Error(`devices.json not found at ${devicesJson}`);
 }
 
 const issues = validate(devicesJson);
@@ -188,11 +187,10 @@ if (issues.length === 0) {
   };
   const count = Object.keys(data.devices).length;
   console.log(`devices.json valid — ${count} entries`);
-  process.exit(0);
+} else {
+  console.error(`devices.json has ${issues.length} issue(s):`);
+  for (const i of issues) {
+    console.error(`  [${i.sku}] ${i.msg}`);
+  }
+  throw new Error("validation failed");
 }
-
-console.error(`devices.json has ${issues.length} issue(s):`);
-for (const i of issues) {
-  console.error(`  [${i.sku}] ${i.msg}`);
-}
-process.exit(1);

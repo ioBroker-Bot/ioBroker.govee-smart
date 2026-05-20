@@ -114,7 +114,7 @@ class CommandRouter {
     const current = typeof device.state.colorRgb === "string" ? device.state.colorRgb : null;
     const { r, g, b } = current ? (0, import_types.hexToRgb)(current) : { r: 255, g: 255, b: 255 };
     this.lanClient.setColor(device.lanIp, r, g, b);
-    await new Promise((resolve) => this.timers.setTimeout(() => resolve(), FORCE_COLOR_MODE_SETTLE_MS));
+    await this.timers.delay(FORCE_COLOR_MODE_SETTLE_MS);
   }
   /**
    * Look up the quirk-driven transport override for a (device, command) pair.

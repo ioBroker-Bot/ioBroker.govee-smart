@@ -829,8 +829,8 @@ export class GoveeMqttClient {
     const now = Date.now();
     const elapsed = now - this.lastVerificationRequestMs;
     if (this.lastVerificationRequestMs > 0 && elapsed < VERIFICATION_REQUEST_THROTTLE_MS) {
-      const waitSec = Math.ceil((VERIFICATION_REQUEST_THROTTLE_MS - elapsed) / 1000);
-      throw new Error(`Verification code request throttled — wait ${waitSec}s before retrying.`);
+      const throttleRemainingSec = Math.ceil((VERIFICATION_REQUEST_THROTTLE_MS - elapsed) / 1000);
+      throw new Error(`Verification code request throttled — wait ${throttleRemainingSec}s before retrying.`);
     }
     this.lastVerificationRequestMs = now;
     const url = "https://app2.govee.com/account/rest/account/v1/verification";

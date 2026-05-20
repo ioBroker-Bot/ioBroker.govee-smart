@@ -48,6 +48,7 @@ const mockTimers = {
     return undefined;
   },
   clearTimeout: () => undefined,
+  delay: () => Promise.resolve(),
 } as never;
 
 function lightCapabilities(): CloudCapability[] {

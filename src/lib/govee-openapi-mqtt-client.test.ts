@@ -22,6 +22,7 @@ const mockTimers = {
   clearInterval: () => {},
   setTimeout: () => undefined,
   clearTimeout: () => {},
+  delay: () => Promise.resolve(),
 };
 
 describe("GoveeOpenapiMqttClient", () => {

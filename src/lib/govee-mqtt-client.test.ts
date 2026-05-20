@@ -12,6 +12,7 @@ const noopTimers = {
   clearInterval: () => undefined,
   setTimeout: () => undefined,
   clearTimeout: () => undefined,
+  delay: () => Promise.resolve(),
 } as never;
 
 interface FakeHttpsRequest {
