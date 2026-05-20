@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.12.1",
+    "version": "2.12.2",
     "news": {
-      "NEXT": {
+      "2.12.2": {
         "en": "Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.",
         "de": "Getestet mit Node.js 24. Interne Bereinigung für strengere ioBroker-Repochecker-Konformität.",
         "ru": "Проверено с Node.js 24. Внутренняя оптимизация для строгого соответствия проверке ioBroker.",
