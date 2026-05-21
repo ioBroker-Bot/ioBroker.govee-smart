@@ -32,9 +32,7 @@ function updateConnectionState(adapter) {
   var _a, _b, _c, _d;
   const devices = (_b = (_a = adapter.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : [];
   const hasDevices = devices.length > 0;
-  const anyOnline = devices.some(
-    (d) => d.state.online || d.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && !d.lanIp && d.channels.cloud && adapter.cloudWasConnected
-  );
+  const anyOnline = devices.some((d) => d.state.online);
   const lanRunning = adapter.lanClient !== null;
   const connected = hasDevices ? anyOnline : lanRunning;
   if (connected !== adapter.lastConnectionState) {
@@ -136,12 +134,7 @@ function checkAllReady(adapter) {
   (_b = adapter.deviceManager) == null ? void 0 : _b.saveDevicesToCache();
 }
 function logDeviceSummary(adapter) {
-  var _a, _b;
-  const allDevices = (_b = (_a = adapter.deviceManager) == null ? void 0 : _a.getDevices()) != null ? _b : [];
-  const lights = allDevices.filter((d) => d.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT);
-  const anyLightOnLan = lights.some((d) => d.lanIp);
-  const lanOk = lights.length === 0 || anyLightOnLan;
-  const parts = [lanOk ? "LAN \u2713" : "LAN \u2717"];
+  const parts = ["LAN \u2713"];
   if (adapter.cloudClient) {
     parts.push(adapter.cloudWasConnected ? "Cloud REST \u2713" : "Cloud REST \u2717");
   }
@@ -159,16 +152,6 @@ function logDeviceSummary(adapter) {
   if (adapter.mqttClient && !adapter.mqttClient.connected) {
     const reason = adapter.mqttClient.getFailureReason();
     adapter.log.warn(reason ? `Lights Push: ${reason}` : `Lights Push: not connected \u2014 see earlier errors`);
-  }
-  if (!lanOk) {
-    adapter.log.warn(
-      "LAN: no lights reachable on local network \u2014 cloud-only mode is ~100\xD7 slower (5-10s vs 50ms per command) and rate-limited (10/min). Enable the local API in the Govee Home app: https://app-h5.govee.com/user-manual/wlan-guide"
-    );
-    for (const d of lights) {
-      if (!d.lanIp) {
-        adapter.log.info(`${d.name} (${d.sku}): no LAN \u2014 enable the local API in the Govee Home app`);
-      }
-    }
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

@@ -129,7 +129,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 2.12.3 (2026-05-21)
+### **WORK IN PROGRESS**
 
 - Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API
 - Lights without local API now fall back to cloud control instead of failing silently
@@ -150,6 +150,13 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.11.1 (2026-05-16)
 
 - Internal cleanup. No user-facing changes.
+
+### 2.11.0 (2026-05-16)
+
+- Security: the 2FA verification code is now stored encrypted (API key and Govee password were already encrypted in previous versions). If you had a 2FA code set, re-enter it once in the adapter settings.
+- Locally saved snapshots are now included in ioBroker backups (BackItUp / `iob backup`). Existing snapshot files migrate automatically on first start.
+- sendTo calls with an unknown command no longer hang in the admin — the adapter answers with a clear error.
+- Cleaner roles for ice-bucket / motion / dirt / water-tank sensors so they show up correctly in vis and smart-home integrations.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
