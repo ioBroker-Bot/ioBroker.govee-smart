@@ -24,6 +24,7 @@ module.exports = __toCommonJS(command_router_exports);
 var import_types = require("./types");
 var import_govee_lan_client = require("./govee-lan-client");
 var import_device_registry = require("./device-registry");
+var import_govee_constants = require("./govee-constants");
 const FORCE_COLOR_MODE_SETTLE_MS = 150;
 class CommandRouter {
   log;
@@ -182,6 +183,9 @@ class CommandRouter {
       return { kind: "lan", reason: "default" };
     }
     if (device.channels.cloud && this.cloudClient) {
+      if (device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && !device.lanIp) {
+        return { kind: "cloud", reason: "light-no-lan-fallback" };
+      }
       return { kind: "cloud", reason: "no-lan" };
     }
     return { kind: "skip", reason: "no-channel" };
@@ -198,6 +202,9 @@ class CommandRouter {
       case "lan":
         return "LAN";
       case "cloud":
+        if (decision.reason === "light-no-lan-fallback") {
+          return "Cloud (no LAN, fallback)";
+        }
         return decision.reason === "override" ? "Cloud (override)" : decision.reason === "no-segments-heuristic" ? "Cloud (no-segments)" : "Cloud";
       case "skip":
         return decision.reason === "override-cloud-missing" ? "skip (cloud-override, no cloud)" : "skip (no-channel)";
