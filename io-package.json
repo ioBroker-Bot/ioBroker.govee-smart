@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.12.2",
+    "version": "2.12.3",
     "news": {
-      "NEXT": {
+      "2.12.3": {
         "en": "Startup now shows honest LAN status (LAN ✗ when no lights reachable). Lights without local API fall back to cloud control instead of failing silently.",
         "de": "Start zeigt jetzt ehrlichen LAN-Status (LAN ✗ wenn keine Lampen erreichbar). Lampen ohne lokale API nutzen Cloud-Steuerung statt still zu scheitern.",
         "ru": "При запуске отображается реальный статус LAN (LAN ✗ если лампы недоступны). Лампы без локального API переключаются на облачное управление вместо тихого отказа.",

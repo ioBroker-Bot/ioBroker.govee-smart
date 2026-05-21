@@ -1,4 +1,11 @@
 # Older Changes
+## 2.11.0 (2026-05-16)
+
+- Security: the 2FA verification code is now stored encrypted (API key and Govee password were already encrypted in previous versions). If you had a 2FA code set, re-enter it once in the adapter settings.
+- Locally saved snapshots are now included in ioBroker backups (BackItUp / `iob backup`). Existing snapshot files migrate automatically on first start.
+- sendTo calls with an unknown command no longer hang in the admin — the adapter answers with a clear error.
+- Cleaner roles for ice-bucket / motion / dirt / water-tank sensors so they show up correctly in vis and smart-home integrations.
+
 ## 2.10.1 (2026-05-14)
 
 - Cleaner adapter log: each connected channel now shows ✓ or ✗ status. Cloud and network errors come as readable user-messages with a retry hint instead of raw Node internals.
