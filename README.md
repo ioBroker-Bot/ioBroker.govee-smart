@@ -13,18 +13,7 @@
 
 Control all [Govee](https://www.govee.com/) WiFi products from ioBroker — lights, sensors and appliances. Bluetooth-only devices are not supported.
 
-The adapter uses every channel Govee offers and picks whichever delivers the fastest, most reliable answer:
-
-- **LAN** (UDP) — primary for lights with LAN mode enabled
-- **AWS IoT MQTT** — real-time status push when you supply your Govee account
-- **OpenAPI MQTT** — push events for sensors and appliances (lackWater, iceFull etc.)
-- **Cloud REST v2** — capabilities, scenes, control fallback
-- **App API** — sensor readings (Govee's OpenAPI v2 returns empty for thermometers, the App API doesn't)
-
-The Wiki lists every supported model and its test status:
-
-- [Devices (English)](https://github.com/krobipd/ioBroker.govee-smart/wiki/Devices)
-- [Geräte (Deutsch)](https://github.com/krobipd/ioBroker.govee-smart/wiki/Geraete)
+The adapter uses every available Govee channel (LAN, Cloud REST, AWS IoT MQTT, OpenAPI MQTT, App API) and picks whichever delivers the fastest answer for each device. Details in the **[Wiki](https://github.com/krobipd/ioBroker.govee-smart/wiki)**.
 
 ---
 
@@ -70,42 +59,15 @@ Full user documentation lives in the **[Wiki](https://github.com/krobipd/ioBroke
 
 ---
 
-## Credential levels
+## Getting started
 
-| Level               | Credentials      | What works                                                                                                                                       |
-| ------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **LAN only**        | none             | Lights with LAN mode: power, brightness, color, color temperature, local snapshots                                                               |
-| **+ Cloud API key** | API key          | + device names, capabilities, scenes, segments, Cloud snapshots, basic groups, sensor and appliance readings, push events for sensors/appliances |
-| **+ Govee account** | email + password | + real-time status push for lights via AWS IoT MQTT, full group control                                                                          |
-
-Sensors and appliances always need at least the API key — they have no LAN protocol. See the [Setup page](https://github.com/krobipd/ioBroker.govee-smart/wiki/Setup) for how to get one.
+The adapter works LAN-only without any credentials. Adding an API key unlocks scenes, segments, sensors and appliances. Adding your Govee email and password adds real-time status push and full group control. See the [Setup page](https://github.com/krobipd/ioBroker.govee-smart/wiki/Setup) for credential levels, how to get an API key, and network requirements.
 
 ---
 
-## Ports
+## Device support
 
-| Port | Protocol | Direction                            | Purpose              |
-| ---- | -------- | ------------------------------------ | -------------------- |
-| 4001 | UDP      | Outbound (multicast 239.255.255.250) | LAN device discovery |
-| 4002 | UDP      | Inbound                              | LAN device responses |
-| 4003 | UDP      | Outbound                             | LAN device commands  |
-
-All ports are fixed by the Govee LAN protocol and cannot be changed.
-
----
-
-## Device tiers
-
-Each device shows where its model sits in the catalogue under `diag.tier`:
-
-| Tier         | Meaning                                                                                                                                   |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **verified** | Confirmed on real hardware — known per-SKU corrections active.                                                                            |
-| **reported** | Community-reported, treated as verified.                                                                                                  |
-| **seed**     | Beta. Known per-SKU corrections only apply when **Enable experimental device support** is on in adapter settings.                         |
-| **unknown**  | The model isn't in the catalogue yet. Press `diag.export` on the device and post the resulting JSON in a GitHub issue so it can be added. |
-
-The adapter writes one log line per model on startup if the model is `seed` (without the toggle) or `unknown` — once per startup, not on every reconnect.
+Each device shows its test status under `diag.tier`. The [Devices page](https://github.com/krobipd/ioBroker.govee-smart/wiki/Devices) lists every supported model and what the status means.
 
 ---
 
