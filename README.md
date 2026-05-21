@@ -131,8 +131,8 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 -->
 ### **WORK IN PROGRESS**
 
-- Honest LAN status at startup: adapter now shows "LAN ✗" when no lights are reachable on the local network, with instructions how to enable the local API in the Govee Home app
-- Lights without local API enabled now fall back to cloud control (slower, rate-limited) instead of silently failing
+- Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API
+- Lights without local API now fall back to cloud control instead of failing silently
 
 ### 2.12.2 (2026-05-20)
 

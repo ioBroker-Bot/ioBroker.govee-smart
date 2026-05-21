@@ -4,17 +4,17 @@
     "version": "2.12.2",
     "news": {
       "NEXT": {
-        "en": "Honest LAN status at startup — shows LAN ✗ when no lights are reachable locally, with instructions how to enable the local API. Lights without local API now fall back to cloud control instead of silently failing.",
-        "de": "Ehrlicher LAN-Status beim Start — zeigt LAN ✗ wenn keine Lampen lokal erreichbar sind, mit Anleitung zur Aktivierung der lokalen API. Lampen ohne lokale API nutzen jetzt Cloud-Steuerung statt still zu scheitern.",
-        "ru": "Честный статус LAN при запуске — показывает LAN ✗ если ни один светильник не доступен локально, с инструкцией по активации локального API. Светильники без локального API теперь используют облачное управление вместо тихого отказа.",
-        "pt": "Status LAN honesto na inicialização — mostra LAN ✗ quando nenhuma luminária está acessível localmente, com instruções para ativar a API local. Luminàrias sem API local agora usam controle por nuvem em vez de falhar silenciosamente.",
-        "nl": "Eerlijke LAN-status bij opstarten — toont LAN ✗ wanneer geen lampen lokaal bereikbaar zijn, met instructies om de lokale API te activeren. Lampen zonder lokale API gebruiken nu cloudbesturing in plaats van stil te falen.",
-        "fr": "Statut LAN honnête au démarrage — affiche LAN ✗ quand aucune lampe n'est joignable localement, avec instructions pour activer l'API locale. Les lampes sans API locale utilisent maintenant le contrôle cloud au lieu d'échouer silencieusement.",
-        "it": "Stato LAN onesto all'avvio — mostra LAN ✗ quando nessuna lampada è raggiungibile localmente, con istruzioni per attivare la API locale. Le lampade senza API locale ora usano il controllo cloud invece di fallire silenziosamente.",
-        "es": "Estado LAN honesto al inicio — muestra LAN ✗ cuando ninguna lámpara es accesible localmente, con instrucciones para activar la API local. Las lámparas sin API local ahora usan control por nube en lugar de fallar silenciosamente.",
-        "pl": "Uczciwy status LAN przy starcie — pokazuje LAN ✗ gdy żadna lampa nie jest dostępna lokalnie, z instrukcją aktywacji lokalnego API. Lampy bez lokalnego API teraz korzystają ze sterowania chmurowego zamiast cicho zawodzić.",
-        "uk": "Чесний статус LAN при запуску — показує LAN ✗ коли жоден світильник не доступний локально, з інструкцією щодо активації локального API. Світильники без локального API тепер використовують хмарне керування замість тихої відмови.",
-        "zh-cn": "启动时显示真实LAN状态 — 当没有灯具可本地访问时显示 LAN ✗，附有激活本地API的说明。没有本地API的灯具现在会使用云控制而不是静默失败。"
+        "en": "Startup now shows honest LAN status (LAN ✗ when no lights reachable). Lights without local API fall back to cloud control instead of failing silently.",
+        "de": "Start zeigt jetzt ehrlichen LAN-Status (LAN ✗ wenn keine Lampen erreichbar). Lampen ohne lokale API nutzen Cloud-Steuerung statt still zu scheitern.",
+        "ru": "При запуске отображается реальный статус LAN (LAN ✗ если лампы недоступны). Лампы без локального API переключаются на облачное управление вместо тихого отказа.",
+        "pt": "Inicialização mostra status LAN real (LAN ✗ sem luminárias acessíveis). Luminárias sem API local usam controle por nuvem em vez de falhar silenciosamente.",
+        "nl": "Opstarten toont nu eerlijke LAN-status (LAN ✗ als geen lampen bereikbaar). Lampen zonder lokale API schakelen over naar cloudbesturing in plaats van stil te falen.",
+        "fr": "Le démarrage affiche un statut LAN honnête (LAN ✗ sans lampes accessibles). Les lampes sans API locale basculent sur le contrôle cloud au lieu d'échouer.",
+        "it": "L'avvio mostra lo stato LAN reale (LAN ✗ se nessuna lampada raggiungibile). Le lampade senza API locale usano il controllo cloud invece di fallire.",
+        "es": "El inicio muestra el estado LAN real (LAN ✗ sin lámparas accesibles). Las lámparas sin API local usan control por nube en lugar de fallar silenciosamente.",
+        "pl": "Start pokazuje rzeczywisty status LAN (LAN ✗ gdy brak lamp). Lampy bez lokalnego API przełączają się na sterowanie chmurowe zamiast cicho zawodzić.",
+        "uk": "Запуск показує реальний статус LAN (LAN ✗ коли лампи недоступні). Лампи без локального API переключаються на хмарне керування замість тихої відмови.",
+        "zh-cn": "启动时显示真实LAN状态（无灯具可用时显示 LAN ✗）。没有本地API的灯具现改用云控制，不再静默失败。"
       },
       "2.12.2": {
         "en": "Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.",
