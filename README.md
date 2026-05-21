@@ -45,7 +45,7 @@ Full user documentation lives in the **[Wiki](https://github.com/krobipd/ioBroke
 - **Cloud and local snapshots** — Govee-app snapshots and ioBroker-side snapshots side by side
 - **Groups** — bridge Govee groups into ioBroker with capability intersection across members
 - **Diagnostics export button per device** — one-click JSON dump for bug reports
-- **Graceful degradation** — works LAN-only without any credentials; each tier unlocks more
+- **Works without credentials** — LAN-only out of the box, each credential tier unlocks more
 - **Rate-limited Cloud usage** — daily and per-minute budgets aligned to Govee's quota
 
 ---
