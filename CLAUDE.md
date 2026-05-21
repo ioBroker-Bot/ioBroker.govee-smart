@@ -28,13 +28,13 @@
 
 | Operation             | LAN UDP | AWS-IoT MQTT | OpenAPI-MQTT | Cloud REST | App-API |
 | --------------------- | ------- | ------------ | ------------ | ---------- | ------- |
-| power on/off          | primär  | —            | —            | —          | —       |
-| brightness            | primär  | —            | —            | —          | —       |
-| colorRgb              | primär  | —            | —            | —          | —       |
-| colorTemperature      | primär  | —            | —            | —          | —       |
-| Segment-Color         | primär  | —            | —            | —          | —       |
-| Segment-Brightness    | primär  | —            | —            | —          | —       |
-| Segment-Batch         | primär  | —            | —            | —          | —       |
+| power on/off          | primär  | —            | —            | Notfall¹   | —       |
+| brightness            | primär  | —            | —            | Notfall¹   | —       |
+| colorRgb              | primär  | —            | —            | Notfall¹   | —       |
+| colorTemperature      | primär  | —            | —            | Notfall¹   | —       |
+| Segment-Color         | primär  | —            | —            | Notfall¹   | —       |
+| Segment-Brightness    | primär  | —            | —            | Notfall¹   | —       |
+| Segment-Batch         | primär  | —            | —            | Notfall¹   | —       |
 | Music-Mode            | primär  | —            | —            | —          | —       |
 | Scene-Speed           | primär  | —            | —            | —          | —       |
 | Scene-Aktivierung     | primär  | —            | —            | backup     | —       |
@@ -42,6 +42,8 @@
 | Snapshot-Aktivierung  | primär  | —            | —            | backup     | —       |
 | Gradient-Toggle       | —       | —            | —            | primär     | —       |
 | Generic Capability    | —       | —            | —            | primär     | —       |
+
+¹ **Notfall-Fallback** — nur wenn lokale API nicht aktiviert (lanIp === null). 5-10s Latenz pro Call, 10/min Rate-Limit. Adapter warnt beim Start ("LAN ✗") mit Anleitung zur LAN-Aktivierung.
 
 ### Lights — Status
 
@@ -124,6 +126,7 @@ src/lib/http-client.ts                   → Shared HTTPS request (httpsRequest 
 src/lib/message-router.ts                → MessageRouter (sendTo handler) — admin-jsonConfig-Befehle
 src/lib/snapshot-handler.ts              → SnapshotHandler-Class für lokale Snapshots
 src/lib/group-fanout.ts                  → GroupFanoutHandler-Class für Gruppen-Befehle
+../scripts/sync-iopackage-from-i18n.py   → hält io-package.json:instanceObjects synchron mit i18n-states.ts (zentral)
 ```
 
 ## State Tree

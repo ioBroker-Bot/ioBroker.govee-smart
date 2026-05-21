@@ -628,6 +628,51 @@ describe("CommandRouter", () => {
     });
   });
 
+  describe("resolveTransport — Light without LAN (cloud fallback)", () => {
+    it("Light without LAN gets light-no-lan-fallback reason, not plain no-lan", async () => {
+      const cloud = makeCloudStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setCloudClient(cloud.client);
+      router.setRateLimiter(makeRateLimiter());
+      const device = makeDevice({
+        type: "devices.types.light",
+        lanIp: undefined,
+        channels: { lan: false, mqtt: false, cloud: true },
+      });
+      const decision = router.resolveTransport(device, "power");
+      expect(decision.kind).toBe("cloud");
+      expect(decision.reason).toBe("light-no-lan-fallback");
+    });
+
+    it("Appliance without LAN gets plain no-lan reason (unchanged)", async () => {
+      const cloud = makeCloudStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setCloudClient(cloud.client);
+      const device = makeDevice({
+        type: "devices.types.humidifier",
+        lanIp: undefined,
+        channels: { lan: false, mqtt: false, cloud: true },
+      });
+      const decision = router.resolveTransport(device, "power");
+      expect(decision.kind).toBe("cloud");
+      expect(decision.reason).toBe("no-lan");
+    });
+
+    it("Light with LAN still routes to LAN (no regression)", async () => {
+      const lan = makeLanStub();
+      const router = new CommandRouter(mockLog, noopTimers);
+      router.setLanClient(lan.client);
+      const device = makeDevice({
+        type: "devices.types.light",
+        lanIp: "192.168.1.42",
+        channels: { lan: true, mqtt: false, cloud: true },
+      });
+      const decision = router.resolveTransport(device, "power");
+      expect(decision.kind).toBe("lan");
+      expect(decision.reason).toBe("default");
+    });
+  });
+
   describe("transportOverrides — devices.json consistency (mini-validator)", () => {
     // Pure file-content audit — every transportOverrides key/value in
     // devices.json must be a known command + valid TransportTarget.

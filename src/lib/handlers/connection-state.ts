@@ -5,7 +5,7 @@ import type { GoveeOpenapiMqttClient } from "../govee-openapi-mqtt-client";
 import { httpsRequest } from "../http-client";
 import type { ChannelStatusSnapshot } from "../log-prefix";
 import { errMessage } from "../types";
-import { GOVEE_APP_VERSION } from "../govee-constants";
+import { GOVEE_APP_VERSION, GOVEE_DEVICE_TYPE } from "../govee-constants";
 
 /**
  * Adapter surface required by the connection-state helpers — covers the
@@ -47,7 +47,11 @@ export interface ConnectionStateAdapter {
 export function updateConnectionState(adapter: ConnectionStateAdapter): void {
   const devices = adapter.deviceManager?.getDevices() ?? [];
   const hasDevices = devices.length > 0;
-  const anyOnline = devices.some(d => d.state.online);
+  const anyOnline = devices.some(
+    d =>
+      d.state.online ||
+      (d.type === GOVEE_DEVICE_TYPE.LIGHT && !d.lanIp && d.channels.cloud && adapter.cloudWasConnected),
+  );
   const lanRunning = adapter.lanClient !== null;
   const connected = hasDevices ? anyOnline : lanRunning;
   if (connected !== adapter.lastConnectionState) {
@@ -201,7 +205,11 @@ export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
   // dass User sie auseinanderhalten kann (Cloud REST vs Lights Push vs
   // Sensor Push — vorher hieß alles uneinheitlich „Cloud", „MQTT",
   // „Cloud-events").
-  const parts: string[] = ["LAN ✓"];
+  const allDevices = adapter.deviceManager?.getDevices() ?? [];
+  const lights = allDevices.filter(d => d.type === GOVEE_DEVICE_TYPE.LIGHT);
+  const anyLightOnLan = lights.some(d => d.lanIp);
+  const lanOk = lights.length === 0 || anyLightOnLan;
+  const parts: string[] = [lanOk ? "LAN ✓" : "LAN ✗"];
   if (adapter.cloudClient) {
     parts.push(adapter.cloudWasConnected ? "Cloud REST ✓" : "Cloud REST ✗");
   }
@@ -220,5 +228,15 @@ export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
   if (adapter.mqttClient && !adapter.mqttClient.connected) {
     const reason = adapter.mqttClient.getFailureReason();
     adapter.log.warn(reason ? `Lights Push: ${reason}` : `Lights Push: not connected — see earlier errors`);
+  }
+  if (!lanOk) {
+    adapter.log.warn(
+      "LAN: no lights reachable on local network — cloud-only mode is ~100× slower (5-10s vs 50ms per command) and rate-limited (10/min). Enable the local API in the Govee Home app: https://app-h5.govee.com/user-manual/wlan-guide",
+    );
+    for (const d of lights) {
+      if (!d.lanIp) {
+        adapter.log.info(`${d.name} (${d.sku}): no LAN — enable the local API in the Govee Home app`);
+      }
+    }
   }
 }

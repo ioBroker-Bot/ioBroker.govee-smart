@@ -4,6 +4,7 @@ import type { GoveeLanClient } from "./govee-lan-client";
 import { applySceneSpeed } from "./govee-lan-client";
 import type { RateLimiter } from "./rate-limiter";
 import { getDeviceQuirks, type ConfigurableOverrideCommand, type TransportTarget } from "./device-registry";
+import { GOVEE_DEVICE_TYPE } from "./govee-constants";
 
 /**
  * Delay between switching the device into static-color mode and sending the
@@ -22,7 +23,7 @@ export type TransportDecision =
   | { kind: "lan"; reason: "default" }
   | {
       kind: "cloud";
-      reason: "override" | "no-lan" | "no-segments-heuristic";
+      reason: "override" | "no-lan" | "no-segments-heuristic" | "light-no-lan-fallback";
     }
   | { kind: "skip"; reason: "no-channel" | "override-cloud-missing" };
 
@@ -205,6 +206,9 @@ export class CommandRouter {
       return { kind: "lan", reason: "default" };
     }
     if (device.channels.cloud && this.cloudClient) {
+      if (device.type === GOVEE_DEVICE_TYPE.LIGHT && !device.lanIp) {
+        return { kind: "cloud", reason: "light-no-lan-fallback" };
+      }
       return { kind: "cloud", reason: "no-lan" };
     }
     return { kind: "skip", reason: "no-channel" };
@@ -222,6 +226,9 @@ export class CommandRouter {
       case "lan":
         return "LAN";
       case "cloud":
+        if (decision.reason === "light-no-lan-fallback") {
+          return "Cloud (no LAN, fallback)";
+        }
         return decision.reason === "override"
           ? "Cloud (override)"
           : decision.reason === "no-segments-heuristic"

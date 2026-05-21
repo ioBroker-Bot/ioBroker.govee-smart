@@ -129,6 +129,11 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Honest LAN status at startup: adapter now shows "LAN ✗" when no lights are reachable on the local network, with instructions how to enable the local API in the Govee Home app
+- Lights without local API enabled now fall back to cloud control (slower, rate-limited) instead of silently failing
+
 ### 2.12.2 (2026-05-20)
 
 - Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.

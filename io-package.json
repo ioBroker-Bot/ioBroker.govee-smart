@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.12.2",
     "news": {
+      "NEXT": {
+        "en": "Honest LAN status at startup — shows LAN ✗ when no lights are reachable locally, with instructions how to enable the local API. Lights without local API now fall back to cloud control instead of silently failing.",
+        "de": "Ehrlicher LAN-Status beim Start — zeigt LAN ✗ wenn keine Lampen lokal erreichbar sind, mit Anleitung zur Aktivierung der lokalen API. Lampen ohne lokale API nutzen jetzt Cloud-Steuerung statt still zu scheitern.",
+        "ru": "Честный статус LAN при запуске — показывает LAN ✗ если ни один светильник не доступен локально, с инструкцией по активации локального API. Светильники без локального API теперь используют облачное управление вместо тихого отказа.",
+        "pt": "Status LAN honesto na inicialização — mostra LAN ✗ quando nenhuma luminária está acessível localmente, com instruções para ativar a API local. Luminàrias sem API local agora usam controle por nuvem em vez de falhar silenciosamente.",
+        "nl": "Eerlijke LAN-status bij opstarten — toont LAN ✗ wanneer geen lampen lokaal bereikbaar zijn, met instructies om de lokale API te activeren. Lampen zonder lokale API gebruiken nu cloudbesturing in plaats van stil te falen.",
+        "fr": "Statut LAN honnête au démarrage — affiche LAN ✗ quand aucune lampe n'est joignable localement, avec instructions pour activer l'API locale. Les lampes sans API locale utilisent maintenant le contrôle cloud au lieu d'échouer silencieusement.",
+        "it": "Stato LAN onesto all'avvio — mostra LAN ✗ quando nessuna lampada è raggiungibile localmente, con istruzioni per attivare la API locale. Le lampade senza API locale ora usano il controllo cloud invece di fallire silenziosamente.",
+        "es": "Estado LAN honesto al inicio — muestra LAN ✗ cuando ninguna lámpara es accesible localmente, con instrucciones para activar la API local. Las lámparas sin API local ahora usan control por nube en lugar de fallar silenciosamente.",
+        "pl": "Uczciwy status LAN przy starcie — pokazuje LAN ✗ gdy żadna lampa nie jest dostępna lokalnie, z instrukcją aktywacji lokalnego API. Lampy bez lokalnego API teraz korzystają ze sterowania chmurowego zamiast cicho zawodzić.",
+        "uk": "Чесний статус LAN при запуску — показує LAN ✗ коли жоден світильник не доступний локально, з інструкцією щодо активації локального API. Світильники без локального API тепер використовують хмарне керування замість тихої відмови.",
+        "zh-cn": "启动时显示真实LAN状态 — 当没有灯具可本地访问时显示 LAN ✗，附有激活本地API的说明。没有本地API的灯具现在会使用云控制而不是静默失败。"
+      },
       "2.12.2": {
         "en": "Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.",
         "de": "Getestet mit Node.js 24. Interne Bereinigung für strengere ioBroker-Repochecker-Konformität.",
@@ -80,19 +93,6 @@
         "pl": "Czytelniejszy log adaptera: każdy podłączony kanał pokazuje ✓ lub ✗. Błędy cloud i sieci jako czytelne wiadomości z podpowiedzią retry, bez wnętrza Node.",
         "uk": "Зрозуміліший лог адаптера: кожен підключений канал показано як ✓ або ✗. Помилки cloud/мережі — читаємі повідомлення з підказкою retry, без внутрішніх деталей Node.",
         "zh-cn": "更清晰的适配器日志：每个已连接通道显示 ✓ 或 ✗。云端和网络错误以可读消息显示，带重试提示，不再有 Node 内部细节。"
-      },
-      "2.10.0": {
-        "en": "Snapshots on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8) now work; matrix-light scenes too. New quirks system: device-fixes ship via catalog, no release needed.",
-        "de": "Snapshots auf Curtain Lights (H70B3), Christmas Strings (H70C5) und Outdoor Neon (H61A8) funktionieren; Matrix-Light-Szenen auch. Neues Quirks-System: Geräte-Fixes via Katalog statt Release.",
-        "ru": "Снимки на Curtain Lights (H70B3), Christmas Strings (H70C5) и Outdoor Neon (H61A8) работают; и сцены на матричных. Новая система квирков: правки по каталогу, без релиза.",
-        "pt": "Snapshots em Curtain Lights (H70B3), Christmas Strings (H70C5), Outdoor Neon (H61A8) funcionam; cenas matrix também. Novo sistema de quirks: correções via catálogo, sem release.",
-        "nl": "Snapshots op Curtain Lights (H70B3), Christmas Strings (H70C5) en Outdoor Neon (H61A8) werken; matrix-scènes ook. Nieuw quirks-systeem: device-fixes via catalogus, geen release.",
-        "fr": "Snapshots sur Curtain Lights (H70B3), Christmas Strings (H70C5) et Outdoor Neon (H61A8) fonctionnent ; scènes matrix aussi. Nouveau système quirks : fixes via catalogue, sans release.",
-        "it": "Snapshot su Curtain Lights (H70B3), Christmas Strings (H70C5) e Outdoor Neon (H61A8) ok; scene matrix anche. Nuovo sistema quirks: fix via catalogo, senza release.",
-        "es": "Snapshots en Curtain Lights (H70B3), Christmas Strings (H70C5) y Outdoor Neon (H61A8) funcionan; escenas matrix también. Nuevo sistema quirks: arreglos por catálogo, sin release.",
-        "pl": "Snapshoty na Curtain Lights (H70B3), Christmas Strings (H70C5) i Outdoor Neon (H61A8) działają; sceny matrix też. Nowy system quirks: poprawki przez katalog, bez releasu.",
-        "uk": "Знімки на Curtain Lights (H70B3), Christmas Strings (H70C5) і Outdoor Neon (H61A8) працюють; сцени матричних теж. Нова система квірків: правки через каталог, без релізу.",
-        "zh-cn": "Curtain Lights (H70B3)、Christmas Strings (H70C5) 和 Outdoor Neon (H61A8) 的快照可用；矩阵场景也是。新增 quirks 系统：设备修复通过目录，无需新版本。"
       }
     },
     "titleLang": {
