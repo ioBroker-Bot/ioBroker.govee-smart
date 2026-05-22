@@ -150,24 +150,10 @@ class GoveeAdapter extends utils.Adapter {
   /** @param options Adapter options */
   constructor(options = {}) {
     super({ ...options, name: "govee-smart" });
-    this.on(
-      "ready",
-      () => this.onReady().catch(
-        (e) => {
-          var _a;
-          return this.log.error(`onReady crashed: ${e instanceof Error ? (_a = e.stack) != null ? _a : e.message : String(e)}`);
-        }
-      )
-    );
-    this.on(
-      "stateChange",
-      (id, state) => stateChangeRouter.onStateChange(this, id, state).catch((e) => this.log.warn(`onStateChange crashed for ${id}: ${(0, import_types.errMessage)(e)}`))
-    );
-    this.on("message", (obj) => {
-      var _a;
-      return (_a = this.messageRouter) == null ? void 0 : _a.onMessage(obj);
-    });
-    this.on("unload", (callback) => this.onUnload(callback));
+    this.on("ready", this.onReady.bind(this));
+    this.on("stateChange", this.onStateChange.bind(this));
+    this.on("message", this.onMessage.bind(this));
+    this.on("unload", this.onUnload.bind(this));
     this.unhandledRejectionHandler = (reason) => {
       var _a;
       this.log.error(
@@ -183,391 +169,397 @@ class GoveeAdapter extends utils.Adapter {
   }
   /** Adapter started — initialize all channels */
   async onReady() {
-    var _a, _b, _c, _d;
-    const config = this.config;
-    if (config.apiKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.apiKey)) {
-      this.log.error(
-        "Credentials encryption migration: stored values look corrupted \u2014 please re-enter API key, Govee password and verification code in the adapter settings (one-time after upgrade to v2.11.0)."
-      );
-    }
-    this.channelStatus = {
-      lan: "off",
-      // LAN listener always exists; flips to "on" after first discovery
-      cloud: config.apiKey ? "off" : "n/a",
-      mqtt: config.goveeEmail && config.goveePassword ? "off" : "n/a",
-      openapi: config.apiKey ? "off" : "n/a"
-    };
-    (0, import_log_prefix.installLogPrefix)(this.log, () => this.channelStatus);
-    await this.setStateAsync("info.connection", { val: false, ack: true });
-    await this.setStateAsync("info.mqttConnected", { val: false, ack: true });
-    await this.setStateAsync("info.cloudConnected", { val: false, ack: true });
-    await this.setStateAsync("info.openapiMqttConnected", {
-      val: false,
-      ack: true
-    });
+    var _a, _b, _c, _d, _e;
     try {
-      const sysConf = await this.getForeignObjectAsync("system.config");
-      const lang = (_a = sysConf == null ? void 0 : sysConf.common) == null ? void 0 : _a.language;
-      if (typeof lang === "string" && lang.length > 0) {
-        this.adminLanguage = lang;
+      const config = this.config;
+      if (config.apiKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.apiKey)) {
+        this.log.error(
+          "Credentials encryption migration: stored values look corrupted \u2014 please re-enter API key, Govee password and verification code in the adapter settings (one-time after upgrade to v2.11.0)."
+        );
       }
-    } catch (e) {
-      this.log.debug(`system.config language read failed, using default "en": ${(0, import_types.errMessage)(e)}`);
-    }
-    await this.setStateAsync("info.wizardStatus", {
-      val: (0, import_segment_wizard.wizardIdleText)(this.adminLanguage),
-      ack: true
-    });
-    this.stateManager = new import_state_manager.StateManager(this);
-    await this.stateManager.createGroupsOnlineState(false);
-    this.deviceManager = new import_device_manager.DeviceManager(this.log, this);
-    const dataDir = utils.getAbsoluteInstanceDataDir(this);
-    (0, import_device_registry.initDeviceRegistry)({
-      experimental: config.experimentalQuirks === true,
-      log: this.log
-    });
-    this.skuCache = new import_sku_cache.SkuCache(dataDir, this.log);
-    await this.migrateLocalSnapshotsToMetaUser(dataDir);
-    this.localSnapshots = new import_local_snapshots.LocalSnapshotStore(this, this.log);
-    await this.localSnapshots.init();
-    this.snapshotHandler = new import_snapshot_handler.SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
-    this.groupFanout = new import_group_fanout.GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
-    this.messageRouter = new import_message_router.MessageRouter(this.buildMessageRouterHost());
-    this.deviceManager.setSkuCache(this.skuCache);
-    const diag = this.deviceManager.getDiagnostics();
-    diag.setCacheSnapshotProvider((sku, deviceId) => {
-      var _a2, _b2;
-      return (_b2 = (_a2 = this.skuCache) == null ? void 0 : _a2.loadOne(sku, deviceId)) != null ? _b2 : null;
-    });
-    diag.setLocalSnapshotsProvider((sku, deviceId) => {
-      var _a2, _b2;
-      return (_b2 = (_a2 = this.localSnapshots) == null ? void 0 : _a2.getSnapshots(sku, deviceId)) != null ? _b2 : [];
-    });
-    diag.setRuntimeStateProvider(() => {
-      var _a2, _b2, _c2, _d2, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
-      const errorCats = (_a2 = this.deviceManager) == null ? void 0 : _a2.getErrorCategorySnapshot();
-      return {
-        deviceManagerLastErrorCategory: (_b2 = errorCats == null ? void 0 : errorCats.deviceManager) != null ? _b2 : null,
-        appApiLastErrorCategory: (_c2 = errorCats == null ? void 0 : errorCats.appApi) != null ? _c2 : null,
-        groupMembersLastErrorCategory: (_d2 = errorCats == null ? void 0 : errorCats.groupMembers) != null ? _d2 : null,
-        cloudFailureReason: (_f = (_e = this.cloudClient) == null ? void 0 : _e.getFailureReason()) != null ? _f : null,
-        mqttFailureReason: (_h = (_g = this.mqttClient) == null ? void 0 : _g.getFailureReason()) != null ? _h : null,
-        rateLimiter: (_j = (_i = this.rateLimiter) == null ? void 0 : _i.getUsageSnapshot()) != null ? _j : null,
-        wizardSession: (_l = (_k = this.segmentWizard) == null ? void 0 : _k.getSessionSnapshot()) != null ? _l : null,
-        lanSeenDeviceIps: (_n = (_m = this.lanClient) == null ? void 0 : _m.getDiagSnapshot().seenDeviceIps) != null ? _n : []
+      this.channelStatus = {
+        lan: "off",
+        // LAN listener always exists; flips to "on" after first discovery
+        cloud: config.apiKey ? "off" : "n/a",
+        mqtt: config.goveeEmail && config.goveePassword ? "off" : "n/a",
+        openapi: config.apiKey ? "off" : "n/a"
       };
-    });
-    const apiClient = new import_govee_api_client.GoveeApiClient(this.log);
-    apiClient.setEmail(config.goveeEmail);
-    this.deviceManager.setApiClient(apiClient);
-    this.deviceManager.setCallbacks({
-      onUpdate: (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
-      onLanDeviceReady: (device, allDevices) => deviceEvents.onLanDeviceReady(this, device, allDevices),
-      onCloudDataReady: (device, allDevices) => deviceEvents.onCloudDataReady(this, device, allDevices),
-      onGroupMembersReady: (group, allDevices) => deviceEvents.onGroupMembersReady(this, group, allDevices)
-    });
-    this.deviceManager.onLanIpChanged = (device, ip) => {
-      const prefix = this.stateManager.devicePrefix(device);
-      this.setStateAsync(`${prefix}.info.ip`, { val: ip, ack: true }).catch(() => {
+      (0, import_log_prefix.installLogPrefix)(this.log, () => this.channelStatus);
+      await this.setStateAsync("info.connection", { val: false, ack: true });
+      await this.setStateAsync("info.mqttConnected", { val: false, ack: true });
+      await this.setStateAsync("info.cloudConnected", { val: false, ack: true });
+      await this.setStateAsync("info.openapiMqttConnected", {
+        val: false,
+        ack: true
       });
-    };
-    this.deviceManager.onSegmentBatchUpdate = (device, batch) => {
-      const prefix = this.stateManager.devicePrefix(device);
-      const cap = typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : 0;
-      for (const idx of batch.segments) {
-        if (cap === 0 || idx >= cap) {
-          continue;
+      try {
+        const sysConf = await this.getForeignObjectAsync("system.config");
+        const lang = (_a = sysConf == null ? void 0 : sysConf.common) == null ? void 0 : _a.language;
+        if (typeof lang === "string" && lang.length > 0) {
+          this.adminLanguage = lang;
         }
-        if (batch.color !== void 0) {
-          const hex = (0, import_types.rgbIntToHex)(batch.color);
-          this.setStateAsync(`${prefix}.segments.${idx}.color`, {
-            val: hex,
-            ack: true
-          }).catch(() => {
-          });
-        }
-        if (batch.brightness !== void 0) {
-          this.setStateAsync(`${prefix}.segments.${idx}.brightness`, {
-            val: batch.brightness,
-            ack: true
-          }).catch(() => {
-          });
-        }
+      } catch (e) {
+        this.log.debug(`system.config language read failed, using default "en": ${(0, import_types.errMessage)(e)}`);
       }
-    };
-    this.deviceManager.onMqttSegmentUpdate = (device, segments) => {
-      const prefix = this.stateManager.devicePrefix(device);
-      const cap = typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : 0;
-      for (const seg of segments) {
-        if (cap === 0 || seg.index >= cap) {
-          continue;
-        }
-        this.setStateAsync(`${prefix}.segments.${seg.index}.color`, {
-          val: (0, import_types.rgbToHex)(seg.r, seg.g, seg.b),
-          ack: true
-        }).catch(() => {
+      await this.setStateAsync("info.wizardStatus", {
+        val: (0, import_segment_wizard.wizardIdleText)(this.adminLanguage),
+        ack: true
+      });
+      this.stateManager = new import_state_manager.StateManager(this);
+      await this.stateManager.createGroupsOnlineState(false);
+      this.deviceManager = new import_device_manager.DeviceManager(this.log, this);
+      const dataDir = utils.getAbsoluteInstanceDataDir(this);
+      (0, import_device_registry.initDeviceRegistry)({
+        experimental: config.experimentalQuirks === true,
+        log: this.log
+      });
+      this.skuCache = new import_sku_cache.SkuCache(dataDir, this.log);
+      await this.migrateLocalSnapshotsToMetaUser(dataDir);
+      this.localSnapshots = new import_local_snapshots.LocalSnapshotStore(this, this.log);
+      await this.localSnapshots.init();
+      this.snapshotHandler = new import_snapshot_handler.SnapshotHandler(snapshotHandlerGlue.buildSnapshotHost(this));
+      this.groupFanout = new import_group_fanout.GroupFanoutHandler(groupFanoutHandler.buildGroupFanoutHost(this));
+      this.messageRouter = new import_message_router.MessageRouter(this.buildMessageRouterHost());
+      this.deviceManager.setSkuCache(this.skuCache);
+      const diag = this.deviceManager.getDiagnostics();
+      diag.setCacheSnapshotProvider((sku, deviceId) => {
+        var _a2, _b2;
+        return (_b2 = (_a2 = this.skuCache) == null ? void 0 : _a2.loadOne(sku, deviceId)) != null ? _b2 : null;
+      });
+      diag.setLocalSnapshotsProvider((sku, deviceId) => {
+        var _a2, _b2;
+        return (_b2 = (_a2 = this.localSnapshots) == null ? void 0 : _a2.getSnapshots(sku, deviceId)) != null ? _b2 : [];
+      });
+      diag.setRuntimeStateProvider(() => {
+        var _a2, _b2, _c2, _d2, _e2, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+        const errorCats = (_a2 = this.deviceManager) == null ? void 0 : _a2.getErrorCategorySnapshot();
+        return {
+          deviceManagerLastErrorCategory: (_b2 = errorCats == null ? void 0 : errorCats.deviceManager) != null ? _b2 : null,
+          appApiLastErrorCategory: (_c2 = errorCats == null ? void 0 : errorCats.appApi) != null ? _c2 : null,
+          groupMembersLastErrorCategory: (_d2 = errorCats == null ? void 0 : errorCats.groupMembers) != null ? _d2 : null,
+          cloudFailureReason: (_f = (_e2 = this.cloudClient) == null ? void 0 : _e2.getFailureReason()) != null ? _f : null,
+          mqttFailureReason: (_h = (_g = this.mqttClient) == null ? void 0 : _g.getFailureReason()) != null ? _h : null,
+          rateLimiter: (_j = (_i = this.rateLimiter) == null ? void 0 : _i.getUsageSnapshot()) != null ? _j : null,
+          wizardSession: (_l = (_k = this.segmentWizard) == null ? void 0 : _k.getSessionSnapshot()) != null ? _l : null,
+          lanSeenDeviceIps: (_n = (_m = this.lanClient) == null ? void 0 : _m.getDiagSnapshot().seenDeviceIps) != null ? _n : []
+        };
+      });
+      const apiClient = new import_govee_api_client.GoveeApiClient(this.log);
+      apiClient.setEmail(config.goveeEmail);
+      this.deviceManager.setApiClient(apiClient);
+      this.deviceManager.setCallbacks({
+        onUpdate: (device, state) => deviceEvents.onDeviceStateUpdate(this, device, state),
+        onLanDeviceReady: (device, allDevices) => deviceEvents.onLanDeviceReady(this, device, allDevices),
+        onCloudDataReady: (device, allDevices) => deviceEvents.onCloudDataReady(this, device, allDevices),
+        onGroupMembersReady: (group, allDevices) => deviceEvents.onGroupMembersReady(this, group, allDevices)
+      });
+      this.deviceManager.onLanIpChanged = (device, ip) => {
+        const prefix = this.stateManager.devicePrefix(device);
+        this.setStateAsync(`${prefix}.info.ip`, { val: ip, ack: true }).catch(() => {
         });
-        this.setStateAsync(`${prefix}.segments.${seg.index}.brightness`, {
-          val: seg.brightness,
-          ack: true
-        }).catch(() => {
-        });
-      }
-    };
-    this.deviceManager.onSegmentCountGrown = (device) => {
-      if (!this.stateManager) {
-        return;
-      }
-      this.stateManager.createSegmentStates(device).catch((e) => {
-        this.log.warn(`Failed to rebuild segment tree for ${device.name} after count growth: ${(0, import_types.errMessage)(e)}`);
-      });
-    };
-    const startChannels = ["LAN"];
-    if (config.apiKey) {
-      startChannels.push("Cloud");
-    }
-    if (config.goveeEmail && config.goveePassword) {
-      startChannels.push("MQTT");
-    }
-    this.log.info(
-      `Starting (${startChannels.join(", ")}) \u2014 please wait, a "ready" message will follow when all channels are up`
-    );
-    this.lanClient = new import_govee_lan_client.GoveeLanClient(this.log, this);
-    this.deviceManager.setLanClient(this.lanClient);
-    this.lanClient.setSendHook((ip, cmd, payload, bytes, error) => {
-      var _a2;
-      const dev = (_a2 = this.deviceManager) == null ? void 0 : _a2.getDevices().find((d) => d.lanIp === ip);
-      if (!dev) {
-        return;
-      }
-      this.deviceManager.getDiagnostics().addLanSend(dev.deviceId, ip, cmd, payload, bytes, error);
-    });
-    this.lanClient.setStatusRecordHook((ip, status) => {
-      var _a2;
-      const dev = (_a2 = this.deviceManager) == null ? void 0 : _a2.getDevices().find((d) => d.lanIp === ip);
-      if (!dev) {
-        return;
-      }
-      this.deviceManager.getDiagnostics().recordApiSuccess(dev.deviceId, "lan://devStatus", status);
-    });
-    this.lanClient.setScanRecordHook((lanDevice) => {
-      var _a2;
-      (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addLog(lanDevice.device, "debug", `LAN scan reply: ip=${lanDevice.ip} sku=${lanDevice.sku}`);
-    });
-    this.lanClient.start(
-      (lanDevice) => {
-        var _a2;
-        this.deviceManager.handleLanDiscovery(lanDevice);
-        if (!((_a2 = this.mqttClient) == null ? void 0 : _a2.connected)) {
-          this.lanClient.requestStatus(lanDevice.ip);
-        }
-      },
-      (sourceIp, status) => {
-        this.deviceManager.handleLanStatus(sourceIp, status);
-      },
-      3e4,
-      config.networkInterface || ""
-    );
-    this.lanScanTimer = this.setTimeout(() => {
-      this.lanScanDone = true;
-      connectionState.checkAllReady(this);
-    }, 3e3);
-    if (config.goveeEmail && config.goveePassword) {
-      this.mqttClient = new import_govee_mqtt_client.GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
-      this.mqttClient.setPacketHook((deviceId, topic, payload) => {
-        var _a2;
-        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addMqttPacket(deviceId, topic, payload);
-      });
-      this.mqttClient.setVerificationCode((_b = config.mqttVerificationCode) != null ? _b : "");
-      this.mqttClient.setOnVerificationConsumed(() => {
-        cloudCreds.clearVerificationCodeSetting(this).catch((e) => {
-          this.log.warn(`Could not clear mqttVerificationCode: ${(0, import_types.errMessage)(e)}`);
-        });
-      });
-      this.mqttClient.setOnVerificationFailed((reason) => {
-        if (reason === "failed") {
-          cloudCreds.clearVerificationCodeSetting(this).catch(() => {
-          });
-        }
-      });
-      await cloudCreds.cleanupLegacyMqttNativeOnce(this);
-      const cachedCreds = await cloudCreds.loadPersistedCredsFromState(this);
-      if (cachedCreds) {
-        this.mqttClient.setPersistedCredentials(cachedCreds);
-      }
-      this.mqttClient.setOnCredentialsRefresh((creds) => {
-        cloudCreds.persistCredsToState(this, creds).catch((e) => {
-          this.log.warn(`Could not persist MQTT credentials: ${(0, import_types.errMessage)(e)}`);
-        });
-      });
-      await this.mqttClient.connect(
-        (update) => this.deviceManager.handleMqttStatus(update),
-        (connected) => {
-          this.setStateAsync("info.mqttConnected", {
-            val: connected,
-            ack: true
-          }).catch(() => {
-          });
-          if (connected) {
-            connectionState.checkAllReady(this);
-          }
-          connectionState.updateConnectionState(this);
-        },
-        // Forward every fresh bearer token — fires on initial login and on
-        // each reconnect-login, so the API client never runs with a stale one.
-        (token) => apiClient.setBearerToken(token)
-      );
-    }
-    const cachedOk = this.deviceManager.loadFromCache();
-    if (config.apiKey) {
-      this.cloudClient = new import_govee_cloud_client.GoveeCloudClient(config.apiKey, this.log);
-      this.cloudClient.setResponseHook((deviceId, endpoint, body) => {
-        var _a2;
-        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().recordApiSuccess(deviceId, endpoint, body);
-      });
-      this.deviceManager.setCloudClient(this.cloudClient);
-      this.deviceManager.setOnCloudCapabilities((device, caps) => {
-        cloudStateLoader.applyCloudCapabilities(this, device, caps).catch((e) => this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${(0, import_types.errMessage)(e)}`));
-      });
-      this.rateLimiter = new import_rate_limiter.RateLimiter(this.log, this, import_timing_constants.CLOUD_FULL_LIMITS.perMinute, import_timing_constants.CLOUD_FULL_LIMITS.perDay);
-      this.rateLimiter.start();
-      this.deviceManager.setRateLimiter(this.rateLimiter);
-      this.openapiMqttClient = new import_govee_openapi_mqtt_client.GoveeOpenapiMqttClient(config.apiKey, this.log, this);
-      this.openapiMqttClient.connect(
-        (event) => {
-          var _a2;
-          return (_a2 = this.deviceManager) == null ? void 0 : _a2.handleOpenApiEvent(event);
-        },
-        (connected) => {
-          this.setStateAsync("info.openapiMqttConnected", {
-            val: connected,
-            ack: true
-          }).catch(() => {
-          });
-        },
-        // v2.9.1 — raw payload hook. Cloud-events MQTT topic is account-wide
-        // (`GA/<apiKey>`), payload carries `sku`/`device`. Parse here so the
-        // raw envelope lands per-device in the diag (same model as AWS-IoT).
-        // Account-level bucket would have meant a new diag struct; per-device
-        // keeps shape consistent with all other capture paths.
-        (rawJson) => {
-          if (!this.deviceManager) {
-            return;
-          }
-          try {
-            const parsed = JSON.parse(rawJson);
-            if (typeof (parsed == null ? void 0 : parsed.device) === "string" && parsed.device) {
-              this.deviceManager.getDiagnostics().addMqttPacket(parsed.device, "openapi-events", { rawJson });
-            }
-          } catch {
-          }
-        }
-      );
-      const triggerAppApiPoll = () => {
-        var _a2;
-        (_a2 = this.deviceManager) == null ? void 0 : _a2.pollAppApi().then(() => {
-          if (!this.appApiInitialPollDone) {
-            this.appApiInitialPollDone = true;
-            connectionState.checkAllReady(this);
-          }
-        }).catch((e) => this.log.debug(`pollAppApi failed: ${(0, import_types.errMessage)(e)}`));
       };
-      this.appApiPollTimer = this.setInterval(triggerAppApiPoll, import_timing_constants.APP_API_POLL_INTERVAL_MS);
-      this.appApiInitialTimer = this.setTimeout(triggerAppApiPoll, import_timing_constants.APP_API_INITIAL_DELAY_MS);
-      if (!cachedOk) {
-        const result = await cloudRetryHandler.cloudInitWithTimeout(this);
-        this.cloudWasConnected = result.ok;
-        cloudRetryHandler.ensureCloudRetry(this).setConnected(result.ok);
-        this.setStateAsync("info.cloudConnected", {
-          val: result.ok,
-          ack: true
-        }).catch(() => {
-        });
-        (_c = this.stateManager) == null ? void 0 : _c.updateGroupsOnline(result.ok).catch(() => {
-        });
-        if (result.ok) {
-          await cloudStateLoader.loadCloudStates(this);
-        } else {
-          cloudRetryHandler.handleCloudFailure(this, result);
-        }
-      } else {
-        this.log.info(`Using cached device data \u2014 no Cloud calls needed`);
-        this.cloudWasConnected = true;
-        cloudRetryHandler.ensureCloudRetry(this).setConnected(true);
-        this.setStateAsync("info.cloudConnected", {
-          val: true,
-          ack: true
-        }).catch(() => {
-        });
-        (_d = this.stateManager) == null ? void 0 : _d.updateGroupsOnline(true).catch(() => {
-        });
-      }
-      await this.deviceManager.loadGroupMembers();
-      this.cloudInitDone = true;
-    }
-    while (this.stateCreationQueue.length > 0) {
-      const pending = this.stateCreationQueue;
-      this.stateCreationQueue = [];
-      await Promise.all(pending);
-    }
-    if (this.stateManager && this.deviceManager) {
-      for (const device of this.deviceManager.getDevices()) {
-        if (device.lanIp && device.capabilities.length === 0) {
-          const prefix = this.stateManager.devicePrefix(device);
-          await this.stateManager.cleanupCloudOwnedStates(prefix, []).catch((e) => {
-            this.log.debug(`v2.8.0 migration cleanup failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
-          });
-          this.log.info(`Migrated v2.8.0: removed legacy cloud-owned states for ${device.name} (pure-LAN, no API key)`);
-        }
-      }
-    }
-    this.statesReady = true;
-    await this.subscribeStatesAsync("devices.*");
-    await this.subscribeStatesAsync("groups.*");
-    this.cleanupTimer = this.setTimeout(() => {
-      connectionState.reapStaleDevices(this).catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
-    }, 3e4);
-    this.onlineSyncTimer = this.setInterval(() => {
-      if (this.unloading || !this.stateManager || !this.deviceManager) {
-        return;
-      }
-      void (async () => {
-        let anyLightChanged = false;
-        for (const device of this.deviceManager.getDevices()) {
-          const changed = await this.stateManager.syncInfoOnline(device).catch(() => false);
-          if (changed) {
-            anyLightChanged = true;
+      this.deviceManager.onSegmentBatchUpdate = (device, batch) => {
+        const prefix = this.stateManager.devicePrefix(device);
+        const cap = typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : 0;
+        for (const idx of batch.segments) {
+          if (cap === 0 || idx >= cap) {
+            continue;
+          }
+          if (batch.color !== void 0) {
+            const hex = (0, import_types.rgbIntToHex)(batch.color);
+            this.setStateAsync(`${prefix}.segments.${idx}.color`, {
+              val: hex,
+              ack: true
+            }).catch(() => {
+            });
+          }
+          if (batch.brightness !== void 0) {
+            this.setStateAsync(`${prefix}.segments.${idx}.brightness`, {
+              val: batch.brightness,
+              ack: true
+            }).catch(() => {
+            });
           }
         }
-        if (anyLightChanged) {
-          groupFanoutHandler.updateGroupReachability(this);
+      };
+      this.deviceManager.onMqttSegmentUpdate = (device, segments) => {
+        const prefix = this.stateManager.devicePrefix(device);
+        const cap = typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : 0;
+        for (const seg of segments) {
+          if (cap === 0 || seg.index >= cap) {
+            continue;
+          }
+          this.setStateAsync(`${prefix}.segments.${seg.index}.color`, {
+            val: (0, import_types.rgbToHex)(seg.r, seg.g, seg.b),
+            ack: true
+          }).catch(() => {
+          });
+          this.setStateAsync(`${prefix}.segments.${seg.index}.brightness`, {
+            val: seg.brightness,
+            ack: true
+          }).catch(() => {
+          });
         }
-      })();
-    }, 2e4);
-    this.appVersionCheckTimer = this.setInterval(
-      () => {
-        connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
-      },
-      24 * 60 * 60 * 1e3
-    );
-    this.appVersionInitialTimer = this.setTimeout(
-      () => {
-        this.appVersionInitialTimer = void 0;
-        if (this.unloading) {
+      };
+      this.deviceManager.onSegmentCountGrown = (device) => {
+        if (!this.stateManager) {
           return;
         }
-        connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
-      },
-      2 * 60 * 1e3
-    );
-    connectionState.updateConnectionState(this);
-    connectionState.checkAllReady(this);
-    this.readyTimer = this.setTimeout(() => {
-      if (!this.readyLogged) {
-        this.readyLogged = true;
-        connectionState.logDeviceSummary(this);
+        this.stateManager.createSegmentStates(device).catch((e) => {
+          this.log.warn(`Failed to rebuild segment tree for ${device.name} after count growth: ${(0, import_types.errMessage)(e)}`);
+        });
+      };
+      const startChannels = ["LAN"];
+      if (config.apiKey) {
+        startChannels.push("Cloud");
       }
-    }, 6e4);
+      if (config.goveeEmail && config.goveePassword) {
+        startChannels.push("MQTT");
+      }
+      this.log.info(
+        `Starting (${startChannels.join(", ")}) \u2014 please wait, a "ready" message will follow when all channels are up`
+      );
+      this.lanClient = new import_govee_lan_client.GoveeLanClient(this.log, this);
+      this.deviceManager.setLanClient(this.lanClient);
+      this.lanClient.setSendHook((ip, cmd, payload, bytes, error) => {
+        var _a2;
+        const dev = (_a2 = this.deviceManager) == null ? void 0 : _a2.getDevices().find((d) => d.lanIp === ip);
+        if (!dev) {
+          return;
+        }
+        this.deviceManager.getDiagnostics().addLanSend(dev.deviceId, ip, cmd, payload, bytes, error);
+      });
+      this.lanClient.setStatusRecordHook((ip, status) => {
+        var _a2;
+        const dev = (_a2 = this.deviceManager) == null ? void 0 : _a2.getDevices().find((d) => d.lanIp === ip);
+        if (!dev) {
+          return;
+        }
+        this.deviceManager.getDiagnostics().recordApiSuccess(dev.deviceId, "lan://devStatus", status);
+      });
+      this.lanClient.setScanRecordHook((lanDevice) => {
+        var _a2;
+        (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addLog(lanDevice.device, "debug", `LAN scan reply: ip=${lanDevice.ip} sku=${lanDevice.sku}`);
+      });
+      this.lanClient.start(
+        (lanDevice) => {
+          var _a2;
+          this.deviceManager.handleLanDiscovery(lanDevice);
+          if (!((_a2 = this.mqttClient) == null ? void 0 : _a2.connected)) {
+            this.lanClient.requestStatus(lanDevice.ip);
+          }
+        },
+        (sourceIp, status) => {
+          this.deviceManager.handleLanStatus(sourceIp, status);
+        },
+        3e4,
+        config.networkInterface || ""
+      );
+      this.lanScanTimer = this.setTimeout(() => {
+        this.lanScanDone = true;
+        connectionState.checkAllReady(this);
+      }, 3e3);
+      if (config.goveeEmail && config.goveePassword) {
+        this.mqttClient = new import_govee_mqtt_client.GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
+        this.mqttClient.setPacketHook((deviceId, topic, payload) => {
+          var _a2;
+          (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addMqttPacket(deviceId, topic, payload);
+        });
+        this.mqttClient.setVerificationCode((_b = config.mqttVerificationCode) != null ? _b : "");
+        this.mqttClient.setOnVerificationConsumed(() => {
+          cloudCreds.clearVerificationCodeSetting(this).catch((e) => {
+            this.log.warn(`Could not clear mqttVerificationCode: ${(0, import_types.errMessage)(e)}`);
+          });
+        });
+        this.mqttClient.setOnVerificationFailed((reason) => {
+          if (reason === "failed") {
+            cloudCreds.clearVerificationCodeSetting(this).catch(() => {
+            });
+          }
+        });
+        await cloudCreds.cleanupLegacyMqttNativeOnce(this);
+        const cachedCreds = await cloudCreds.loadPersistedCredsFromState(this);
+        if (cachedCreds) {
+          this.mqttClient.setPersistedCredentials(cachedCreds);
+        }
+        this.mqttClient.setOnCredentialsRefresh((creds) => {
+          cloudCreds.persistCredsToState(this, creds).catch((e) => {
+            this.log.warn(`Could not persist MQTT credentials: ${(0, import_types.errMessage)(e)}`);
+          });
+        });
+        await this.mqttClient.connect(
+          (update) => this.deviceManager.handleMqttStatus(update),
+          (connected) => {
+            this.setStateAsync("info.mqttConnected", {
+              val: connected,
+              ack: true
+            }).catch(() => {
+            });
+            if (connected) {
+              connectionState.checkAllReady(this);
+            }
+            connectionState.updateConnectionState(this);
+          },
+          // Forward every fresh bearer token — fires on initial login and on
+          // each reconnect-login, so the API client never runs with a stale one.
+          (token) => apiClient.setBearerToken(token)
+        );
+      }
+      const cachedOk = this.deviceManager.loadFromCache();
+      if (config.apiKey) {
+        this.cloudClient = new import_govee_cloud_client.GoveeCloudClient(config.apiKey, this.log);
+        this.cloudClient.setResponseHook((deviceId, endpoint, body) => {
+          var _a2;
+          (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().recordApiSuccess(deviceId, endpoint, body);
+        });
+        this.deviceManager.setCloudClient(this.cloudClient);
+        this.deviceManager.setOnCloudCapabilities((device, caps) => {
+          cloudStateLoader.applyCloudCapabilities(this, device, caps).catch((e) => this.log.warn(`applyCloudCapabilities failed for ${device.sku}: ${(0, import_types.errMessage)(e)}`));
+        });
+        this.rateLimiter = new import_rate_limiter.RateLimiter(this.log, this, import_timing_constants.CLOUD_FULL_LIMITS.perMinute, import_timing_constants.CLOUD_FULL_LIMITS.perDay);
+        this.rateLimiter.start();
+        this.deviceManager.setRateLimiter(this.rateLimiter);
+        this.openapiMqttClient = new import_govee_openapi_mqtt_client.GoveeOpenapiMqttClient(config.apiKey, this.log, this);
+        this.openapiMqttClient.connect(
+          (event) => {
+            var _a2;
+            return (_a2 = this.deviceManager) == null ? void 0 : _a2.handleOpenApiEvent(event);
+          },
+          (connected) => {
+            this.setStateAsync("info.openapiMqttConnected", {
+              val: connected,
+              ack: true
+            }).catch(() => {
+            });
+          },
+          // v2.9.1 — raw payload hook. Cloud-events MQTT topic is account-wide
+          // (`GA/<apiKey>`), payload carries `sku`/`device`. Parse here so the
+          // raw envelope lands per-device in the diag (same model as AWS-IoT).
+          // Account-level bucket would have meant a new diag struct; per-device
+          // keeps shape consistent with all other capture paths.
+          (rawJson) => {
+            if (!this.deviceManager) {
+              return;
+            }
+            try {
+              const parsed = JSON.parse(rawJson);
+              if (typeof (parsed == null ? void 0 : parsed.device) === "string" && parsed.device) {
+                this.deviceManager.getDiagnostics().addMqttPacket(parsed.device, "openapi-events", { rawJson });
+              }
+            } catch {
+            }
+          }
+        );
+        const triggerAppApiPoll = () => {
+          var _a2;
+          (_a2 = this.deviceManager) == null ? void 0 : _a2.pollAppApi().then(() => {
+            if (!this.appApiInitialPollDone) {
+              this.appApiInitialPollDone = true;
+              connectionState.checkAllReady(this);
+            }
+          }).catch((e) => this.log.debug(`pollAppApi failed: ${(0, import_types.errMessage)(e)}`));
+        };
+        this.appApiPollTimer = this.setInterval(triggerAppApiPoll, import_timing_constants.APP_API_POLL_INTERVAL_MS);
+        this.appApiInitialTimer = this.setTimeout(triggerAppApiPoll, import_timing_constants.APP_API_INITIAL_DELAY_MS);
+        if (!cachedOk) {
+          const result = await cloudRetryHandler.cloudInitWithTimeout(this);
+          this.cloudWasConnected = result.ok;
+          cloudRetryHandler.ensureCloudRetry(this).setConnected(result.ok);
+          this.setStateAsync("info.cloudConnected", {
+            val: result.ok,
+            ack: true
+          }).catch(() => {
+          });
+          (_c = this.stateManager) == null ? void 0 : _c.updateGroupsOnline(result.ok).catch(() => {
+          });
+          if (result.ok) {
+            await cloudStateLoader.loadCloudStates(this);
+          } else {
+            cloudRetryHandler.handleCloudFailure(this, result);
+          }
+        } else {
+          this.log.info(`Using cached device data \u2014 no Cloud calls needed`);
+          this.cloudWasConnected = true;
+          cloudRetryHandler.ensureCloudRetry(this).setConnected(true);
+          this.setStateAsync("info.cloudConnected", {
+            val: true,
+            ack: true
+          }).catch(() => {
+          });
+          (_d = this.stateManager) == null ? void 0 : _d.updateGroupsOnline(true).catch(() => {
+          });
+        }
+        await this.deviceManager.loadGroupMembers();
+        this.cloudInitDone = true;
+      }
+      while (this.stateCreationQueue.length > 0) {
+        const pending = this.stateCreationQueue;
+        this.stateCreationQueue = [];
+        await Promise.all(pending);
+      }
+      if (this.stateManager && this.deviceManager) {
+        for (const device of this.deviceManager.getDevices()) {
+          if (device.lanIp && device.capabilities.length === 0) {
+            const prefix = this.stateManager.devicePrefix(device);
+            await this.stateManager.cleanupCloudOwnedStates(prefix, []).catch((e) => {
+              this.log.debug(`v2.8.0 migration cleanup failed for ${device.name}: ${(0, import_types.errMessage)(e)}`);
+            });
+            this.log.info(
+              `Migrated v2.8.0: removed legacy cloud-owned states for ${device.name} (pure-LAN, no API key)`
+            );
+          }
+        }
+      }
+      this.statesReady = true;
+      await this.subscribeStatesAsync("devices.*");
+      await this.subscribeStatesAsync("groups.*");
+      this.cleanupTimer = this.setTimeout(() => {
+        connectionState.reapStaleDevices(this).catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
+      }, 3e4);
+      this.onlineSyncTimer = this.setInterval(() => {
+        if (this.unloading || !this.stateManager || !this.deviceManager) {
+          return;
+        }
+        void (async () => {
+          let anyLightChanged = false;
+          for (const device of this.deviceManager.getDevices()) {
+            const changed = await this.stateManager.syncInfoOnline(device).catch(() => false);
+            if (changed) {
+              anyLightChanged = true;
+            }
+          }
+          if (anyLightChanged) {
+            groupFanoutHandler.updateGroupReachability(this);
+          }
+        })();
+      }, 2e4);
+      this.appVersionCheckTimer = this.setInterval(
+        () => {
+          connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
+        },
+        24 * 60 * 60 * 1e3
+      );
+      this.appVersionInitialTimer = this.setTimeout(
+        () => {
+          this.appVersionInitialTimer = void 0;
+          if (this.unloading) {
+            return;
+          }
+          connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
+        },
+        2 * 60 * 1e3
+      );
+      connectionState.updateConnectionState(this);
+      connectionState.checkAllReady(this);
+      this.readyTimer = this.setTimeout(() => {
+        if (!this.readyLogged) {
+          this.readyLogged = true;
+          connectionState.logDeviceSummary(this);
+        }
+      }, 6e4);
+    } catch (error) {
+      this.log.error(`onReady failed: ${error instanceof Error ? (_e = error.stack) != null ? _e : error.message : String(error)}`);
+    }
   }
   /**
    * One-shot migration: copy snapshots from the pre-v2.11 filesystem location
@@ -613,6 +605,21 @@ class GoveeAdapter extends utils.Adapter {
     } catch {
     }
     this.log.info(`Snapshot migration complete: ${migrated}/${files.length} files moved to meta.user storage.`);
+  }
+  async onStateChange(id, state) {
+    try {
+      await stateChangeRouter.onStateChange(this, id, state);
+    } catch (e) {
+      this.log.warn(`onStateChange crashed for ${id}: ${(0, import_types.errMessage)(e)}`);
+    }
+  }
+  onMessage(obj) {
+    var _a;
+    try {
+      (_a = this.messageRouter) == null ? void 0 : _a.onMessage(obj);
+    } catch (e) {
+      this.log.warn(`onMessage crashed: ${(0, import_types.errMessage)(e)}`);
+    }
   }
   /**
    * Adapter stopping — MUST be synchronous.

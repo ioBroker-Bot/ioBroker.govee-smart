@@ -55,6 +55,12 @@
         "brokenPlatformApi": true
       }
     },
+    "H607C": {
+      "name": "Floor Lamp 2",
+      "type": "light",
+      "status": "reported",
+      "since": "2.13.1"
+    },
     "H60A1": {
       "name": "LED Bulb",
       "type": "light",

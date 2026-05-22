@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.13.0",
+    "version": "2.13.1",
     "news": {
+      "2.13.1": {
+        "en": "Fixed missing LAN control states when a cloud-known device got LAN-discovered later. Added H607C Floor Lamp 2 to the device catalog.",
+        "de": "Fehlende LAN-Steuerungszustände behoben, wenn ein Cloud-bekanntes Gerät erst später per LAN entdeckt wurde. H607C Floor Lamp 2 zum Gerätekatalog hinzugefügt.",
+        "ru": "Исправлены отсутствующие LAN-состояния, когда облачное устройство обнаруживалось по LAN позже. Добавлена H607C Floor Lamp 2 в каталог.",
+        "pt": "Corrigidos estados LAN ausentes quando um dispositivo cloud era descoberto por LAN depois. Adicionado H607C Floor Lamp 2 ao catálogo.",
+        "nl": "Ontbrekende LAN-statussen opgelost als een cloud-bekend apparaat later via LAN ontdekt werd. H607C Floor Lamp 2 toegevoegd aan catalogus.",
+        "fr": "Correction des états LAN manquants lorsqu'un appareil cloud était découvert par LAN plus tard. H607C Floor Lamp 2 ajouté au catalogue.",
+        "it": "Corretti stati LAN mancanti quando un dispositivo cloud veniva scoperto via LAN in seguito. Aggiunto H607C Floor Lamp 2 al catalogo.",
+        "es": "Corregidos estados LAN ausentes cuando un dispositivo cloud se descubría por LAN después. Añadido H607C Floor Lamp 2 al catálogo.",
+        "pl": "Naprawiono brakujące stany LAN, gdy urządzenie chmurowe było później odkryte przez LAN. Dodano H607C Floor Lamp 2 do katalogu.",
+        "uk": "Виправлено відсутні LAN-стани, коли хмарний пристрій виявлявся по LAN пізніше. Додано H607C Floor Lamp 2 до каталогу.",
+        "zh-cn": "修复了当云端已知设备后来通过局域网被发现时缺失的 LAN 控制状态。已将 H607C Floor Lamp 2 添加到设备目录。"
+      },
       "2.13.0": {
         "en": "Startup now shows honest LAN status (LAN ✗ when no lights reachable). Lights without local API fall back to cloud control instead of failing silently.",
         "de": "Start zeigt jetzt ehrlichen LAN-Status (LAN ✗ wenn keine Lampen erreichbar). Lampen ohne lokale API nutzen Cloud-Steuerung statt still zu scheitern.",
@@ -80,19 +93,6 @@
         "pl": "Bezpieczeństwo: dane zaszyfrowane — wpisz ponownie klucz API, hasło Govee i kod 2FA. Lokalne migawki w kopiach ioBroker (auto-migracja). sendTo z nieznanym poleceniem nie zawiesza się.",
         "uk": "Безпека: дані зашифровані — введіть знову API-ключ, пароль Govee і 2FA-код. Локальні снапшоти в резервних копіях ioBroker (автоміграція). sendTo з невідомою командою не зависає.",
         "zh-cn": "安全：凭据已加密——请重新输入一次 API 密钥、Govee 密码和 2FA 代码。本地快照纳入 ioBroker 备份（自动迁移）。sendTo 收到未知命令不再挂起。"
-      },
-      "2.10.1": {
-        "en": "Cleaner adapter log: each connected channel now shows ✓ or ✗ status. Cloud and network errors come as readable user-messages with a retry hint instead of raw Node internals.",
-        "de": "Klarere Adapter-Logs: jeder verbundene Channel wird mit ✓ oder ✗ angezeigt. Cloud- und Netzwerk-Fehler kommen als lesbare User-Meldungen mit Retry-Hinweis statt roher Node-Interna.",
-        "ru": "Понятнее лог адаптера: каждый подключённый канал показан как ✓ или ✗. Ошибки cloud/сети — читаемые сообщения с подсказкой повтора вместо внутренностей Node.",
-        "pt": "Log do adaptador mais claro: cada canal conectado mostra ✓ ou ✗. Erros de cloud e rede vêm como mensagens legíveis com dica de retry, sem internals do Node.",
-        "nl": "Helderder adapter-log: elk verbonden kanaal toont ✓ of ✗. Cloud- en netwerkfouten als leesbare meldingen met retry-hint, geen Node-internals meer.",
-        "fr": "Log adapter plus clair : chaque canal connecté affiche ✓ ou ✗. Erreurs cloud et réseau en messages lisibles avec retry, plus d'internals Node.",
-        "it": "Log adapter più chiaro: ogni canale connesso mostra ✓ o ✗. Errori cloud e rete come messaggi leggibili con retry, niente internals Node.",
-        "es": "Log del adaptador más claro: cada canal conectado muestra ✓ o ✗. Errores cloud y red como mensajes legibles con retry, sin internals de Node.",
-        "pl": "Czytelniejszy log adaptera: każdy podłączony kanał pokazuje ✓ lub ✗. Błędy cloud i sieci jako czytelne wiadomości z podpowiedzią retry, bez wnętrza Node.",
-        "uk": "Зрозуміліший лог адаптера: кожен підключений канал показано як ✓ або ✗. Помилки cloud/мережі — читаємі повідомлення з підказкою retry, без внутрішніх деталей Node.",
-        "zh-cn": "更清晰的适配器日志：每个已连接通道显示 ✓ 或 ✗。云端和网络错误以可读消息显示，带重试提示，不再有 Node 内部细节。"
       }
     },
     "titleLang": {

@@ -990,12 +990,16 @@ export class DeviceManager {
    * @param lanDevice Discovery frame
    */
   private applyLanDiscoveryToExisting(matched: GoveeDevice, lanDevice: LanDevice): void {
+    const hadNoLanIp = !matched.lanIp;
     const ipChanged = matched.lanIp !== lanDevice.ip;
     const wasOffline = matched.state.online !== true;
     matched.lanIp = lanDevice.ip;
     matched.channels.lan = true;
     matched.lastSeenOnNetwork = Date.now();
     matched.lastLanReplyAt = Date.now();
+    if (hadNoLanIp) {
+      this.onLanDeviceReady?.(matched, this.getDevices());
+    }
     if (ipChanged) {
       this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
       this.onLanIpChanged?.(matched, lanDevice.ip);

@@ -252,6 +252,38 @@ describe("DeviceManager", () => {
       dm.handleLanDiscovery({ ip: "192.168.1.100", device: "AABBCCDDEEFF0011", sku: "H6160" });
       expect(updateCount).toBe(1);
     });
+
+    it("should fire onLanDeviceReady when cloud-known device gets LAN IP for the first time", () => {
+      (dm as any).mergeCloudDevices([
+        {
+          sku: "H607C",
+          device: "AA:BB:CC:DD:EE:FF:00:22",
+          deviceName: "Floor Lamp 2",
+          type: "devices.types.light",
+          capabilities: [{ type: "devices.capabilities.on_off", instance: "powerSwitch", parameters: {} }],
+        },
+      ]);
+      const device = dm.getDevices().find(d => d.sku === "H607C");
+      expect(device).toBeDefined();
+      expect(device!.lanIp).toBeUndefined();
+
+      let lanReadyCount = 0;
+      dm.setCallbacks({
+        onUpdate: () => {},
+        onLanDeviceReady: () => {
+          lanReadyCount++;
+        },
+        onCloudDataReady: () => {},
+        onGroupMembersReady: () => {},
+      });
+
+      dm.handleLanDiscovery({ ip: "192.168.1.50", device: "AABBCCDDEEFF0022", sku: "H607C" });
+      expect(lanReadyCount).toBe(1);
+      expect(device!.lanIp).toBe("192.168.1.50");
+
+      dm.handleLanDiscovery({ ip: "192.168.1.50", device: "AABBCCDDEEFF0022", sku: "H607C" });
+      expect(lanReadyCount).toBe(1);
+    });
   });
 
   describe("handleMqttStatus", () => {

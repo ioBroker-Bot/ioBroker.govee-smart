@@ -91,6 +91,12 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 2.13.1 (2026-05-22)
+
+- Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)
+- Added H607C Floor Lamp 2 to the device catalog
+- Community-standard event handler pattern (.bind + try/catch)
+
 ### 2.13.0 (2026-05-21)
 
 - Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API
@@ -108,10 +114,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)
 - All info datapoint names now show in 11 languages instead of English-only
-
-### 2.11.1 (2026-05-16)
-
-- Internal cleanup. No user-facing changes.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

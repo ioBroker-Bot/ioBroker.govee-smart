@@ -814,20 +814,24 @@ class DeviceManager {
    * @param lanDevice Discovery frame
    */
   applyLanDiscoveryToExisting(matched, lanDevice) {
-    var _a, _b;
+    var _a, _b, _c;
+    const hadNoLanIp = !matched.lanIp;
     const ipChanged = matched.lanIp !== lanDevice.ip;
     const wasOffline = matched.state.online !== true;
     matched.lanIp = lanDevice.ip;
     matched.channels.lan = true;
     matched.lastSeenOnNetwork = Date.now();
     matched.lastLanReplyAt = Date.now();
+    if (hadNoLanIp) {
+      (_a = this.onLanDeviceReady) == null ? void 0 : _a.call(this, matched, this.getDevices());
+    }
     if (ipChanged) {
       this.log.debug(`LAN: ${matched.name} (${matched.sku}) at ${lanDevice.ip}`);
-      (_a = this.onLanIpChanged) == null ? void 0 : _a.call(this, matched, lanDevice.ip);
+      (_b = this.onLanIpChanged) == null ? void 0 : _b.call(this, matched, lanDevice.ip);
     }
     if (wasOffline) {
       matched.state.online = true;
-      (_b = this.onDeviceUpdate) == null ? void 0 : _b.call(this, matched, { online: true });
+      (_c = this.onDeviceUpdate) == null ? void 0 : _c.call(this, matched, { online: true });
     }
   }
   /**

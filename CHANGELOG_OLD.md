@@ -1,4 +1,8 @@
 # Older Changes
+## 2.11.1 (2026-05-16)
+
+- Internal cleanup. No user-facing changes.
+
 ## 2.11.0 (2026-05-16)
 
 - Security: the 2FA verification code is now stored encrypted (API key and Govee password were already encrypted in previous versions). If you had a 2FA code set, re-enter it once in the adapter settings.
