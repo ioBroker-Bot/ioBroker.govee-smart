@@ -11,7 +11,7 @@
 - **GitHub:** https://github.com/krobipd/ioBroker.govee-smart
 - **npm:** https://www.npmjs.com/package/iobroker.govee-smart
 - **Runtime-Deps:** `@iobroker/adapter-core`, `mqtt`, `node-forge`
-- **Tests:** 842 unit (vitest, src/lib/\*.test.ts) + 57 package + integration, lint clean
+- **Tests:** 843 unit (vitest, src/lib/\*.test.ts) + 57 package + integration, lint clean
 - **Wiki:** komplett auditiert + bilingual EN/DE (https://github.com/krobipd/ioBroker.govee-smart/wiki)
 
 ## KRITISCH: LAN-first für Lights ist unantastbar!
