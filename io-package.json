@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.13.1",
     "news": {
+      "NEXT": {
+        "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
+        "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
+        "ru": "Сохранение пользовательских названий состояний; переводы через стандартный ioBroker i18n",
+        "pt": "Nomes de estados modificados pelo utilizador são preservados; traduções usam i18n padrão do ioBroker",
+        "nl": "Door gebruiker gewijzigde statusnamen blijven behouden; vertalingen via standaard ioBroker i18n",
+        "fr": "Les noms d'états modifiés par l'utilisateur sont conservés; traductions via i18n standard ioBroker",
+        "it": "I nomi degli stati modificati dall'utente vengono preservati; traduzioni tramite i18n standard ioBroker",
+        "es": "Los nombres de estados modificados por el usuario se conservan; traducciones usan i18n estándar de ioBroker",
+        "pl": "Zachowanie nazw stanów zmienionych przez użytkownika; tłumaczenia przez standardowy ioBroker i18n",
+        "uk": "Збереження назв станів, змінених користувачем; переклади через стандартний ioBroker i18n",
+        "zh-cn": "保留用户修改的状态名称；状态翻译使用标准 ioBroker i18n"
+      },
       "2.13.1": {
         "en": "Fixed missing LAN control states when a cloud-known device got LAN-discovered later. Added H607C Floor Lamp 2 to the device catalog.",
         "de": "Fehlende LAN-Steuerungszustände behoben, wenn ein Cloud-bekanntes Gerät erst später per LAN entdeckt wurde. H607C Floor Lamp 2 zum Gerätekatalog hinzugefügt.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak widocznych zmian.",
         "uk": "Внутрішнє прибирання. Без видимих змін.",
         "zh-cn": "内部清理。无用户可见更改。"
-      },
-      "2.11.0": {
-        "en": "Security: credentials encrypted — re-enter API key, Govee password and 2FA code once. Local snapshots backed up via ioBroker (auto-migration). sendTo with unknown command no longer hangs.",
-        "de": "Sicherheit: Credentials verschlüsselt — API-Key, Govee-Passwort und 2FA-Code einmal neu eingeben. Lokale Snapshots im ioBroker-Backup (Auto-Migration). sendTo bei unbekanntem Befehl hängt nicht mehr.",
-        "ru": "Безопасность: данные зашифрованы — заново введите API-ключ, пароль Govee и 2FA-код. Локальные снепшоты в бэкапе ioBroker (автомиграция). sendTo с неизвестной командой не зависает.",
-        "pt": "Segurança: credenciais cifradas — reintroduza API key, palavra-passe Govee e código 2FA uma vez. Snapshots locais nos backups ioBroker (auto-migração). sendTo desconhecido não bloqueia.",
-        "nl": "Beveiliging: inloggegevens versleuteld — voer API-sleutel, Govee-wachtwoord en 2FA-code eenmaal opnieuw in. Lokale snapshots in ioBroker-back-ups (auto-migratie). sendTo blokkeert niet meer.",
-        "fr": "Sécurité : identifiants chiffrés — ressaisir clé API, mot de passe Govee et code 2FA une fois. Snapshots locaux dans les sauvegardes ioBroker (migration auto). sendTo inconnu ne bloque plus.",
-        "it": "Sicurezza: credenziali cifrate — reinserire API key, password Govee e codice 2FA una volta. Snapshot locali nei backup ioBroker (migrazione automatica). sendTo sconosciuto non si blocca.",
-        "es": "Seguridad: credenciales cifradas — reintroduce clave API, contraseña Govee y código 2FA una vez. Snapshots locales en copias de seguridad ioBroker (migración auto). sendTo desconocido no se cuelga.",
-        "pl": "Bezpieczeństwo: dane zaszyfrowane — wpisz ponownie klucz API, hasło Govee i kod 2FA. Lokalne migawki w kopiach ioBroker (auto-migracja). sendTo z nieznanym poleceniem nie zawiesza się.",
-        "uk": "Безпека: дані зашифровані — введіть знову API-ключ, пароль Govee і 2FA-код. Локальні снапшоти в резервних копіях ioBroker (автоміграція). sendTo з невідомою командою не зависає.",
-        "zh-cn": "安全：凭据已加密——请重新输入一次 API 密钥、Govee 密码和 2FA 代码。本地快照纳入 ioBroker 备份（自动迁移）。sendTo 收到未知命令不再挂起。"
       }
     },
     "titleLang": {

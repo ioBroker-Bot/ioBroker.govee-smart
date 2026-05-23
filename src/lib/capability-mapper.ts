@@ -8,7 +8,7 @@ import {
 } from "./types";
 import { applyColorTempQuirk, getDeviceQuirks } from "./device-registry";
 import { GOVEE_CAP_TYPE, GOVEE_DEVICE_TYPE } from "./govee-constants";
-import { resolveLabel, tDesc, tName } from "./i18n-states";
+import { resolveLabel, tDesc, tName } from "./i18n";
 
 /** ioBroker state definition derived from a Govee capability */
 export interface StateDefinition {
@@ -18,8 +18,8 @@ export interface StateDefinition {
    * Display name. Plain string for capability-derived names (e.g. from
    * `humanize(cap.instance)` of an unknown Govee capability — those aren't
    * predictable). For known states, a translation object `{en, de, ru, ...}`
-   * built via `tName()` from `i18n-states.ts` — Admin/vis/Object-Browser
-   * pick the user's language automatically.
+   * built via `tName()` — Admin/vis/Object-Browser pick the user's language
+   * automatically.
    */
   name: string | Record<string, string>;
   /**
@@ -1077,18 +1077,15 @@ export function buildLanStateDefs(device: GoveeDevice, log: ioBroker.Logger): St
  * @param log Adapter logger — forwarded to mapCapabilities / applyQuirksToStates.
  * @param localSnapshots Optional local snapshot names
  * @param memberDevices Resolved member devices (only for BaseGroup)
- * @param lang Two-letter ISO language code (e.g. `adapter.language ?? "en"`).
- *             Resolves `common.states` VALUES that must be plain-string for Admin.
  */
 export function buildCloudStateDefs(
   device: GoveeDevice,
   log: ioBroker.Logger,
   localSnapshots?: { name: string }[],
   memberDevices?: GoveeDevice[],
-  lang: string = "en",
 ): StateDefinition[] {
   if (device.sku === "BaseGroup") {
-    return buildGroupStateDefs(memberDevices || [], lang);
+    return buildGroupStateDefs(memberDevices || []);
   }
 
   // Per-SKU quirk: brokenPlatformApi → don't trust the platform-cap tree.
@@ -1284,10 +1281,10 @@ export function buildCloudStateDefs(
     write: false,
     def: "unknown",
     states: {
-      verified: resolveLabel("deviceTierVerified", lang),
-      reported: resolveLabel("deviceTierReported", lang),
-      seed: resolveLabel("deviceTierSeed", lang),
-      unknown: resolveLabel("deviceTierUnknown", lang),
+      verified: resolveLabel("deviceTierVerified"),
+      reported: resolveLabel("deviceTierReported"),
+      seed: resolveLabel("deviceTierSeed"),
+      unknown: resolveLabel("deviceTierUnknown"),
     },
     capabilityType: "local",
     capabilityInstance: "diagnosticsTier",
@@ -1350,9 +1347,8 @@ function memberHasControlState(member: GoveeDevice, stateId: string): boolean {
  * No snapshots, no segments; diag-states (export/result/tier) included since v2.9.1.
  *
  * @param members Resolved member devices
- * @param lang Two-letter ISO language code for diag-tier dropdown labels
  */
-function buildGroupStateDefs(members: GoveeDevice[], lang: string = "en"): StateDefinition[] {
+function buildGroupStateDefs(members: GoveeDevice[]): StateDefinition[] {
   const controllable = members.filter(m => m.lanIp || m.channels.cloud);
   if (controllable.length === 0) {
     return [];
@@ -1442,10 +1438,10 @@ function buildGroupStateDefs(members: GoveeDevice[], lang: string = "en"): State
     write: false,
     def: "verified",
     states: {
-      verified: resolveLabel("deviceTierVerified", lang),
-      reported: resolveLabel("deviceTierReported", lang),
-      seed: resolveLabel("deviceTierSeed", lang),
-      unknown: resolveLabel("deviceTierUnknown", lang),
+      verified: resolveLabel("deviceTierVerified"),
+      reported: resolveLabel("deviceTierReported"),
+      seed: resolveLabel("deviceTierSeed"),
+      unknown: resolveLabel("deviceTierUnknown"),
     },
     capabilityType: "local",
     capabilityInstance: "diagnosticsTier",

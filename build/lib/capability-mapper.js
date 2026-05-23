@@ -32,7 +32,7 @@ module.exports = __toCommonJS(capability_mapper_exports);
 var import_types = require("./types");
 var import_device_registry = require("./device-registry");
 var import_govee_constants = require("./govee-constants");
-var import_i18n_states = require("./i18n-states");
+var import_i18n = require("./i18n");
 function coerceBool(v) {
   return v === true || v === 1 || v === "1" || v === "true";
 }
@@ -99,7 +99,7 @@ function getDefaultLanStates() {
   return [
     {
       id: "power",
-      name: (0, import_i18n_states.tName)("power"),
+      name: (0, import_i18n.tName)("power"),
       type: "boolean",
       role: "switch",
       write: true,
@@ -109,7 +109,7 @@ function getDefaultLanStates() {
     },
     {
       id: "brightness",
-      name: (0, import_i18n_states.tName)("brightness"),
+      name: (0, import_i18n.tName)("brightness"),
       type: "number",
       role: "level.brightness",
       write: true,
@@ -122,7 +122,7 @@ function getDefaultLanStates() {
     },
     {
       id: "colorRgb",
-      name: (0, import_i18n_states.tName)("colorRgb"),
+      name: (0, import_i18n.tName)("colorRgb"),
       type: "string",
       role: "level.color.rgb",
       write: true,
@@ -132,7 +132,7 @@ function getDefaultLanStates() {
     },
     {
       id: "colorTemperature",
-      name: (0, import_i18n_states.tName)("colorTemperature"),
+      name: (0, import_i18n.tName)("colorTemperature"),
       type: "number",
       role: "level.color.temperature",
       write: true,
@@ -155,7 +155,7 @@ function mapSingleCapability(cap) {
       return [
         {
           id: "power",
-          name: (0, import_i18n_states.tName)("power"),
+          name: (0, import_i18n.tName)("power"),
           type: "boolean",
           role: "switch",
           write: true,
@@ -253,7 +253,7 @@ function mapColorSetting(cap) {
     return [
       {
         id: "colorRgb",
-        name: (0, import_i18n_states.tName)("colorRgb"),
+        name: (0, import_i18n.tName)("colorRgb"),
         type: "string",
         role: "level.color.rgb",
         write: true,
@@ -268,7 +268,7 @@ function mapColorSetting(cap) {
     return [
       {
         id: "colorTemperature",
-        name: (0, import_i18n_states.tName)("colorTemperature"),
+        name: (0, import_i18n.tName)("colorTemperature"),
         type: "number",
         role: "level.color.temperature",
         write: true,
@@ -299,7 +299,7 @@ function mapMode(cap) {
   return [
     {
       id: "scene",
-      name: (0, import_i18n_states.tName)("scene"),
+      name: (0, import_i18n.tName)("scene"),
       type: "mixed",
       role: "text",
       write: true,
@@ -349,7 +349,7 @@ function mapWorkMode(cap) {
     return [
       {
         id: "work_mode",
-        name: (0, import_i18n_states.tName)("workMode"),
+        name: (0, import_i18n.tName)("workMode"),
         type: "mixed",
         role: "level.mode",
         write: true,
@@ -370,7 +370,7 @@ function mapWorkMode(cap) {
     }
     states.push({
       id: "work_mode",
-      name: (0, import_i18n_states.tName)("workMode"),
+      name: (0, import_i18n.tName)("workMode"),
       type: "mixed",
       role: "level.mode",
       write: true,
@@ -391,7 +391,7 @@ function mapWorkMode(cap) {
       }
       states.push({
         id: "mode_value",
-        name: (0, import_i18n_states.tName)("modeValue"),
+        name: (0, import_i18n.tName)("modeValue"),
         type: "mixed",
         role: "level",
         write: true,
@@ -403,7 +403,7 @@ function mapWorkMode(cap) {
     } else if (valueField.range) {
       states.push({
         id: "mode_value",
-        name: (0, import_i18n_states.tName)("modeValue"),
+        name: (0, import_i18n.tName)("modeValue"),
         type: "number",
         role: "level",
         write: true,
@@ -435,7 +435,7 @@ function mapTemperatureSetting(cap) {
       return [
         {
           id: "target_temperature",
-          name: (0, import_i18n_states.tName)("targetTemperature"),
+          name: (0, import_i18n.tName)("targetTemperature"),
           type: "number",
           role: "level.temperature",
           write: true,
@@ -455,7 +455,7 @@ function mapTemperatureSetting(cap) {
     return [
       {
         id: "target_temperature",
-        name: (0, import_i18n_states.tName)("targetTemperature"),
+        name: (0, import_i18n.tName)("targetTemperature"),
         type: "number",
         role: "level.temperature",
         write: true,
@@ -471,7 +471,7 @@ function mapTemperatureSetting(cap) {
   return [
     {
       id: "target_temperature",
-      name: (0, import_i18n_states.tName)("targetTemperature"),
+      name: (0, import_i18n.tName)("targetTemperature"),
       type: "string",
       role: "json",
       write: true,
@@ -514,7 +514,7 @@ function mapMusicSetting(cap) {
     }
     states.push({
       id: "music_mode",
-      name: (0, import_i18n_states.tName)("musicMode"),
+      name: (0, import_i18n.tName)("musicMode"),
       type: "mixed",
       role: "text",
       write: true,
@@ -528,7 +528,7 @@ function mapMusicSetting(cap) {
   if (sensField == null ? void 0 : sensField.range) {
     states.push({
       id: "music_sensitivity",
-      name: (0, import_i18n_states.tName)("musicSensitivity"),
+      name: (0, import_i18n.tName)("musicSensitivity"),
       type: "number",
       role: "level",
       write: true,
@@ -544,7 +544,7 @@ function mapMusicSetting(cap) {
   if (autoColorField) {
     states.push({
       id: "music_auto_color",
-      name: (0, import_i18n_states.tName)("musicAutoColor"),
+      name: (0, import_i18n.tName)("musicAutoColor"),
       type: "boolean",
       role: "switch",
       write: true,
@@ -736,9 +736,9 @@ function buildLanStateDefs(device, log) {
   applyQuirksToStates(device.sku, stateDefs, log);
   return stateDefs;
 }
-function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = "en") {
+function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
   if (device.sku === "BaseGroup") {
-    return buildGroupStateDefs(memberDevices || [], lang);
+    return buildGroupStateDefs(memberDevices || []);
   }
   const quirks = (0, import_device_registry.getDeviceQuirks)(device.sku);
   const skipCapabilities = (quirks == null ? void 0 : quirks.brokenPlatformApi) === true;
@@ -754,8 +754,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
     }
     stateDefs.push({
       id: r.id,
-      name: (0, import_i18n_states.tName)(r.nameKey),
-      desc: r.descKey ? (0, import_i18n_states.tDesc)(r.descKey) : void 0,
+      name: (0, import_i18n.tName)(r.nameKey),
+      desc: r.descKey ? (0, import_i18n.tDesc)(r.descKey) : void 0,
       // mixed lets users write the index ("1"), the index as number (1),
       // or the entry name ("Aurora") — the onStateChange handler resolves
       // all three forms via the common.states map.
@@ -791,7 +791,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   if (isLight && maxSpeedLevel > 0) {
     stateDefs.push({
       id: "scene_speed",
-      name: (0, import_i18n_states.tName)("sceneSpeed"),
+      name: (0, import_i18n.tName)("sceneSpeed"),
       type: "number",
       role: "level",
       write: true,
@@ -806,8 +806,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   if (!skipCapabilities && isLight && (hasDynamicSceneCapability(device.capabilities, "lightScene") || hasDynamicSceneCapability(device.capabilities, "diyScene") || hasDynamicSceneCapability(device.capabilities, "snapshot"))) {
     stateDefs.push({
       id: "refresh_cloud",
-      name: (0, import_i18n_states.tName)("refreshCloud"),
-      desc: (0, import_i18n_states.tDesc)("refreshCloudDesc"),
+      name: (0, import_i18n.tName)("refreshCloud"),
+      desc: (0, import_i18n.tDesc)("refreshCloudDesc"),
       type: "boolean",
       role: "button",
       write: true,
@@ -820,8 +820,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   if (isLight) {
     stateDefs.push({
       id: "snapshot_local",
-      name: (0, import_i18n_states.tName)("localSnapshot"),
-      desc: (0, import_i18n_states.tDesc)("localSnapshotDesc"),
+      name: (0, import_i18n.tName)("localSnapshot"),
+      desc: (0, import_i18n.tDesc)("localSnapshotDesc"),
       type: "mixed",
       role: "text",
       write: true,
@@ -833,8 +833,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
     });
     stateDefs.push({
       id: "snapshot_save",
-      name: (0, import_i18n_states.tName)("saveLocalSnapshot"),
-      desc: (0, import_i18n_states.tDesc)("saveLocalSnapshotDesc"),
+      name: (0, import_i18n.tName)("saveLocalSnapshot"),
+      desc: (0, import_i18n.tDesc)("saveLocalSnapshotDesc"),
       type: "string",
       role: "text",
       write: true,
@@ -845,8 +845,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
     });
     stateDefs.push({
       id: "snapshot_delete",
-      name: (0, import_i18n_states.tName)("deleteLocalSnapshot"),
-      desc: (0, import_i18n_states.tDesc)("deleteLocalSnapshotDesc"),
+      name: (0, import_i18n.tName)("deleteLocalSnapshot"),
+      desc: (0, import_i18n.tDesc)("deleteLocalSnapshotDesc"),
       type: "string",
       role: "text",
       write: true,
@@ -858,7 +858,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   }
   stateDefs.push({
     id: "export",
-    name: (0, import_i18n_states.tName)("exportDiagnostics"),
+    name: (0, import_i18n.tName)("exportDiagnostics"),
     type: "boolean",
     role: "button",
     write: true,
@@ -869,7 +869,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   });
   stateDefs.push({
     id: "result",
-    name: (0, import_i18n_states.tName)("diagnosticsJson"),
+    name: (0, import_i18n.tName)("diagnosticsJson"),
     type: "string",
     role: "json",
     write: false,
@@ -880,16 +880,16 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices, lang = 
   });
   stateDefs.push({
     id: "tier",
-    name: (0, import_i18n_states.tName)("deviceTier"),
+    name: (0, import_i18n.tName)("deviceTier"),
     type: "string",
     role: "text",
     write: false,
     def: "unknown",
     states: {
-      verified: (0, import_i18n_states.resolveLabel)("deviceTierVerified", lang),
-      reported: (0, import_i18n_states.resolveLabel)("deviceTierReported", lang),
-      seed: (0, import_i18n_states.resolveLabel)("deviceTierSeed", lang),
-      unknown: (0, import_i18n_states.resolveLabel)("deviceTierUnknown", lang)
+      verified: (0, import_i18n.resolveLabel)("deviceTierVerified"),
+      reported: (0, import_i18n.resolveLabel)("deviceTierReported"),
+      seed: (0, import_i18n.resolveLabel)("deviceTierSeed"),
+      unknown: (0, import_i18n.resolveLabel)("deviceTierUnknown")
     },
     capabilityType: "local",
     capabilityInstance: "diagnosticsTier",
@@ -921,7 +921,7 @@ function memberHasControlState(member, stateId) {
       return false;
   }
 }
-function buildGroupStateDefs(members, lang = "en") {
+function buildGroupStateDefs(members) {
   const controllable = members.filter((m) => m.lanIp || m.channels.cloud);
   if (controllable.length === 0) {
     return [];
@@ -938,7 +938,7 @@ function buildGroupStateDefs(members, lang = "en") {
     if (commonNames.length > 0) {
       stateDefs.push({
         id: "light_scene",
-        name: (0, import_i18n_states.tName)("lightScene"),
+        name: (0, import_i18n.tName)("lightScene"),
         type: "mixed",
         role: "text",
         write: true,
@@ -956,7 +956,7 @@ function buildGroupStateDefs(members, lang = "en") {
     if (commonNames.length > 0) {
       stateDefs.push({
         id: "music_mode",
-        name: (0, import_i18n_states.tName)("musicMode"),
+        name: (0, import_i18n.tName)("musicMode"),
         type: "mixed",
         role: "text",
         write: true,
@@ -970,7 +970,7 @@ function buildGroupStateDefs(members, lang = "en") {
   }
   stateDefs.push({
     id: "export",
-    name: (0, import_i18n_states.tName)("exportDiagnostics"),
+    name: (0, import_i18n.tName)("exportDiagnostics"),
     type: "boolean",
     role: "button",
     write: true,
@@ -981,7 +981,7 @@ function buildGroupStateDefs(members, lang = "en") {
   });
   stateDefs.push({
     id: "result",
-    name: (0, import_i18n_states.tName)("diagnosticsJson"),
+    name: (0, import_i18n.tName)("diagnosticsJson"),
     type: "string",
     role: "json",
     write: false,
@@ -992,16 +992,16 @@ function buildGroupStateDefs(members, lang = "en") {
   });
   stateDefs.push({
     id: "tier",
-    name: (0, import_i18n_states.tName)("deviceTier"),
+    name: (0, import_i18n.tName)("deviceTier"),
     type: "string",
     role: "text",
     write: false,
     def: "verified",
     states: {
-      verified: (0, import_i18n_states.resolveLabel)("deviceTierVerified", lang),
-      reported: (0, import_i18n_states.resolveLabel)("deviceTierReported", lang),
-      seed: (0, import_i18n_states.resolveLabel)("deviceTierSeed", lang),
-      unknown: (0, import_i18n_states.resolveLabel)("deviceTierUnknown", lang)
+      verified: (0, import_i18n.resolveLabel)("deviceTierVerified"),
+      reported: (0, import_i18n.resolveLabel)("deviceTierReported"),
+      seed: (0, import_i18n.resolveLabel)("deviceTierSeed"),
+      unknown: (0, import_i18n.resolveLabel)("deviceTierUnknown")
     },
     capabilityType: "local",
     capabilityInstance: "diagnosticsTier",

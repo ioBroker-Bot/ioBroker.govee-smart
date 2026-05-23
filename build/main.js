@@ -21,6 +21,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var import_adapter_core = require("@iobroker/adapter-core");
 var utils = __toESM(require("@iobroker/adapter-core"));
 var fs = __toESM(require("node:fs"));
 var path = __toESM(require("node:path"));
@@ -171,6 +172,7 @@ class GoveeAdapter extends utils.Adapter {
   async onReady() {
     var _a, _b, _c, _d, _e;
     try {
+      await import_adapter_core.I18n.init(path.join(this.adapterDir, "admin"), this);
       const config = this.config;
       if (config.apiKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.apiKey)) {
         this.log.error(

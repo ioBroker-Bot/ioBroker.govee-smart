@@ -139,7 +139,7 @@ export function onCloudDataReady<T extends DeviceEventsAdapter & connectionState
   if (device.sku === "BaseGroup" && device.groupMembers) {
     memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
   }
-  const cloudDefs = buildCloudStateDefs(device, adapter.log, localSnaps, memberDevices, adapter.language ?? "en");
+  const cloudDefs = buildCloudStateDefs(device, adapter.log, localSnaps, memberDevices);
   const capN = Array.isArray(device.capabilities) ? device.capabilities.length : 0;
   adapter.log.debug(
     `buildCloudStateDefs for ${device.sku} ${device.deviceId}: ${capN} cap(s) in → ${cloudDefs.length} state def(s) out`,

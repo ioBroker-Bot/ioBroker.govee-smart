@@ -1,3 +1,12 @@
+import { vi } from "vitest";
+
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: vi.fn((key: string) => ({ en: key })),
+    translate: vi.fn((key: string) => key),
+  },
+}));
+
 import { SegmentWizard, type WizardHost, type WizardResult } from "./segment-wizard";
 import { SEGMENT_HARD_MAX } from "./device-manager";
 import type { CloudCapability, GoveeDevice } from "./types";

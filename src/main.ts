@@ -1,3 +1,4 @@
+import { I18n } from "@iobroker/adapter-core";
 import * as utils from "@iobroker/adapter-core";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -159,6 +160,7 @@ class GoveeAdapter extends utils.Adapter {
   /** Adapter started — initialize all channels */
   private async onReady(): Promise<void> {
     try {
+      await I18n.init(path.join(this.adapterDir, "admin"), this);
       const config = this.config;
 
       // v2.11.0 credential-encryption migration check: if encryptedNative was

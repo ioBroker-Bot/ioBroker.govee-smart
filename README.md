@@ -91,6 +91,11 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- User-modified state names are no longer overwritten on adapter restart
+- State name translations migrated to standard ioBroker i18n framework
+
 ### 2.13.1 (2026-05-22)
 
 - Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)

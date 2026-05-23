@@ -81,7 +81,7 @@ function onLanDeviceReady(adapter, device, _allDevices) {
   connectionState.updateConnectionState(adapter);
 }
 function onCloudDataReady(adapter, device, allDevices) {
-  var _a, _b, _c;
+  var _a, _b;
   if (!adapter.stateManager) {
     return;
   }
@@ -91,7 +91,7 @@ function onCloudDataReady(adapter, device, allDevices) {
   if (device.sku === "BaseGroup" && device.groupMembers) {
     memberDevices = groupFanoutHandler.resolveGroupMembers(device, allDevices);
   }
-  const cloudDefs = (0, import_capability_mapper.buildCloudStateDefs)(device, adapter.log, localSnaps, memberDevices, (_b = adapter.language) != null ? _b : "en");
+  const cloudDefs = (0, import_capability_mapper.buildCloudStateDefs)(device, adapter.log, localSnaps, memberDevices);
   const capN = Array.isArray(device.capabilities) ? device.capabilities.length : 0;
   adapter.log.debug(
     `buildCloudStateDefs for ${device.sku} ${device.deviceId}: ${capN} cap(s) in \u2192 ${cloudDefs.length} state def(s) out`
@@ -108,7 +108,7 @@ function onCloudDataReady(adapter, device, allDevices) {
   trackStateCreation(adapter, p);
   connectionState.updateConnectionState(adapter);
   if (adapter.statesReady) {
-    (_c = adapter.reapStaleDevices) == null ? void 0 : _c.call(adapter).catch(() => void 0);
+    (_b = adapter.reapStaleDevices) == null ? void 0 : _b.call(adapter).catch(() => void 0);
   }
 }
 function onGroupMembersReady(adapter, group, allDevices) {

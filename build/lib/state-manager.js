@@ -25,7 +25,7 @@ var import_capability_mapper = require("./capability-mapper");
 var import_device_icons = require("./device-icons");
 var import_device_manager = require("./device-manager");
 var import_govee_constants = require("./govee-constants");
-var import_i18n_states = require("./i18n-states");
+var import_i18n = require("./i18n");
 var import_types = require("./types");
 function sanitize(str) {
   return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
@@ -81,81 +81,27 @@ function inferChannelFromStateId(stateId) {
   return "control";
 }
 const SYNTHETIC_STATE_META = {
-  temperature: {
-    type: "number",
-    role: "value.temperature",
-    unit: "\xB0C",
-    name: (0, import_i18n_states.tName)("temperature")
-  },
-  humidity: {
-    type: "number",
-    role: "value.humidity",
-    unit: "%",
-    name: (0, import_i18n_states.tName)("humidity")
-  },
-  battery: {
-    type: "number",
-    role: "value.battery",
-    unit: "%",
-    name: (0, import_i18n_states.tName)("battery")
-  },
-  co2: { type: "number", role: "value.co2", unit: "ppm", name: (0, import_i18n_states.tName)("co2") },
-  carbondioxide: {
-    type: "number",
-    role: "value.co2",
-    unit: "ppm",
-    name: (0, import_i18n_states.tName)("co2")
-  },
-  online: { type: "boolean", role: "indicator.connected", name: (0, import_i18n_states.tName)("online") },
-  lackwater: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: (0, import_i18n_states.tName)("lackOfWater")
-  },
-  lackwaterevent: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: (0, import_i18n_states.tName)("lackOfWater")
-  },
-  icefull: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  icefullevent: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  bodyappeared: { type: "boolean", role: "sensor.motion", name: (0, import_i18n_states.tName)("bodyDetected") },
-  dirtdetected: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("dirtDetected") },
-  // sanitizeId(instance) Aliases — gleiche Meta wie raw-Form, decoupled
-  // damit der Adapter beim ersten Sensor-State-Write den richtigen Channel
-  // (sensor/ bzw. events/) anlegt.
-  sensor_temperature: {
-    type: "number",
-    role: "value.temperature",
-    unit: "\xB0C",
-    name: (0, import_i18n_states.tName)("temperature")
-  },
-  sensor_humidity: {
-    type: "number",
-    role: "value.humidity",
-    unit: "%",
-    name: (0, import_i18n_states.tName)("humidity")
-  },
-  sensor_battery: {
-    type: "number",
-    role: "value.battery",
-    unit: "%",
-    name: (0, import_i18n_states.tName)("battery")
-  },
-  lack_water: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: (0, import_i18n_states.tName)("lackOfWater")
-  },
-  lack_water_event: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: (0, import_i18n_states.tName)("lackOfWater")
-  },
-  ice_full: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  ice_full_event: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("iceBucketFull") },
-  body_appeared: { type: "boolean", role: "sensor.motion", name: (0, import_i18n_states.tName)("bodyDetected") },
-  dirt_detected: { type: "boolean", role: "indicator.maintenance", name: (0, import_i18n_states.tName)("dirtDetected") }
+  temperature: { type: "number", role: "value.temperature", unit: "\xB0C", nameKey: "temperature" },
+  humidity: { type: "number", role: "value.humidity", unit: "%", nameKey: "humidity" },
+  battery: { type: "number", role: "value.battery", unit: "%", nameKey: "battery" },
+  co2: { type: "number", role: "value.co2", unit: "ppm", nameKey: "co2" },
+  carbondioxide: { type: "number", role: "value.co2", unit: "ppm", nameKey: "co2" },
+  online: { type: "boolean", role: "indicator.connected", nameKey: "online" },
+  lackwater: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  lackwaterevent: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  icefull: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  icefullevent: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  bodyappeared: { type: "boolean", role: "sensor.motion", nameKey: "bodyDetected" },
+  dirtdetected: { type: "boolean", role: "indicator.maintenance", nameKey: "dirtDetected" },
+  sensor_temperature: { type: "number", role: "value.temperature", unit: "\xB0C", nameKey: "temperature" },
+  sensor_humidity: { type: "number", role: "value.humidity", unit: "%", nameKey: "humidity" },
+  sensor_battery: { type: "number", role: "value.battery", unit: "%", nameKey: "battery" },
+  lack_water: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  lack_water_event: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  ice_full: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  ice_full_event: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  body_appeared: { type: "boolean", role: "sensor.motion", nameKey: "bodyDetected" },
+  dirt_detected: { type: "boolean", role: "indicator.maintenance", nameKey: "dirtDetected" }
 };
 class StateManager {
   adapter;
@@ -292,24 +238,32 @@ class StateManager {
       return;
     }
     const channel = inferChannelFromStateId(stateId);
-    await this.adapter.extendObjectAsync(`${prefix}.${channel}`, {
-      type: "channel",
-      common: { name: (_a = CHANNEL_NAMES[channel]) != null ? _a : channel },
-      native: {}
-    }).catch(() => void 0);
-    await this.adapter.extendObjectAsync(`${prefix}.${channel}.${stateId}`, {
-      type: "state",
-      common: {
-        name: meta.name,
-        type: meta.type,
-        role: meta.role,
-        read: true,
-        write: false,
-        ...meta.unit !== void 0 ? { unit: meta.unit } : {},
-        def: meta.type === "boolean" ? false : 0
+    await this.adapter.extendObjectAsync(
+      `${prefix}.${channel}`,
+      {
+        type: "channel",
+        common: { name: (_a = CHANNEL_NAMES[channel]) != null ? _a : channel },
+        native: {}
       },
-      native: {}
-    }).catch(() => void 0);
+      { preserve: { common: ["name"] } }
+    ).catch(() => void 0);
+    await this.adapter.extendObjectAsync(
+      `${prefix}.${channel}.${stateId}`,
+      {
+        type: "state",
+        common: {
+          name: (0, import_i18n.tName)(meta.nameKey),
+          type: meta.type,
+          role: meta.role,
+          read: true,
+          write: false,
+          ...meta.unit !== void 0 ? { unit: meta.unit } : {},
+          def: meta.type === "boolean" ? false : 0
+        },
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    ).catch(() => void 0);
     this.stateChannelMap.set(`${prefix}.${stateId}`, channel);
   }
   /**
@@ -346,23 +300,31 @@ class StateManager {
     const isGroup = device.sku === "BaseGroup";
     const onlineId = isGroup ? `${this.adapter.namespace}.groups.info.online` : `${this.adapter.namespace}.${prefix}.info.online`;
     const icon = isGroup ? import_device_icons.GROUP_ICON : (0, import_device_icons.iconForGoveeType)(device.type);
-    await this.adapter.extendObjectAsync(prefix, {
-      type: "device",
-      common: {
-        name: device.name,
-        icon,
-        statusStates: { onlineId }
+    await this.adapter.extendObjectAsync(
+      prefix,
+      {
+        type: "device",
+        common: {
+          name: device.name,
+          icon,
+          statusStates: { onlineId }
+        },
+        native: {
+          sku: device.sku,
+          deviceId: device.deviceId
+        }
       },
-      native: {
-        sku: device.sku,
-        deviceId: device.deviceId
-      }
-    });
-    await this.adapter.extendObjectAsync(`${prefix}.info`, {
-      type: "channel",
-      common: { name: (0, import_i18n_states.tName)("deviceInformation") },
-      native: {}
-    });
+      { preserve: { common: ["name"] } }
+    );
+    await this.adapter.extendObjectAsync(
+      `${prefix}.info`,
+      {
+        type: "channel",
+        common: { name: (0, import_i18n.tName)("deviceInformation") },
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
     await this.ensureState(`${prefix}.info.name`, "Name", "string", "text", false);
     await this.adapter.setStateAsync(`${prefix}.info.name`, {
       val: device.name,
@@ -490,15 +452,17 @@ class StateManager {
       `createStates [${logTag}] ${prefix}: ${stateDefs.length} states in ${channelGroups.size} channel(s)`
     );
     for (const [channel, defs] of channelGroups) {
-      await this.adapter.extendObjectAsync(`${prefix}.${channel}`, {
-        type: "channel",
-        common: { name: (_b = CHANNEL_NAMES[channel]) != null ? _b : channel },
-        native: {}
-      });
+      await this.adapter.extendObjectAsync(
+        `${prefix}.${channel}`,
+        {
+          type: "channel",
+          common: { name: (_b = CHANNEL_NAMES[channel]) != null ? _b : channel },
+          native: {}
+        },
+        { preserve: { common: ["name"] } }
+      );
       for (const def of defs) {
         const common = {
-          // StateDefinition.name allows plain string OR translation object for
-          // legacy/dynamic names; ioBroker StringOrTranslated has the same shape.
           name: def.name,
           type: def.type,
           role: def.role,
@@ -523,14 +487,18 @@ class StateManager {
         if (def.desc) {
           common.desc = def.desc;
         }
-        await this.adapter.extendObjectAsync(`${prefix}.${channel}.${def.id}`, {
-          type: "state",
-          common,
-          native: {
-            capabilityType: def.capabilityType,
-            capabilityInstance: def.capabilityInstance
-          }
-        });
+        await this.adapter.extendObjectAsync(
+          `${prefix}.${channel}.${def.id}`,
+          {
+            type: "state",
+            common,
+            native: {
+              capabilityType: def.capabilityType,
+              capabilityInstance: def.capabilityInstance
+            }
+          },
+          { preserve: { common: ["name"] } }
+        );
         if (def.states) {
           await this.repairCommonStatesIfBuggy(`${prefix}.${channel}.${def.id}`, def.states);
         }
@@ -561,11 +529,15 @@ class StateManager {
    */
   async createSegmentStates(device) {
     const prefix = this.devicePrefix(device);
-    await this.adapter.extendObjectAsync(`${prefix}.segments`, {
-      type: "channel",
-      common: { name: (0, import_i18n_states.tName)("ledSegments") },
-      native: {}
-    });
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments`,
+      {
+        type: "channel",
+        common: { name: (0, import_i18n.tName)("ledSegments") },
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
     const resolved = (0, import_device_manager.resolveSegmentCount)(device);
     const manualMax = Array.isArray(device.manualSegments) && device.manualSegments.length > 0 ? Math.max(...device.manualSegments) + 1 : 0;
     const segmentCount = Math.max(resolved, manualMax);
@@ -577,32 +549,40 @@ class StateManager {
       val: reportedCount,
       ack: true
     });
-    await this.adapter.extendObjectAsync(`${prefix}.segments.manual_mode`, {
-      type: "state",
-      common: {
-        name: (0, import_i18n_states.tName)("manualSegmentsActive"),
-        type: "boolean",
-        role: "switch",
-        read: true,
-        write: true,
-        def: false,
-        desc: (0, import_i18n_states.tDesc)("manualSegmentsDesc")
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments.manual_mode`,
+      {
+        type: "state",
+        common: {
+          name: (0, import_i18n.tName)("manualSegmentsActive"),
+          type: "boolean",
+          role: "switch",
+          read: true,
+          write: true,
+          def: false,
+          desc: (0, import_i18n.tDesc)("manualSegmentsDesc")
+        },
+        native: {}
       },
-      native: {}
-    });
-    await this.adapter.extendObjectAsync(`${prefix}.segments.manual_list`, {
-      type: "state",
-      common: {
-        name: (0, import_i18n_states.tName)("manualSegmentList"),
-        type: "string",
-        role: "text",
-        read: true,
-        write: true,
-        def: "",
-        desc: (0, import_i18n_states.tDesc)("manualListDesc")
+      { preserve: { common: ["name"] } }
+    );
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments.manual_list`,
+      {
+        type: "state",
+        common: {
+          name: (0, import_i18n.tName)("manualSegmentList"),
+          type: "string",
+          role: "text",
+          read: true,
+          write: true,
+          def: "",
+          desc: (0, import_i18n.tDesc)("manualListDesc")
+        },
+        native: {}
       },
-      native: {}
-    });
+      { preserve: { common: ["name"] } }
+    );
     const manualModeVal = device.manualMode === true;
     const manualListVal = device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0 ? device.manualSegments.join(",") : "";
     await this.adapter.setStateAsync(`${prefix}.segments.manual_mode`, {
@@ -614,49 +594,65 @@ class StateManager {
       ack: true
     });
     for (const i of validIndices) {
-      await this.adapter.extendObjectAsync(`${prefix}.segments.${i}`, {
-        type: "channel",
-        common: { name: `Segment ${i}` },
-        native: {}
-      });
-      await this.adapter.extendObjectAsync(`${prefix}.segments.${i}.color`, {
-        type: "state",
-        common: {
-          name: (0, import_i18n_states.tName)("color"),
-          type: "string",
-          role: "level.color.rgb",
-          read: true,
-          write: true
+      await this.adapter.extendObjectAsync(
+        `${prefix}.segments.${i}`,
+        {
+          type: "channel",
+          common: { name: `Segment ${i}` },
+          native: {}
         },
-        native: {}
-      });
-      await this.adapter.extendObjectAsync(`${prefix}.segments.${i}.brightness`, {
-        type: "state",
-        common: {
-          name: (0, import_i18n_states.tName)("brightness"),
-          type: "number",
-          role: "level.brightness",
-          read: true,
-          write: true,
-          min: 0,
-          max: 100,
-          unit: "%"
+        { preserve: { common: ["name"] } }
+      );
+      await this.adapter.extendObjectAsync(
+        `${prefix}.segments.${i}.color`,
+        {
+          type: "state",
+          common: {
+            name: (0, import_i18n.tName)("color"),
+            type: "string",
+            role: "level.color.rgb",
+            read: true,
+            write: true
+          },
+          native: {}
         },
-        native: {}
-      });
+        { preserve: { common: ["name"] } }
+      );
+      await this.adapter.extendObjectAsync(
+        `${prefix}.segments.${i}.brightness`,
+        {
+          type: "state",
+          common: {
+            name: (0, import_i18n.tName)("brightness"),
+            type: "number",
+            role: "level.brightness",
+            read: true,
+            write: true,
+            min: 0,
+            max: 100,
+            unit: "%"
+          },
+          native: {}
+        },
+        { preserve: { common: ["name"] } }
+      );
     }
-    await this.adapter.extendObjectAsync(`${prefix}.segments.command`, {
-      type: "state",
-      common: {
-        name: (0, import_i18n_states.tName)("batchSegmentCommand"),
-        type: "string",
-        role: "text",
-        read: false,
-        write: true,
-        desc: (0, import_i18n_states.tDesc)("batchCommandDesc")
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments.command`,
+      {
+        type: "state",
+        common: {
+          name: (0, import_i18n.tName)("batchSegmentCommand"),
+          type: "string",
+          role: "text",
+          read: false,
+          write: true,
+          desc: (0, import_i18n.tDesc)("batchCommandDesc")
+        },
+        native: {}
       },
-      native: {}
-    });
+      { preserve: { common: ["name"] } }
+    );
     await this.cleanupExcessSegments(prefix, validIndices);
   }
   /**
@@ -733,16 +729,24 @@ class StateManager {
    * @param online Initial online value
    */
   async createGroupsOnlineState(online) {
-    await this.adapter.extendObjectAsync("groups", {
-      type: "folder",
-      common: { name: (0, import_i18n_states.tName)("groups") },
-      native: {}
-    });
-    await this.adapter.extendObjectAsync("groups.info", {
-      type: "channel",
-      common: { name: (0, import_i18n_states.tName)("groupsStatus") },
-      native: {}
-    });
+    await this.adapter.extendObjectAsync(
+      "groups",
+      {
+        type: "folder",
+        common: { name: (0, import_i18n.tName)("groups") },
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
+    await this.adapter.extendObjectAsync(
+      "groups.info",
+      {
+        type: "channel",
+        common: { name: (0, import_i18n.tName)("groupsStatus") },
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
     await this.ensureState("groups.info.online", "Cloud Online", "boolean", "indicator.reachable", false);
     await this.adapter.setStateAsync("groups.info.online", {
       val: online,
@@ -984,11 +988,15 @@ class StateManager {
     if (def !== void 0) {
       common.def = def;
     }
-    await this.adapter.extendObjectAsync(id, {
-      type: "state",
-      common,
-      native: {}
-    });
+    await this.adapter.extendObjectAsync(
+      id,
+      {
+        type: "state",
+        common,
+        native: {}
+      },
+      { preserve: { common: ["name"] } }
+    );
     this.ensuredStates.add(id);
   }
   /**

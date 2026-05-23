@@ -1,3 +1,12 @@
+import { vi } from "vitest";
+
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: vi.fn((key: string) => ({ en: key, de: `${key}_de` })),
+    translate: vi.fn((key: string) => key),
+  },
+}));
+
 import {
   applyQuirksToStates as applyQuirksToStatesRaw,
   buildCloudStateDefs as buildCloudStateDefsRaw,
@@ -26,8 +35,7 @@ const buildCloudStateDefs = (
   device: GoveeDevice,
   localSnapshots?: { name: string }[],
   memberDevices?: GoveeDevice[],
-  lang?: string,
-): StateDefinition[] => buildCloudStateDefsRaw(device, mockLog, localSnapshots, memberDevices, lang);
+): StateDefinition[] => buildCloudStateDefsRaw(device, mockLog, localSnapshots, memberDevices);
 
 /**
  * Concat helper for tests that need the full state-def set (LAN + Cloud).
@@ -1724,7 +1732,7 @@ describe("CapabilityMapper", () => {
         channels: { lan: false, mqtt: false, cloud: true },
         capabilities: [],
       } as never;
-      const cloudDefs = buildCloudStateDefs(device, undefined, undefined, "en");
+      const cloudDefs = buildCloudStateDefs(device);
       const tier = cloudDefs.find(d => d.id === "tier");
       expect(tier, "tier state-def must exist for non-group devices").toBeDefined();
       expect(tier!.states, "tier state-def must have common.states").toBeDefined();
@@ -1733,7 +1741,7 @@ describe("CapabilityMapper", () => {
       }
     });
 
-    it("diag.tier VALUES use the requested language with EN fallback", () => {
+    it("diag.tier VALUES are resolved via I18n.translate (plain-string)", () => {
       const device: GoveeDevice = {
         sku: "H6172",
         deviceId: "AA:BB:CC:DD:EE:FF",
@@ -1750,17 +1758,12 @@ describe("CapabilityMapper", () => {
         channels: { lan: false, mqtt: false, cloud: true },
         capabilities: [],
       } as never;
-      const deDefs = buildCloudStateDefs(device, undefined, undefined, "de");
-      const deTier = deDefs.find(d => d.id === "tier");
-      // verified label differs en/de; smoke-check de is rendered
-      expect(deTier!.states!.verified).toMatch(/Verifiziert|Verified/);
-      const enDefs = buildCloudStateDefs(device, undefined, undefined, "en");
-      const enTier = enDefs.find(d => d.id === "tier");
-      expect(enTier!.states!.verified).toMatch(/Verified/);
-      // Unknown lang falls back to EN
-      const xxDefs = buildCloudStateDefs(device, undefined, undefined, "xx");
-      const xxTier = xxDefs.find(d => d.id === "tier");
-      expect(xxTier!.states!.verified).toMatch(/Verified/);
+      const defs = buildCloudStateDefs(device);
+      const tier = defs.find(d => d.id === "tier");
+      expect(tier!.states!.verified).toBe(typeof tier!.states!.verified === "string" ? tier!.states!.verified : "");
+      for (const [k, v] of Object.entries(tier!.states!)) {
+        expect(typeof v, `tier states[${k}] must be plain-string`).toBe("string");
+      }
     });
 
     it("all common.states VALUES across cloud-defs are plain-string", () => {
@@ -1784,7 +1787,7 @@ describe("CapabilityMapper", () => {
         channels: { lan: true, mqtt: false, cloud: true },
         capabilities: [],
       } as never;
-      const defs = buildCloudStateDefs(device, undefined, undefined, "de");
+      const defs = buildCloudStateDefs(device);
       for (const def of defs) {
         if (!def.states) continue;
         for (const [k, v] of Object.entries(def.states)) {

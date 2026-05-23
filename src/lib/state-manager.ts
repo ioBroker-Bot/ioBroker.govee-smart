@@ -3,7 +3,8 @@ import { buildLanStateDefs, LAN_STATE_IDS, type StateDefinition } from "./capabi
 import { GROUP_ICON, iconForGoveeType, shortenGoveeType } from "./device-icons";
 import { resolveSegmentCount } from "./device-manager";
 import { GOVEE_DEVICE_TYPE } from "./govee-constants";
-import { tDesc, tName } from "./i18n-states";
+import type { I18nKey } from "./i18n";
+import { tDesc, tName } from "./i18n";
 import { normalizeDeviceId, type DeviceState, type GoveeDevice } from "./types";
 
 /**
@@ -120,85 +121,30 @@ interface SyntheticStateMeta {
   type: "boolean" | "number";
   role: string;
   unit?: string;
-  /** Plain string or translation object (`{en, de, ...}`) — ioBroker accepts both. */
-  name: string | Record<string, string>;
+  nameKey: I18nKey;
 }
 const SYNTHETIC_STATE_META: Record<string, SyntheticStateMeta> = {
-  temperature: {
-    type: "number",
-    role: "value.temperature",
-    unit: "°C",
-    name: tName("temperature"),
-  },
-  humidity: {
-    type: "number",
-    role: "value.humidity",
-    unit: "%",
-    name: tName("humidity"),
-  },
-  battery: {
-    type: "number",
-    role: "value.battery",
-    unit: "%",
-    name: tName("battery"),
-  },
-  co2: { type: "number", role: "value.co2", unit: "ppm", name: tName("co2") },
-  carbondioxide: {
-    type: "number",
-    role: "value.co2",
-    unit: "ppm",
-    name: tName("co2"),
-  },
-  online: { type: "boolean", role: "indicator.connected", name: tName("online") },
-  lackwater: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: tName("lackOfWater"),
-  },
-  lackwaterevent: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: tName("lackOfWater"),
-  },
-  icefull: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
-  icefullevent: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
-  bodyappeared: { type: "boolean", role: "sensor.motion", name: tName("bodyDetected") },
-  dirtdetected: { type: "boolean", role: "indicator.maintenance", name: tName("dirtDetected") },
-  // sanitizeId(instance) Aliases — gleiche Meta wie raw-Form, decoupled
-  // damit der Adapter beim ersten Sensor-State-Write den richtigen Channel
-  // (sensor/ bzw. events/) anlegt.
-  sensor_temperature: {
-    type: "number",
-    role: "value.temperature",
-    unit: "°C",
-    name: tName("temperature"),
-  },
-  sensor_humidity: {
-    type: "number",
-    role: "value.humidity",
-    unit: "%",
-    name: tName("humidity"),
-  },
-  sensor_battery: {
-    type: "number",
-    role: "value.battery",
-    unit: "%",
-    name: tName("battery"),
-  },
-  lack_water: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: tName("lackOfWater"),
-  },
-  lack_water_event: {
-    type: "boolean",
-    role: "indicator.maintenance",
-    name: tName("lackOfWater"),
-  },
-  ice_full: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
-  ice_full_event: { type: "boolean", role: "indicator.maintenance", name: tName("iceBucketFull") },
-  body_appeared: { type: "boolean", role: "sensor.motion", name: tName("bodyDetected") },
-  dirt_detected: { type: "boolean", role: "indicator.maintenance", name: tName("dirtDetected") },
+  temperature: { type: "number", role: "value.temperature", unit: "°C", nameKey: "temperature" },
+  humidity: { type: "number", role: "value.humidity", unit: "%", nameKey: "humidity" },
+  battery: { type: "number", role: "value.battery", unit: "%", nameKey: "battery" },
+  co2: { type: "number", role: "value.co2", unit: "ppm", nameKey: "co2" },
+  carbondioxide: { type: "number", role: "value.co2", unit: "ppm", nameKey: "co2" },
+  online: { type: "boolean", role: "indicator.connected", nameKey: "online" },
+  lackwater: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  lackwaterevent: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  icefull: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  icefullevent: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  bodyappeared: { type: "boolean", role: "sensor.motion", nameKey: "bodyDetected" },
+  dirtdetected: { type: "boolean", role: "indicator.maintenance", nameKey: "dirtDetected" },
+  sensor_temperature: { type: "number", role: "value.temperature", unit: "°C", nameKey: "temperature" },
+  sensor_humidity: { type: "number", role: "value.humidity", unit: "%", nameKey: "humidity" },
+  sensor_battery: { type: "number", role: "value.battery", unit: "%", nameKey: "battery" },
+  lack_water: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  lack_water_event: { type: "boolean", role: "indicator.maintenance", nameKey: "lackOfWater" },
+  ice_full: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  ice_full_event: { type: "boolean", role: "indicator.maintenance", nameKey: "iceBucketFull" },
+  body_appeared: { type: "boolean", role: "sensor.motion", nameKey: "bodyDetected" },
+  dirt_detected: { type: "boolean", role: "indicator.maintenance", nameKey: "dirtDetected" },
 };
 
 /** Manages ioBroker state creation and updates for Govee devices */
@@ -346,30 +292,34 @@ export class StateManager {
     // in events/. Without an extendObject the channel parent stays missing
     // and Admin shows the state directly under the device root.
     await this.adapter
-      .extendObjectAsync(`${prefix}.${channel}`, {
-        type: "channel",
-        common: { name: CHANNEL_NAMES[channel] ?? channel },
-        native: {},
-      })
-      .catch(() => undefined);
-    // extendObjectAsync (idempotent + repariert partial-formed Objects).
-    // setObjectNotExistsAsync wäre no-op auf existing — und Objects aus
-    // alten Layouts (v2.0.x→v2.1.x-Migration) können unvollständige
-    // common-Felder haben, die dann beim ersten setStateAsync warnen.
-    await this.adapter
-      .extendObjectAsync(`${prefix}.${channel}.${stateId}`, {
-        type: "state",
-        common: {
-          name: meta.name as ioBroker.StringOrTranslated,
-          type: meta.type,
-          role: meta.role,
-          read: true,
-          write: false,
-          ...(meta.unit !== undefined ? { unit: meta.unit } : {}),
-          def: meta.type === "boolean" ? false : 0,
+      .extendObjectAsync(
+        `${prefix}.${channel}`,
+        {
+          type: "channel",
+          common: { name: CHANNEL_NAMES[channel] ?? channel },
+          native: {},
         },
-        native: {},
-      })
+        { preserve: { common: ["name"] } },
+      )
+      .catch(() => undefined);
+    await this.adapter
+      .extendObjectAsync(
+        `${prefix}.${channel}.${stateId}`,
+        {
+          type: "state",
+          common: {
+            name: tName(meta.nameKey),
+            type: meta.type,
+            role: meta.role,
+            read: true,
+            write: false,
+            ...(meta.unit !== undefined ? { unit: meta.unit } : {}),
+            def: meta.type === "boolean" ? false : 0,
+          },
+          native: {},
+        },
+        { preserve: { common: ["name"] } },
+      )
       .catch(() => undefined);
     this.stateChannelMap.set(`${prefix}.${stateId}`, channel);
   }
@@ -417,25 +367,33 @@ export class StateManager {
       ? `${this.adapter.namespace}.groups.info.online`
       : `${this.adapter.namespace}.${prefix}.info.online`;
     const icon = isGroup ? GROUP_ICON : iconForGoveeType(device.type);
-    await this.adapter.extendObjectAsync(prefix, {
-      type: "device",
-      common: {
-        name: device.name,
-        icon,
-        statusStates: { onlineId },
+    await this.adapter.extendObjectAsync(
+      prefix,
+      {
+        type: "device",
+        common: {
+          name: device.name,
+          icon,
+          statusStates: { onlineId },
+        },
+        native: {
+          sku: device.sku,
+          deviceId: device.deviceId,
+        },
       },
-      native: {
-        sku: device.sku,
-        deviceId: device.deviceId,
-      },
-    });
+      { preserve: { common: ["name"] } },
+    );
 
     // Info channel — groups only get name (no individual online)
-    await this.adapter.extendObjectAsync(`${prefix}.info`, {
-      type: "channel",
-      common: { name: tName("deviceInformation") },
-      native: {},
-    });
+    await this.adapter.extendObjectAsync(
+      `${prefix}.info`,
+      {
+        type: "channel",
+        common: { name: tName("deviceInformation") },
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
 
     await this.ensureState(`${prefix}.info.name`, "Name", "string", "text", false);
     await this.adapter.setStateAsync(`${prefix}.info.name`, {
@@ -596,16 +554,18 @@ export class StateManager {
     );
 
     for (const [channel, defs] of channelGroups) {
-      await this.adapter.extendObjectAsync(`${prefix}.${channel}`, {
-        type: "channel",
-        common: { name: CHANNEL_NAMES[channel] ?? channel },
-        native: {},
-      });
+      await this.adapter.extendObjectAsync(
+        `${prefix}.${channel}`,
+        {
+          type: "channel",
+          common: { name: CHANNEL_NAMES[channel] ?? channel },
+          native: {},
+        },
+        { preserve: { common: ["name"] } },
+      );
 
       for (const def of defs) {
         const common: Partial<ioBroker.StateCommon> = {
-          // StateDefinition.name allows plain string OR translation object for
-          // legacy/dynamic names; ioBroker StringOrTranslated has the same shape.
           name: def.name as ioBroker.StringOrTranslated,
           type: def.type,
           role: def.role,
@@ -632,14 +592,18 @@ export class StateManager {
           common.desc = def.desc as ioBroker.StringOrTranslated;
         }
 
-        await this.adapter.extendObjectAsync(`${prefix}.${channel}.${def.id}`, {
-          type: "state",
-          common: common,
-          native: {
-            capabilityType: def.capabilityType,
-            capabilityInstance: def.capabilityInstance,
+        await this.adapter.extendObjectAsync(
+          `${prefix}.${channel}.${def.id}`,
+          {
+            type: "state",
+            common: common,
+            native: {
+              capabilityType: def.capabilityType,
+              capabilityInstance: def.capabilityInstance,
+            },
           },
-        });
+          { preserve: { common: ["name"] } },
+        );
 
         // Existing diag.tier datapoints from v2.6.0+ may carry translation-object
         // VALUES in common.states (the old buildCloudStateDefs wrote tLabel(...)
@@ -685,11 +649,15 @@ export class StateManager {
   async createSegmentStates(device: GoveeDevice): Promise<void> {
     const prefix = this.devicePrefix(device);
 
-    await this.adapter.extendObjectAsync(`${prefix}.segments`, {
-      type: "channel",
-      common: { name: tName("ledSegments") },
-      native: {},
-    });
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments`,
+      {
+        type: "channel",
+        common: { name: tName("ledSegments") },
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
 
     // Resolve the authoritative count: cache/MQTT-learned wins over Cloud
     // capabilities. A manual list can only grow the count (never shrink it)
@@ -717,32 +685,40 @@ export class StateManager {
     });
 
     // Manual-mode toggle and list — user-writable for cut-strip overrides
-    await this.adapter.extendObjectAsync(`${prefix}.segments.manual_mode`, {
-      type: "state",
-      common: {
-        name: tName("manualSegmentsActive"),
-        type: "boolean",
-        role: "switch",
-        read: true,
-        write: true,
-        def: false,
-        desc: tDesc("manualSegmentsDesc"),
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments.manual_mode`,
+      {
+        type: "state",
+        common: {
+          name: tName("manualSegmentsActive"),
+          type: "boolean",
+          role: "switch",
+          read: true,
+          write: true,
+          def: false,
+          desc: tDesc("manualSegmentsDesc"),
+        },
+        native: {},
       },
-      native: {},
-    });
-    await this.adapter.extendObjectAsync(`${prefix}.segments.manual_list`, {
-      type: "state",
-      common: {
-        name: tName("manualSegmentList"),
-        type: "string",
-        role: "text",
-        read: true,
-        write: true,
-        def: "",
-        desc: tDesc("manualListDesc"),
+      { preserve: { common: ["name"] } },
+    );
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments.manual_list`,
+      {
+        type: "state",
+        common: {
+          name: tName("manualSegmentList"),
+          type: "string",
+          role: "text",
+          read: true,
+          write: true,
+          def: "",
+          desc: tDesc("manualListDesc"),
+        },
+        native: {},
       },
-      native: {},
-    });
+      { preserve: { common: ["name"] } },
+    );
 
     // Sync manual_mode / manual_list states back from the runtime device
     // (restored from cache on startup, or updated by the wizard). Using
@@ -762,53 +738,69 @@ export class StateManager {
     });
 
     for (const i of validIndices) {
-      await this.adapter.extendObjectAsync(`${prefix}.segments.${i}`, {
-        type: "channel",
-        common: { name: `Segment ${i}` },
-        native: {},
-      });
-
-      await this.adapter.extendObjectAsync(`${prefix}.segments.${i}.color`, {
-        type: "state",
-        common: {
-          name: tName("color"),
-          type: "string",
-          role: "level.color.rgb",
-          read: true,
-          write: true,
+      await this.adapter.extendObjectAsync(
+        `${prefix}.segments.${i}`,
+        {
+          type: "channel",
+          common: { name: `Segment ${i}` },
+          native: {},
         },
-        native: {},
-      });
+        { preserve: { common: ["name"] } },
+      );
 
-      await this.adapter.extendObjectAsync(`${prefix}.segments.${i}.brightness`, {
-        type: "state",
-        common: {
-          name: tName("brightness"),
-          type: "number",
-          role: "level.brightness",
-          read: true,
-          write: true,
-          min: 0,
-          max: 100,
-          unit: "%",
+      await this.adapter.extendObjectAsync(
+        `${prefix}.segments.${i}.color`,
+        {
+          type: "state",
+          common: {
+            name: tName("color"),
+            type: "string",
+            role: "level.color.rgb",
+            read: true,
+            write: true,
+          },
+          native: {},
         },
-        native: {},
-      });
+        { preserve: { common: ["name"] } },
+      );
+
+      await this.adapter.extendObjectAsync(
+        `${prefix}.segments.${i}.brightness`,
+        {
+          type: "state",
+          common: {
+            name: tName("brightness"),
+            type: "number",
+            role: "level.brightness",
+            read: true,
+            write: true,
+            min: 0,
+            max: 100,
+            unit: "%",
+          },
+          native: {},
+        },
+        { preserve: { common: ["name"] } },
+      );
     }
 
     // Comfort command state for batch segment control
-    await this.adapter.extendObjectAsync(`${prefix}.segments.command`, {
-      type: "state",
-      common: {
-        name: tName("batchSegmentCommand"),
-        type: "string",
-        role: "text",
-        read: false,
-        write: true,
-        desc: tDesc("batchCommandDesc"),
+    await this.adapter.extendObjectAsync(
+      `${prefix}.segments.command`,
+      {
+        type: "state",
+        common: {
+          name: tName("batchSegmentCommand"),
+          type: "string",
+          role: "text",
+          read: false,
+          write: true,
+          desc: tDesc("batchCommandDesc"),
+        },
+        native: {},
       },
-      native: {},
-    });
+      { preserve: { common: ["name"] } },
+    );
 
     // Remove segment channels that aren't in the valid list (supports gaps for manual mode)
     await this.cleanupExcessSegments(prefix, validIndices);
@@ -905,16 +897,24 @@ export class StateManager {
    * @param online Initial online value
    */
   async createGroupsOnlineState(online: boolean): Promise<void> {
-    await this.adapter.extendObjectAsync("groups", {
-      type: "folder",
-      common: { name: tName("groups") },
-      native: {},
-    });
-    await this.adapter.extendObjectAsync("groups.info", {
-      type: "channel",
-      common: { name: tName("groupsStatus") },
-      native: {},
-    });
+    await this.adapter.extendObjectAsync(
+      "groups",
+      {
+        type: "folder",
+        common: { name: tName("groups") },
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
+    await this.adapter.extendObjectAsync(
+      "groups.info",
+      {
+        type: "channel",
+        common: { name: tName("groupsStatus") },
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
     await this.ensureState("groups.info.online", "Cloud Online", "boolean", "indicator.reachable", false);
     await this.adapter.setStateAsync("groups.info.online", {
       val: online,
@@ -1199,11 +1199,15 @@ export class StateManager {
     if (def !== undefined) {
       common.def = def;
     }
-    await this.adapter.extendObjectAsync(id, {
-      type: "state",
-      common: common,
-      native: {},
-    });
+    await this.adapter.extendObjectAsync(
+      id,
+      {
+        type: "state",
+        common: common,
+        native: {},
+      },
+      { preserve: { common: ["name"] } },
+    );
     this.ensuredStates.add(id);
   }
 

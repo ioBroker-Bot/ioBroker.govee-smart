@@ -1,3 +1,12 @@
+import { vi } from "vitest";
+
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: vi.fn((key: string) => ({ en: key, de: `${key}_de` })),
+    translate: vi.fn((key: string) => key),
+  },
+}));
+
 import { StateManager } from "./state-manager";
 import type { GoveeDevice } from "./types";
 import { LAN_STATE_IDS, type StateDefinition } from "./capability-mapper";
@@ -46,8 +55,8 @@ function createMockAdapter(): {
       silly: () => {},
       level: "debug",
     },
-    extendObjectAsync: async (id: string, obj: Record<string, unknown>) => {
-      calls.push({ method: "extendObjectAsync", args: [id, obj] });
+    extendObjectAsync: async (id: string, obj: Record<string, unknown>, opts?: Record<string, unknown>) => {
+      calls.push({ method: "extendObjectAsync", args: [id, obj, opts] });
       objects.set(id, obj);
     },
     setStateAsync: async (id: string, val: Record<string, unknown>) => {
