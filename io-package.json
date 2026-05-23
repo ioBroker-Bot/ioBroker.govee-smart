@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.13.3",
+    "version": "2.13.4",
     "news": {
-      "NEXT": {
+      "2.13.4": {
         "en": "Changelog rewritten in user-centric style across all versions.",
         "de": "Changelog in benutzerfreundlichem Stil über alle Versionen umgeschrieben.",
         "ru": "Журнал изменений переписан в пользовательском стиле для всех версий.",

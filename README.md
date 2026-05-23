@@ -91,7 +91,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.13.4 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.
 
@@ -112,10 +112,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API
 - Lights without local API now fall back to cloud control instead of failing silently
-
-### 2.12.2 (2026-05-20)
-
-- Verified against Node.js 24. Internal cleanup.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

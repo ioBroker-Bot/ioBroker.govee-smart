@@ -1,4 +1,8 @@
 # Older Changes
+## 2.12.2 (2026-05-20)
+
+- Verified against Node.js 24. Internal cleanup.
+
 ## 2.12.1 (2026-05-19)
 
 - Internal cleanup. No user-facing changes.
