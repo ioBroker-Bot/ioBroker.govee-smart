@@ -202,9 +202,7 @@ export class StateManager {
     if (!buggy) {
       return;
     }
-    existing.common = { ...existing.common, states: fresh } as ioBroker.StateCommon;
-    // setObject is promise-correct since js-controller 7.0.4; setObjectAsync deprecated.
-    await this.adapter.setObject(id, existing).catch(() => undefined);
+    await this.adapter.extendObjectAsync(id, { common: { states: fresh } }).catch(() => undefined);
   }
 
   /**

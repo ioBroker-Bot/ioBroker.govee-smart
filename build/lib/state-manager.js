@@ -156,8 +156,7 @@ class StateManager {
     if (!buggy) {
       return;
     }
-    existing.common = { ...existing.common, states: fresh };
-    await this.adapter.setObject(id, existing).catch(() => void 0);
+    await this.adapter.extendObjectAsync(id, { common: { states: fresh } }).catch(() => void 0);
   }
   /**
    * @param id Voller State-Pfad (`devices.X.info.Y`)

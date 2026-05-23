@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.13.2",
     "news": {
+      "NEXT": {
+        "en": "Replaced deprecated setObject with extendObject",
+        "de": "Veraltetes setObject durch extendObject ersetzt",
+        "ru": "Заменён устаревший setObject на extendObject",
+        "pt": "Substituído setObject obsoleto por extendObject",
+        "nl": "Verouderd setObject vervangen door extendObject",
+        "fr": "Remplacement de setObject obsolète par extendObject",
+        "it": "Sostituito setObject deprecato con extendObject",
+        "es": "Reemplazado setObject obsoleto por extendObject",
+        "pl": "Zamieniono przestarzałe setObject na extendObject",
+        "uk": "Замінено застарілий setObject на extendObject",
+        "zh-cn": "将已弃用的 setObject 替换为 extendObject"
+      },
       "2.13.2": {
         "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
         "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
@@ -80,19 +93,6 @@
         "pl": "Usunięto nieużywany punkt info.legacyMqttCleaned. Nazwy wszystkich punktów info wyświetlane w 11 językach zamiast tylko po angielsku.",
         "uk": "Видалено невикористану точку info.legacyMqttCleaned. Назви всіх info-точок тепер відображаються 11 мовами замість лише англійської.",
         "zh-cn": "移除了未使用的 info.legacyMqttCleaned 数据点。所有 info 数据点名称现在以 11 种语言显示，不再仅限英语。"
-      },
-      "2.11.1": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine sichtbaren Änderungen.",
-        "ru": "Внутренняя оптимизация. Без видимых изменений.",
-        "pt": "Limpeza interna. Sem alterações visíveis.",
-        "nl": "Interne opruiming. Geen zichtbare wijzigingen.",
-        "fr": "Nettoyage interne. Aucun changement visible.",
-        "it": "Pulizia interna. Nessuna modifica visibile.",
-        "es": "Limpieza interna. Sin cambios visibles.",
-        "pl": "Wewnętrzne porządki. Brak widocznych zmian.",
-        "uk": "Внутрішнє прибирання. Без видимих змін.",
-        "zh-cn": "内部清理。无用户可见更改。"
       }
     },
     "titleLang": {

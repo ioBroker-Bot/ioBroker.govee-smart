@@ -91,6 +91,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Replaced deprecated setObject with extendObject (repochecker S5054)
+
 ### 2.13.2 (2026-05-23)
 
 - User-modified state names are no longer overwritten on adapter restart
