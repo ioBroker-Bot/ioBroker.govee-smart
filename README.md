@@ -91,7 +91,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.13.2 (2026-05-23)
 
 - User-modified state names are no longer overwritten on adapter restart
 - State name translations migrated to standard ioBroker i18n framework
@@ -114,11 +114,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.12.1 (2026-05-19)
 
 - Code quality enforced with standard formatting.
-
-### 2.12.0 (2026-05-17)
-
-- Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)
-- All info datapoint names now show in 11 languages instead of English-only
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

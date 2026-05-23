@@ -1,4 +1,9 @@
 # Older Changes
+## 2.12.0 (2026-05-17)
+
+- Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)
+- All info datapoint names now show in 11 languages instead of English-only
+
 ## 2.11.1 (2026-05-16)
 
 - Internal cleanup. No user-facing changes.

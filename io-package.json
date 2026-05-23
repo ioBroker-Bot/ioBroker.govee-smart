@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.13.1",
+    "version": "2.13.2",
     "news": {
-      "NEXT": {
+      "2.13.2": {
         "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
         "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
         "ru": "Сохранение пользовательских названий состояний; переводы через стандартный ioBroker i18n",
