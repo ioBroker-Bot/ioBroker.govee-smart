@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.13.2",
+    "version": "2.13.3",
     "news": {
-      "NEXT": {
+      "2.13.3": {
         "en": "Replaced deprecated setObject with extendObject",
         "de": "Veraltetes setObject durch extendObject ersetzt",
         "ru": "Заменён устаревший setObject на extendObject",

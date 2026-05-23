@@ -1,4 +1,8 @@
 # Older Changes
+## 2.12.1 (2026-05-19)
+
+- Code quality enforced with standard formatting.
+
 ## 2.12.0 (2026-05-17)
 
 - Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)

@@ -91,7 +91,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.13.3 (2026-05-23)
 
 - Replaced deprecated setObject with extendObject (repochecker S5054)
 
@@ -114,10 +114,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.12.2 (2026-05-20)
 
 - Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.
-
-### 2.12.1 (2026-05-19)
-
-- Code quality enforced with standard formatting.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
