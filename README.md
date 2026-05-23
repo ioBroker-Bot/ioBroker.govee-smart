@@ -91,20 +91,22 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Changelog rewritten in user-centric style across all versions.
+
 ### 2.13.3 (2026-05-23)
 
-- Replaced deprecated setObject with extendObject (repochecker S5054)
+- Internal cleanup. No user-facing changes.
 
 ### 2.13.2 (2026-05-23)
 
 - User-modified state names are no longer overwritten on adapter restart
-- State name translations migrated to standard ioBroker i18n framework
 
 ### 2.13.1 (2026-05-22)
 
 - Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)
 - Added H607C Floor Lamp 2 to the device catalog
-- Community-standard event handler pattern (.bind + try/catch)
 
 ### 2.13.0 (2026-05-21)
 
@@ -113,7 +115,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 ### 2.12.2 (2026-05-20)
 
-- Verified against Node.js 24. Internal cleanup for stricter ioBroker repochecker compliance.
+- Verified against Node.js 24. Internal cleanup.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

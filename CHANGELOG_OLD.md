@@ -1,12 +1,12 @@
 # Older Changes
 ## 2.12.1 (2026-05-19)
 
-- Code quality enforced with standard formatting.
+- Internal cleanup. No user-facing changes.
 
 ## 2.12.0 (2026-05-17)
 
-- Removed unused `info.legacyMqttCleaned` datapoint (internal migration marker, no user value)
-- All info datapoint names now show in 11 languages instead of English-only
+- Removed unused datapoint left over from earlier versions.
+- All info datapoint names now show in 11 languages instead of English-only.
 
 ## 2.11.1 (2026-05-16)
 
@@ -17,7 +17,7 @@
 - Security: the 2FA verification code is now stored encrypted (API key and Govee password were already encrypted in previous versions). If you had a 2FA code set, re-enter it once in the adapter settings.
 - Locally saved snapshots are now included in ioBroker backups (BackItUp / `iob backup`). Existing snapshot files migrate automatically on first start.
 - sendTo calls with an unknown command no longer hang in the admin — the adapter answers with a clear error.
-- Cleaner roles for ice-bucket / motion / dirt / water-tank sensors so they show up correctly in vis and smart-home integrations.
+- Ice-bucket, motion, dirt and water-tank sensors now show up correctly in vis and smart-home integrations.
 
 ## 2.10.1 (2026-05-14)
 
@@ -26,14 +26,14 @@
 ## 2.10.0 (2026-05-14)
 
 - Snapshots on Curtain Lights (H70B3), Christmas Strings (H70C5) and Outdoor Neon (H61A8) now work; matrix-light scenes too.
-- New per-SKU quirks system: device-specific fixes ship via a one-line catalog entry, no full adapter release needed.
+- Device-specific fixes can now be added without a full adapter update.
 
 ## 2.9.1 (2026-05-13)
 
 - Issue reports now include the device's stored scene, snapshot and effect data, so device-specific problems are analysable directly from the export.
-- Diagnostics now also captures outgoing LAN commands, raw cloud-events messages and live error/rate-limit state, so "the adapter went silent" reports are traceable end-to-end.
-- Groups now have their own diagnostics export button just like regular devices, so group-specific fan-out problems can be reported the same way.
-- Appliance and sensor values are now reflected in the runtime state shown in the export, not only in the state tree.
+- Diagnostics now captures more data so "the adapter went silent" reports can be analysed without follow-up questions.
+- Groups now have their own diagnostics export button, just like regular devices.
+- Appliance and sensor values are now included in the diagnostics export.
 
 ## 2.9.0 (2026-05-13)
 
@@ -41,12 +41,11 @@
 
 ## 2.8.4 (2026-05-12)
 
-- The device trust tier state under each device no longer carries a multi-language label object that would crash the admin with "Error in GUI" if rendered as a dropdown.
+- Fixed a potential crash in the admin interface when viewing device properties.
 
 ## 2.8.3 (2026-05-12)
 
-- Debug log now covers every adapter path: App and Cloud API calls (with body snippets on null), cache load/save with age, state-writes, capability mapping, LAN command timing, MQTT login server reply.
-- Bug reports can be triaged from a debug log alone — no more "the adapter did nothing and didn't say why".
+- Improved debug logging for easier issue analysis — a single debug log is now enough for a complete bug report.
 
 ## 2.8.2 (2026-05-11)
 
@@ -114,12 +113,12 @@
 
 ## 2.5.4 (2026-05-04)
 
-- Test-coverage expansion: `mqtt.connect` is now an injectable constructor parameter (like `httpsRequest` in v2.5.1), and 7 new mock tests cover the getIotKey path and persisted-credentials reuse.
+- Internal cleanup. No user-facing changes.
 
 ## 2.5.3 (2026-05-04)
 
-- Segment-detection wizard no longer spams "has no existing object" WARN for indices above the real strip length — echo packets are filtered against `segmentCount` (Issue #8).
-- Command before cloud-init (e.g. cloud-only device right after restart) is silent now instead of warning "No channel available".
+- Segment-detection wizard no longer spams warnings in the log for indices above the real strip length (Issue #8).
+- Cloud-only devices right after restart no longer show a false "No channel available" warning.
 
 ## 2.5.2 (2026-05-04)
 
@@ -128,36 +127,35 @@
 
 ## 2.5.1 (2026-05-04)
 
-- Cloud rate-limit hint now reads "rate-limited by Govee" on 429 instead of the generic cloud-error message. Plus 33 mock tests for cloud + MQTT login paths.
+- Cloud rate-limit message now clearly says "rate-limited by Govee" instead of a generic error.
 
 ## 2.5.0 (2026-05-04)
 
-- F4 final: `onMessage`-Handler (sendTo aus dem Admin-UI) ist jetzt eine eigene Klasse mit Host-Interface. main.ts deutlich kleiner, Login-Test/2FA-Code-Anforderung isoliert testbar. Verhalten identisch.
+- Internal refactoring. No changes for users.
 
 ## 2.4.1 (2026-05-04)
 
-- Group-Fan-Out-Pfad (Mitglieder-Steuerung beim Schalten der Gruppe) ist jetzt eine eigene Klasse mit Host-Interface — `main.ts` nochmal kleiner. Verhalten identisch.
+- Internal refactoring. No changes for users.
 
 ## 2.4.0 (2026-05-04)
 
-- Lokaler Snapshot-Manager (Save/Restore/Delete) ist jetzt eine eigene Klasse mit Host-Interface — `main.ts` ist kleiner und der Snapshot-Pfad ist isoliert testbar. Verhalten identisch.
+- Internal refactoring. No changes for users.
 
 ## 2.3.1 (2026-05-04)
 
-- Smoke-Tests für GoveeCloudClient + GoveeMqttClient — Initial-State-Checks für getFailureReason, token, connected, plus Setter-Smoke-Tests (637 → 637+9 Tests). Volle Pfade über https/mqtt-Mocks kommen separat.
+- Internal cleanup. No user-facing changes.
 
 ## 2.3.0 (2026-05-04)
 
-- App-Version-Drift-Monitor: täglicher iTunes-Lookup vergleicht die im Adapter hinterlegte Govee-App-Version mit der aktuellen iOS-Version. Bei Drift > 2 Minor wird gewarnt — Govees undokumentierte Endpoints rejecten gelegentlich zu alte Clients.
-- Code-Hygiene: `onStateChange`-Handler in eigene Methoden für Diagnostics-Export und Generic-Capability-Routing aufgeteilt. Magic-Numbers durch `timing-constants.ts` ersetzt. Lifecycle-Flags besser dokumentiert.
+- The adapter now warns when the bundled Govee app version gets too old — some Govee endpoints stop working with outdated client headers.
 
 ## 2.2.0 (2026-05-04)
 
-- 2FA-Verifizierung triggert keinen Restart mehr. MQTT-Pushes typsicher, Sensor-Datenpunkte im richtigen Kanal (`sensor/`, `events/` statt `control/`).
-- Ready-Log zeigt was operational ist: Channel-Status (LAN+Cloud+MQTT+Cloud-events), Lichter-Online-Count, Sensoren mit Datenmarker. Wartet auf den ersten Sensor-Poll.
-- Persistente UDP-Sockets, abbrechbare HTTP-Calls, HTTP keep-alive (~200 ms schneller), Backoff-Jitter gegen Thundering Herd.
-- Memory-Leaks beim Device-Remove geschlossen — Diagnostics-Buffer und State-Tree werden gemeinsam aufgeräumt wenn ein Gerät aus dem Govee-Account verschwindet.
-- Kein WARN-Spam mehr für Group-State `info.membersUnreachable`. Plus XOR-Validierung für MQTT-BLE-Pakete, type-Guards an allen API-Boundaries, `tier: 2`.
+- 2FA verification no longer triggers an adapter restart.
+- Startup log now shows a clear summary of all active channels and connected devices.
+- Faster HTTP calls and more reliable network handling.
+- Removing a device from your Govee account now cleans up all related states properly.
+- Reduced log noise for group states.
 
 ## 2.1.4 (2026-05-03)
 
@@ -247,24 +245,18 @@
 
 ## 1.8.0 (2026-04-20)
 
-- Status writes parallelised, per-write object probe dropped; MQTT pushes cost much less on large device lists.
-- `cleanupAllChannelStates` uses one broad view instead of four per-device queries.
-- `handleSnapshotSave` reads device + segment state in parallel.
-- Rate-limiter daily reset aligned to UTC midnight so the budget flips with Govee's clock.
-- Local snapshots write with `fsync` — SIGKILL during adapter stop no longer drops just-saved snapshots.
-- Library fetches go through the rate-limiter; fresh installs with many devices no longer burst-call `app2.govee.com`.
-- Wizard text fully localised (EN/DE) via `system.config.language`, English fallback for other admin languages.
-- govee-appliances coexistence detection covers all instances (`.0`, `.1`, …) not just `.0`.
-- MQTT client keeps a stable per-process session UUID across reconnects so AWS IoT can take over cleanly.
-- Memory-leak prevention — every adapter-level map is reaped on device removal.
-- Internal — shared `govee-constants.ts`, `stateToCommand` lookup table, `crypto.randomUUID` for sessions.
+- Faster state updates on large device lists.
+- Rate-limiter daily reset aligned to UTC midnight so the budget resets with Govee's clock.
+- Local snapshots survive unexpected adapter stops.
+- Fresh installs with many devices no longer overwhelm Govee's servers.
+- Wizard text fully localised (EN/DE) following system language, English fallback for others.
+- govee-appliances coexistence detection covers all instances, not just the first.
 
 ## 1.7.8 (2026-04-19)
 
-- MQTT bearer-token going stale after reconnect — api-client refreshed on every fresh login.
-- LAN devStatus poll skipped when MQTT is connected (MQTT push is authoritative).
-- Process-level `unhandledRejection` / `uncaughtException` handlers as last line of defence.
-- Hygiene — `seenDeviceIps` evicts on IP change, `stateCreationQueue` bounded to startup, `info.*Connected` reset on unload, diagnostics export throttled 2s per device.
+- MQTT connection stays stable after reconnect.
+- LAN polling skipped when MQTT push is active (less network traffic).
+- Improved stability and cleanup on adapter stop.
 
 ## 1.7.7 (2026-04-19)
 
@@ -273,10 +265,9 @@
 
 ## 1.7.6 (2026-04-19)
 
-- `manual_mode` rollback on invalid `manual_list` no longer bounces the rejected value back into the state.
-- Wizard translations in 9 admin languages completed; machine-translation glitches hand-corrected.
-- `info` channel keeps its "Device Information" display name; "~100 ms" latency claim dropped from LAN section.
-- Internal cleanup — `applyManualSegments` helper, targeted state refresh on snapshot ops, prefix-map cleanup on device removal, dead `loadDeviceScenes` paths removed.
+- Invalid manual segment list no longer bounces the rejected value back.
+- Wizard translations in 9 admin languages completed and corrected.
+- Internal cleanup.
 
 ## 1.7.5 (2026-04-19)
 
@@ -288,12 +279,11 @@
 
 ## 1.7.3 (2026-04-19)
 
-- `common.messagebox=true` for onMessage wizard (latest-repo review compliance).
-- Color-mode preamble delays routed through adapter timer wrapper (onUnload-safe).
+- Internal cleanup. No user-facing changes.
 
 ## 1.7.2 (2026-04-19)
 
-- Test infrastructure aligned with ioBroker standard — plain-JS `package.js` + `integration.js`.
+- Internal cleanup. No user-facing changes.
 
 ## 1.7.1 (2026-04-19)
 
@@ -314,77 +304,65 @@
 
 ## 1.6.6 (2026-04-19)
 
-- Under-reported segment count — adapter now bumps `segmentCount` from MQTT `AA A5` packets and rebuilds the state tree (fixes 20 m strips where Cloud says 15).
-- `parseMqttSegmentData` no longer caps output at Cloud's segmentCount; trailing all-zero padding slots are stripped.
-- Wizard flash dims segments 0-55 (Govee bitmask max) so under-reported strips leave no residual lit segments.
-- `manual_list` validation accepts indices up to 55, not just Cloud-reported count.
+- Under-reported segment count — adapter now learns the real count from the device and rebuilds the state tree (fixes 20 m strips where Govee reports 15).
+- Wizard flash covers the full strip so under-reported strips leave no residual lit segments.
+- Manual segment list accepts indices up to 55, not just the cloud-reported count.
 
 ## 1.6.5 (2026-04-19)
 
-- Wizard flash — all three BLE packets bundled into one `ptReal` UDP datagram (separate datagrams were dropped under back-pressure).
-- Wizard switches the strip ON + global brightness 100 before the first flash; baseline is captured and restored on abort/finish.
-- New `info.wizardStatus` state written on every wizard step; admin panel uses `type: "state"` for live progress (Admin 7.1+).
+- Wizard flash is more reliable — packets are no longer dropped under load.
+- Wizard switches the strip ON at full brightness before the first flash; original state is restored on abort or finish.
+- New live progress status during wizard operation.
 
 ## 1.6.4 (2026-04-18)
 
-- Wizard UX rewrite — dropdown shows only online devices, persistent status box, multi-line info toasts with Yes/No guidance.
-- Status box via `textSendTo` (refreshes on device re-select); button responses use `message` field (previously silent because of wrong field name).
+- Wizard dropdown now shows only online devices. Persistent status box with clear Yes/No guidance.
+- Wizard status updates correctly when switching devices.
 
 ## 1.6.3 (2026-04-18)
 
-- Segment Detection Wizard crash on Start — `parseSegmentBatch` guards against non-string values; v1.6.2 restart-loop fixed.
-- Harden all async event handlers against unhandled rejections — `.catch` on `ready`/`stateChange`/`onMessage`.
-- Boundary-type hardening across Cloud/API/MQTT/LAN — `Array.isArray` + `typeof` guards, NaN/clamp on color helpers.
-- Extract segment-wizard and cloud-retry-loop into dedicated testable modules.
-- 511 tests (was 427).
+- Fixed crash on Segment Detection Wizard start (restart-loop from v1.6.2).
+- Improved stability — unexpected data from Govee no longer crashes the adapter.
 
 ## 1.6.2 (2026-04-18)
 
-- jsonConfig schema warnings for Segment Detection Wizard — removed unsupported `button` property, aligned variant/color to admin schema, set `xs=12` for mobile layout.
+- Fixed Segment Detection Wizard layout on mobile screens.
 
 ## 1.6.1 (2026-04-18)
 
-- Segment Detection Wizard in admin UI — jsonConfig button type was `"sendto"` (lowercase) instead of `"sendTo"`, causing validation errors.
-- LED strip dropdown showed as free-text input because `selectSendTo` expects the array directly, not wrapped in `{list: ...}`.
+- Fixed Segment Detection Wizard buttons and LED strip dropdown in the admin UI.
 
 ## 1.6.0 (2026-04-18)
 
 - Manual segment override for cut LED strips — declare existing indices via `segments.manual_mode` + `segments.manual_list` (ranges, gaps).
 - Segment Detection Wizard in admin UI — flashes each segment, user confirms visibility, writes result as `manual_list`.
-- Cloud-Retry-Loop with rate-limit handling — `Retry-After` honoured, auth-failures stop permanently, transient errors retry after 5 min.
-- SKU-cache pruning — 14-day aging + `scenesChecked` flag + hard-filter of stale entries.
-- Startup grace period for MQTT+Cloud extended 30s → 60s.
-- `info.mqttConnected` not updating on disconnect.
-- 427 tests (was 399).
+- Cloud connection now retries after rate-limits and temporary outages. Wrong credentials stop permanently.
+- Old cached devices (>14 days without use) are automatically cleaned up.
+- Startup waits longer for slow connections (60s instead of 30s).
+- MQTT connection status now updates correctly on disconnect.
 
 ## 1.5.2 (2026-04-17)
 
-- Harden all Cloud API boundaries against schema drift — `typeof`/`Array.isArray` guards and string coercion on every external field access.
-- `CloudCapability.parameters` is optional now — API may omit it even when docs require it.
-- `normalizeDeviceId` and cache file naming safe against non-string input.
-- 45 new drift-regression tests (399 total).
+- Improved stability against unexpected Govee API responses.
 
 ## 1.5.1 (2026-04-15)
 
-- Device type matching — scenes only loaded via fallback because type comparison never matched Cloud API format.
-- Dynamic API rate-limit sharing with other Govee adapters on the same account.
-- Filter non-light device types (heaters, fans, sensors) — this adapter handles lights only.
-- 354 tests (was 352).
+- Scenes now load correctly for all devices (was broken by a type mismatch).
+- API rate-limit shared with other Govee adapters on the same account.
+- Non-light device types (heaters, fans, sensors) are filtered — this adapter handles lights only.
 
 ## 1.5.0 (2026-04-14)
 
-- Local segment control via BLE-over-LAN (ptReal) — segments now controlled locally (~100 ms) instead of Cloud (5-10 s).
+- Segments now controlled locally (~100 ms) instead of via Cloud (5-10 s).
 - Scene variants — all light effects per scene (A/B/C/D) instead of only the first variant.
-- Local snapshot activation via ptReal BLE packets — Cloud snapshots now activated locally.
+- Snapshots now activated locally instead of via Cloud.
 - Scene speed control via slider for supported scenes.
 - Per-segment color and brightness in local snapshots — full visual state without Cloud.
-- 352 tests (was 327).
 
 ## 1.4.1 (2026-04-13)
 
-- Group member resolution returning empty (API field name mismatch: `gId`/`name` vs `groupId`/`groupName`).
-- Bearer token pre-check with descriptive log message for group membership loading.
-- Debug logging when group membership API returns no data.
+- Group members now load correctly (was returning empty).
+- Clearer log messages when group membership data is unavailable.
 
 ## 1.4.0 (2026-04-13)
 
@@ -393,61 +371,46 @@
 - New `info.members` state with group member device IDs.
 - New dynamic `info.membersUnreachable` state (only created when unreachable members exist).
 - Snapshots and diagnostics removed from groups (not applicable to virtual devices).
-- Undocumented API headers updated to current Govee app version (7.3.30).
-- 327 tests (was 314).
+- Updated to current Govee app version headers.
 
 ## 1.3.0 (2026-04-12)
 
-- MQTT segment state sync — per-segment brightness and color updated in real-time via MQTT BLE notifications.
-- Non-functional scene speed slider removed (byte layout unknown, no project worldwide implements this).
-- Dead code removed — unused types, methods, write-only fields (8 audit findings).
+- Per-segment brightness and color now update in real-time.
+- Non-functional scene speed slider removed.
 
 ## 1.2.0 (2026-04-12)
 
-- Segment color commands not working (ptReal accepted but not rendered) — rerouted via Cloud API.
-- Dropdown states not resetting on mode switch — scene/music/snapshot/color changes now reset all other dropdowns.
-- Group online states replaced with single `groups.info.online` reflecting Cloud connection status.
-- Channel annotations added to state tree documentation.
-- Acknowledgments for govee2mqtt project added.
+- Segment color commands now work correctly.
+- Switching between scene/music/snapshot/color mode now resets the other dropdowns.
+- Group online state simplified to a single indicator.
 
 ## 1.1.2 (2026-04-12)
 
-- Dead MQTT command code removed (MQTT is status-push only, never sent commands).
-- `noMqtt` device quirk removed (no longer needed without MQTT commands).
-- Dead `CloudApiError` re-export removed.
-- Inline hex parsing replaced with shared `hexToRgb()` utility.
-- LAN fallback simplified to Cloud-only (was LAN → MQTT → Cloud).
+- Internal cleanup. No user-facing changes.
 
 ## 1.1.1 (2026-04-12)
 
-- **BREAKING** — diagnostics states moved from `snapshots/` to `info/` channel (where device information belongs).
-- Community quirks loaded from persistent data directory instead of adapter directory (survives updates).
-- Diagnostics export and community quirks documented in README.
-- Redundant CI checkout removed, `no-floating-promises` lint rule, unused devDependencies removed, duplicate news entry fixed.
+- **BREAKING** — diagnostics states moved from snapshots to the info channel.
+- Device corrections now survive adapter updates.
+- Diagnostics export documented in README.
 
 ## 1.1.0 (2026-04-11)
 
 - Diagnostics export per device — structured JSON for GitHub issue submission.
-- Community quirks database — external `community-quirks.json` for user-contributed SKU overrides.
-- Array bounds checks in scene/DIY/snapshot index lookups (prevents crash on invalid indices).
-- Segment batch parsing edge cases — negative indices, empty device list growth.
-- Internal refactoring. No user-facing changes.
+- Community device corrections database for user-contributed model fixes.
+- Fixed crash on invalid scene/snapshot selection.
 
 ## 1.0.1 (2026-04-11)
 
-- Segment capability matching — color and brightness commands now route to correct API capabilities.
-- Segment count uses maximum across all segment capabilities instead of first found.
-- Hardcoded 15-segment fallback replaced with safe default.
-- Missing `clearTimeout` for one-shot timers in `onUnload`.
+- Segment color and brightness commands now work correctly for all strip models.
+- Improved adapter shutdown handling.
 
 ## 1.0.0 (2026-04-11)
 
-- **BREAKING** — multi-channel state tree split into `control`, `scenes`, `music`, `snapshots`.
-- **BREAKING** — `pollInterval` setting removed (Cloud polling was removed in 0.9.3).
-- Incomplete cache detection — type check `"devices.types.light"` never matched Cloud's `"light"`.
-- Dead code removed — unused methods, config fields, `LanDevice` version fields.
-- Dynamic segment count from capabilities, excess segments cleaned up on startup.
-- Groups minimal — BaseGroup only has `info.name` + `info.online`.
+- **BREAKING** — state tree reorganized into separate channels: control, scenes, music, snapshots.
+- **BREAKING** — pollInterval setting removed (cloud polling was replaced by push in 0.9.3).
+- Dynamic segment count from device capabilities, excess segments cleaned up on startup.
+- Groups show name and online status.
 
 ## 0.9.6 (2026-04-11)
 
@@ -501,7 +464,7 @@
 
 ## 0.8.2 (2026-04-08)
 
-- `build/` removed from git tracking, `.gitignore` fixed, redundant `CHANGELOG.md` removed.
+- Internal cleanup. No user-facing changes.
 
 ## 0.8.1 (2026-04-06)
 
@@ -524,13 +487,13 @@
 
 ## 0.6.3 (2026-04-06)
 
-- MQTT auth backoff (stops after 3 failures), error dedup, recovery logging.
-- Cloud connection recovery detection.
-- Improved error classification (OS-level error codes).
+- MQTT connection stops retrying after 3 credential failures instead of looping forever.
+- Cloud connection recovery now detected and logged.
+- Clearer error messages for network and connection problems.
 
 ## 0.6.2 (2026-04-05)
 
-- Test suite expanded from 78 to 175 tests.
+- Internal cleanup. No user-facing changes.
 
 ## 0.6.1 (2026-04-05)
 
@@ -544,10 +507,9 @@
 
 ## 0.5.0 (2026-04-06)
 
-- Segment control commands now routed via Cloud API.
-- Rate-limited Cloud startup, error-dedup logging.
-- Scene/snapshot refresh on each Cloud poll.
-- Startup "ready" only after all channels initialized.
+- Segment control commands now work via Cloud.
+- Scenes and snapshots refresh on each startup.
+- Startup "ready" message only appears after all channels are connected.
 
 ## 0.4.1 (2026-04-06)
 
@@ -570,8 +532,7 @@
 
 ## 0.2.1 (2026-04-06)
 
-- Duplicate SKU collision — LAN-only devices now use SKU with short device-ID suffix.
-- Deploy workflow — build step before npm publish.
+- Fixed duplicate device names — LAN-only devices now use a unique suffix.
 
 ## 0.2.0 (2026-04-06)
 
