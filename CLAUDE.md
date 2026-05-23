@@ -126,7 +126,7 @@ src/lib/http-client.ts                   → Shared HTTPS request (httpsRequest 
 src/lib/message-router.ts                → MessageRouter (sendTo handler) — admin-jsonConfig-Befehle
 src/lib/snapshot-handler.ts              → SnapshotHandler-Class für lokale Snapshots
 src/lib/group-fanout.ts                  → GroupFanoutHandler-Class für Gruppen-Befehle
-../scripts/sync-iopackage-from-i18n.py   → hält io-package.json:instanceObjects synchron mit i18n-states.ts (zentral)
+../scripts/sync-iopackage-from-i18n.py   → hält io-package.json:instanceObjects synchron mit admin/i18n (zentral)
 ```
 
 ## State Tree
@@ -318,7 +318,7 @@ Single Page, drei Sektionen:
 55. **Per-Device Button > globaler Button (v2.7.0)** — Wenn ein Refresh-Vorgang pro Gerät Sinn macht, gehört der Trigger pro Gerät unter den jeweiligen Channel — NICHT auf Adapter-Ebene. API-Budget: 5 Calls statt N×5. Discoverability: User klickt im selben Pfad wo das Refresh-Resultat erscheint, nicht in `info/*`. Gating in `capability-mapper.ts` über die relevante Capability — Thermometer/Sensor/Heater bekommen den Button gar nicht erst.
 56. **HTTP 200 mit empty body ≠ Fehler (v2.7.0)** — Undokumentierte Govee-App-Endpoints liefern für unbekannte SKUs HTTP 200 mit komplett leerem Body. `httpsRequest` in `http-client.ts` resolvet das jetzt als `null` statt zu werfen. Caller mit `resp?.data?.…` optional chaining + `Array.isArray` Guards bekommen das transparent — kein Debug-Spam mehr. Nur non-empty non-JSON wird weiter als Parse-Error gemeldet.
 
-## Tests (836 unit + 57 package + integration)
+## Tests (848 unit + 57 package + integration)
 
 ```
 test/testCapabilityMapper.ts → Capability Mapping + Cloud State Value Mapping + Quirks + Groups + Drift (80)
