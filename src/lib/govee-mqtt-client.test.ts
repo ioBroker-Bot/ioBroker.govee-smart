@@ -509,4 +509,58 @@ describe("GoveeMqttClient", () => {
       expect(lastConnectedFlag).toBe(false);
     });
   });
+
+  // The existing suite uses noopTimers (never fires), so the reconnect path
+  // inherited from ReconnectingMqttClient was untested. These drive a real
+  // backoff timer to prove the cross-cutting wire: connect() catch →
+  // scheduleReconnect() → base timer → reconnect() → connect() again.
+  describe("reconnect cycle (base scaffolding wiring)", () => {
+    function makeCapturingTimers() {
+      const scheduled: Array<() => void> = [];
+      const timers = {
+        setInterval: () => undefined,
+        clearInterval: () => {},
+        setTimeout: (cb: () => void) => {
+          scheduled.push(cb);
+          return scheduled.length;
+        },
+        clearTimeout: () => {},
+        delay: () => Promise.resolve(),
+      } as never;
+      return { timers, scheduled };
+    }
+
+    it("arms a backoff timer after a failed login and re-enters connect() when it fires", async () => {
+      const fake = makeFakeHttps(() => new Error("network boom")); // login rejects
+      const t = makeCapturingTimers();
+      const client = new GoveeMqttClient("u@example.com", "pw", mockLog, t.timers, fake.fn);
+      await client.connect(
+        () => {},
+        () => {},
+      );
+      expect(fake.calls.length).toBe(1); // first login attempt
+      expect(t.scheduled.length).toBe(1); // backoff timer armed by the base
+
+      t.scheduled[0](); // fire it → base → reconnect() → connect()
+      await new Promise(r => setTimeout(r, 10)); // let the async re-login run
+      expect(fake.calls.length).toBe(2); // second login attempt = reconnect proven
+      client.disconnect();
+    });
+
+    it("does not re-enter connect() when the timer fires after disconnect()", async () => {
+      const fake = makeFakeHttps(() => new Error("network boom"));
+      const t = makeCapturingTimers();
+      const client = new GoveeMqttClient("u@example.com", "pw", mockLog, t.timers, fake.fn);
+      await client.connect(
+        () => {},
+        () => {},
+      );
+      expect(t.scheduled.length).toBe(1);
+
+      client.disconnect(); // disposed = true
+      t.scheduled[0](); // stale timer fires
+      await new Promise(r => setTimeout(r, 10));
+      expect(fake.calls.length).toBe(1); // no second login — disposed guard held
+    });
+  });
 });

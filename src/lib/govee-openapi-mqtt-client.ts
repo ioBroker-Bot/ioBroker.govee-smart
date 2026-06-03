@@ -1,9 +1,9 @@
 import * as crypto from "node:crypto";
 import * as mqtt from "mqtt";
 import { OPENAPI_MQTT_MAX_AUTH_FAILURES } from "./timing-constants";
+import { ReconnectingMqttClient } from "./reconnecting-mqtt-client";
 import {
   classifyError,
-  type ErrorCategory,
   type OpenApiMqttEvent,
   type CloudStateCapability,
   type TimerAdapter,
@@ -26,11 +26,12 @@ export type OpenApiConnectionCallback = (connected: boolean) => void;
  * Connects to mqtt.openapi.govee.com:8883 using the API key for auth.
  * Receives event capabilities (lackWater, iceFull, bodyAppeared etc.)
  * without consuming Cloud API budget.
+ *
+ * Reconnect/lifecycle scaffolding (backoff timer, disposed guard,
+ * subscribe-fail-forces-close) is inherited from {@link ReconnectingMqttClient}.
  */
-export class GoveeOpenapiMqttClient {
+export class GoveeOpenapiMqttClient extends ReconnectingMqttClient {
   private readonly apiKey: string;
-  private readonly log: ioBroker.Logger;
-  private readonly timers: TimerAdapter;
   /**
    * Stable client ID for the lifetime of the adapter instance. Generated once
    * in the constructor so reconnects keep the same identity — Govee's broker
@@ -39,21 +40,15 @@ export class GoveeOpenapiMqttClient {
    * fresh ID on every reconnect.
    */
   private readonly sessionUuid: string = crypto.randomUUID();
-  private client: mqtt.MqttClient | null = null;
   private topic: string;
-  private reconnectTimer: ioBroker.Timeout | undefined = undefined;
-  private reconnectAttempts = 0;
+  /** Consecutive connect/auth failures — caps reconnect via reconnectExhausted(). */
   private connectFailCount = 0;
-  private lastErrorCategory: ErrorCategory | null = null;
   private onEvent: OpenApiEventCallback | null = null;
   private onRaw: OpenApiRawCallback | null = null;
   private onConnection: OpenApiConnectionCallback | null = null;
-  /**
-   * Set true in `disconnect()`. scheduleReconnect bails on this so a
-   * close-event that fires after disconnect cannot start a new connect-cycle
-   * against a torn-down client. Same pattern as govee-mqtt-client.
-   */
-  private disposed = false;
+
+  /** Channel label used in reconnect log lines. */
+  protected readonly channelLabel = "Cloud-events";
 
   /**
    * @param apiKey Govee Cloud API key (used as username AND password)
@@ -61,10 +56,21 @@ export class GoveeOpenapiMqttClient {
    * @param timers Timer adapter
    */
   constructor(apiKey: string, log: ioBroker.Logger, timers: TimerAdapter) {
+    super(log, timers);
     this.apiKey = apiKey;
-    this.log = log;
-    this.timers = timers;
     this.topic = `GA/${apiKey}`;
+  }
+
+  /** Stop reconnecting once the API key has been rejected too many times. */
+  protected reconnectExhausted(): boolean {
+    return this.connectFailCount >= OPENAPI_MQTT_MAX_AUTH_FAILURES;
+  }
+
+  /** Re-enter connect() with the stored callbacks when a backoff timer fires. */
+  protected reconnect(): void {
+    if (this.onEvent && this.onConnection) {
+      this.connect(this.onEvent, this.onConnection, this.onRaw ?? undefined);
+    }
   }
 
   /**
@@ -104,26 +110,14 @@ export class GoveeOpenapiMqttClient {
           this.log.debug(`Cloud-events connected: broker=${BROKER_URL} clientId=${clientId} topic=${this.topic}`);
         }
 
-        this.client?.subscribe(this.topic, { qos: 0 }, err => {
-          if (err) {
-            // Subscribe-fail keeps the TCP connection alive (keepalive pings
-            // still answer), so close would never fire on its own and
-            // info.openapiMqttConnected would stay false forever — silent
-            // permanent death. Force close so the close-handler runs and
-            // schedules a reconnect.
-            this.log.warn(
-              `Cloud-events subscribe failed: topic=${this.topic} err="${err.message}" — forcing reconnect`,
-            );
-            try {
-              this.client?.end(true);
-            } catch {
-              // ignore — close-event handler will pick it up either way
-            }
-          } else {
+        this.subscribeOrForceClose(
+          this.topic,
+          () => {
             this.log.debug(`Cloud-events subscribed to event topic: topic=${this.topic} qos=0`);
             this.onConnection?.(true);
-          }
-        });
+          },
+          msg => this.log.warn(`Cloud-events subscribe failed: topic=${this.topic} err="${msg}" — forcing reconnect`),
+        );
       });
 
       this.client.on("message", (_topic, payload) => {
@@ -175,28 +169,6 @@ export class GoveeOpenapiMqttClient {
       }
 
       this.scheduleReconnect();
-    }
-  }
-
-  /** Whether the client is currently connected */
-  get connected(): boolean {
-    return this.client?.connected ?? false;
-  }
-
-  /** Disconnect and cleanup */
-  disconnect(): void {
-    this.disposed = true;
-    if (this.reconnectTimer) {
-      this.timers.clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = undefined;
-    }
-    if (this.client) {
-      this.client.removeAllListeners();
-      this.client.on("error", () => {
-        /* ignore late errors */
-      });
-      this.client.end(true);
-      this.client = null;
     }
   }
 
@@ -252,35 +224,5 @@ export class GoveeOpenapiMqttClient {
     } catch {
       this.log.debug(`Cloud-events: failed to parse message: ${payload.toString().slice(0, 200)}`);
     }
-  }
-
-  /** Schedule reconnect with exponential backoff */
-  private scheduleReconnect(): void {
-    if (this.disposed) {
-      return;
-    }
-    if (this.reconnectTimer) {
-      return;
-    }
-    if (this.connectFailCount >= OPENAPI_MQTT_MAX_AUTH_FAILURES) {
-      return;
-    }
-
-    this.reconnectAttempts++;
-    // M6 — Jitter gegen Thundering Herd (analog Account-MQTT-Client).
-    const base = Math.min(5_000 * Math.pow(2, this.reconnectAttempts - 1), 300_000);
-    const jitter = Math.random() * Math.min(base, 30_000);
-    const delay = Math.round(base + jitter);
-    this.log.debug(`Cloud-events: reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts})`);
-
-    this.reconnectTimer = this.timers.setTimeout(() => {
-      this.reconnectTimer = undefined;
-      if (this.disposed) {
-        return;
-      }
-      if (this.onEvent && this.onConnection) {
-        this.connect(this.onEvent, this.onConnection, this.onRaw ?? undefined);
-      }
-    }, delay);
   }
 }
