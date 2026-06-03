@@ -162,6 +162,12 @@ export const SEGMENT_HARD_MAX = 55;
 /** Number of addressable segment slots (SEGMENT_HARD_MAX + 1 = 56). */
 export const SEGMENT_COUNT_MAX = SEGMENT_HARD_MAX + 1;
 
+/** ptReal color-segment bitmask size (Govee protocol-fixed): one bit per segment, 56 segments → 7 bytes. */
+export const SEGMENT_COLOR_BITMASK_BYTES = 7;
+
+/** ptReal brightness-segment bitmask size (Govee protocol-fixed): twice the color width → 14 bytes. */
+export const SEGMENT_BRIGHTNESS_BITMASK_BYTES = 14;
+
 /**
  * Generate the stable runtime map key for a device — thin wrapper over
  * {@link mapKey} (device-key.ts), kept for the existing call sites.

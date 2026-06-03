@@ -292,15 +292,6 @@ export class DeviceRegistry {
   getStatus(sku: string): DeviceStatus | undefined {
     return this.getEntry(sku)?.status;
   }
-
-  /**
-   * All SKUs known to the registry (regardless of status). Production never
-   * calls this — it is a read-only introspection seam for the loader unit
-   * tests (verify count / dedup / filtering of malformed entries).
-   */
-  getKnownSkus(): string[] {
-    return [...this.entries.keys()];
-  }
 }
 
 /**

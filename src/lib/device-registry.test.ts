@@ -55,7 +55,12 @@ describe("DeviceRegistry", () => {
   describe("Loading", () => {
     it("loads inline data without filesystem access", () => {
       const reg = new DeviceRegistry({ data: SAMPLE as never });
-      expect(reg.getKnownSkus()).toHaveLength(6);
+      // Verify loading via the real lookup API (no production-internal
+      // enumeration): a known entry resolves with its parsed fields, an
+      // unknown one stays undefined.
+      expect(reg.getEntry("H7160")).toMatchObject({ name: "Smart Space Heater", type: "heater", status: "reported" });
+      expect(reg.getEntry("H61BE")).toMatchObject({ status: "verified" });
+      expect(reg.getEntry("NOPE")).toBeUndefined();
     });
 
     it("loads from a JSON file on disk", () => {
@@ -63,7 +68,8 @@ describe("DeviceRegistry", () => {
       fs.writeFileSync(tmp, JSON.stringify(SAMPLE));
       try {
         const reg = new DeviceRegistry({ filePath: tmp });
-        expect(reg.getKnownSkus()).toHaveLength(6);
+        expect(reg.getEntry("H7160")).toMatchObject({ name: "Smart Space Heater" });
+        expect(reg.getEntry("H60A1")).toMatchObject({ status: "seed" });
       } finally {
         fs.unlinkSync(tmp);
       }
@@ -73,7 +79,7 @@ describe("DeviceRegistry", () => {
       const reg = new DeviceRegistry({
         filePath: "/nonexistent/path/devices.json",
       });
-      expect(reg.getKnownSkus()).toHaveLength(0);
+      expect(reg.getEntry("H7160")).toBeUndefined();
     });
 
     it("returns empty registry on invalid JSON (no throw)", () => {
@@ -81,7 +87,7 @@ describe("DeviceRegistry", () => {
       fs.writeFileSync(tmp, "{ not valid json");
       try {
         const reg = new DeviceRegistry({ filePath: tmp });
-        expect(reg.getKnownSkus()).toHaveLength(0);
+        expect(reg.getEntry("H7160")).toBeUndefined();
       } finally {
         fs.unlinkSync(tmp);
       }
@@ -89,7 +95,7 @@ describe("DeviceRegistry", () => {
 
     it("ignores entries without a devices object", () => {
       const reg = new DeviceRegistry({ data: { devices: undefined } as never });
-      expect(reg.getKnownSkus()).toHaveLength(0);
+      expect(reg.getEntry("H7160")).toBeUndefined();
     });
 
     it("ignores non-object entries within the devices map", () => {
@@ -102,7 +108,10 @@ describe("DeviceRegistry", () => {
           },
         } as never,
       });
-      expect(reg.getKnownSkus()).toEqual(["H6022"]);
+      // Only the well-formed entry loads; the null / string entries are dropped.
+      expect(reg.getEntry("H6022")).toMatchObject({ name: "x", status: "seed" });
+      expect(reg.getEntry("H1234")).toBeUndefined();
+      expect(reg.getEntry("H5678")).toBeUndefined();
     });
   });
 
@@ -170,11 +179,10 @@ describe("DeviceRegistry", () => {
       expect(reg.getStatus("h61be")).toBe("verified");
     });
 
-    it("getKnownSkus returns all SKUs regardless of status", () => {
-      // Lexicographic order — '2' (0x32) sorts before 'A' (0x41),
-      // so H6022 < H60A1 < H6141 < H61BE.
-      const skus = reg.getKnownSkus().sort();
-      expect(skus).toEqual(["H5179", "H6022", "H60A1", "H6141", "H61BE", "H7160"]);
+    it("loads entries of every status (verified / reported / seed)", () => {
+      expect(reg.getEntry("H61BE")?.status).toBe("verified");
+      expect(reg.getEntry("H7160")?.status).toBe("reported");
+      expect(reg.getEntry("H60A1")?.status).toBe("seed");
     });
 
     it("safe against non-string SKU input", () => {

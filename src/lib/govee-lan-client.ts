@@ -1,7 +1,11 @@
 import * as dgram from "node:dgram";
 import { clampByte, type LanDevice, type LanMessage, type LanStatus, type TimerAdapter } from "./types";
 import { FORCE_COLOR_MODE_SETTLE_MS } from "./timing-constants";
-import { SEGMENT_COUNT_MAX } from "./device-manager/lookups";
+import {
+  SEGMENT_BRIGHTNESS_BITMASK_BYTES,
+  SEGMENT_COLOR_BITMASK_BYTES,
+  SEGMENT_COUNT_MAX,
+} from "./device-manager/lookups";
 
 const MULTICAST_ADDR = "239.255.255.250";
 const SCAN_PORT = 4001;
@@ -894,7 +898,7 @@ export function buildSegmentColorPacket(r: number, g: number, b: number, segment
     0x00,
     0x00,
     0x00,
-    ...buildSegmentBitmask(segments, 7),
+    ...buildSegmentBitmask(segments, SEGMENT_COLOR_BITMASK_BYTES),
   ];
   return Buffer.from(finishPacket(data)).toString("base64");
 }
@@ -907,7 +911,14 @@ export function buildSegmentColorPacket(r: number, g: number, b: number, segment
  * @param segments Array of 0-based segment indices
  */
 export function buildSegmentBrightnessPacket(brightness: number, segments: number[]): string {
-  const data = [0x33, 0x05, 0x15, 0x02, Math.max(0, Math.min(100, brightness)), ...buildSegmentBitmask(segments, 14)];
+  const data = [
+    0x33,
+    0x05,
+    0x15,
+    0x02,
+    Math.max(0, Math.min(100, brightness)),
+    ...buildSegmentBitmask(segments, SEGMENT_BRIGHTNESS_BITMASK_BYTES),
+  ];
   return Buffer.from(finishPacket(data)).toString("base64");
 }
 

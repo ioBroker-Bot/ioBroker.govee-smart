@@ -253,6 +253,32 @@ export class GoveeApiClient {
   }
 
   /**
+   * Iterate every valid scene across all categories of an app-library response.
+   * Shared by the scene / music / DIY library walkers — invokes `perScene` for
+   * each scene whose `sceneName` is a non-empty string; the per-walker effect
+   * extraction stays in the callback. Defensive against missing / non-array
+   * categories and scenes.
+   *
+   * @param categories The `data.categories` array from the library response
+   * @param perScene Callback invoked with each scene that has a string sceneName
+   */
+  private walkCategories<S extends { sceneName?: string }>(
+    categories: Array<{ scenes?: S[] }> | undefined,
+    perScene: (scene: S & { sceneName: string }) => void,
+  ): void {
+    const cats = Array.isArray(categories) ? categories : [];
+    for (const cat of cats) {
+      const scenes = Array.isArray(cat?.scenes) ? cat.scenes : [];
+      for (const s of scenes) {
+        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
+          continue;
+        }
+        perScene(s as S & { sceneName: string });
+      }
+    }
+  }
+
+  /**
    * Fetch scene library for a specific SKU from undocumented API.
    * Public endpoint — no authentication required, only AppVersion header.
    *
@@ -308,45 +334,38 @@ export class GoveeApiClient {
       scenceParam?: string;
       speedInfo?: { supSpeed: boolean; speedIndex: number; config: string };
     }[] = [];
-    const categories = Array.isArray(resp?.data?.categories) ? resp.data.categories : [];
-    for (const cat of categories) {
-      const catScenes = Array.isArray(cat?.scenes) ? cat.scenes : [];
-      for (const s of catScenes) {
-        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
-          continue;
+    this.walkCategories(resp?.data?.categories, s => {
+      const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
+      if (effects.length === 0) {
+        // No effects — use scene-level code
+        const code = s.sceneCode ?? 0;
+        if (code > 0) {
+          scenes.push({ name: s.sceneName, sceneCode: code });
         }
-        const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
-        if (effects.length === 0) {
-          // No effects — use scene-level code
-          const code = s.sceneCode ?? 0;
-          if (code > 0) {
-            scenes.push({ name: s.sceneName, sceneCode: code });
-          }
-          continue;
-        }
-        const multiVariant = effects.length > 1;
-        for (const effect of effects) {
-          const code = effect.sceneCode ?? s.sceneCode ?? 0;
-          if (code <= 0) {
-            continue;
-          }
-          const name = multiVariant && effect.scenceName ? `${s.sceneName}-${effect.scenceName}` : s.sceneName;
-          const si = effect.speedInfo;
-          scenes.push({
-            name,
-            sceneCode: code,
-            scenceParam: effect.scenceParam || undefined,
-            speedInfo: si?.supSpeed
-              ? {
-                  supSpeed: true,
-                  speedIndex: si.speedIndex ?? 0,
-                  config: si.config ?? "",
-                }
-              : undefined,
-          });
-        }
+        return;
       }
-    }
+      const multiVariant = effects.length > 1;
+      for (const effect of effects) {
+        const code = effect.sceneCode ?? s.sceneCode ?? 0;
+        if (code <= 0) {
+          continue;
+        }
+        const name = multiVariant && effect.scenceName ? `${s.sceneName}-${effect.scenceName}` : s.sceneName;
+        const si = effect.speedInfo;
+        scenes.push({
+          name,
+          sceneCode: code,
+          scenceParam: effect.scenceParam || undefined,
+          speedInfo: si?.supSpeed
+            ? {
+                supSpeed: true,
+                speedIndex: si.speedIndex ?? 0,
+                config: si.config ?? "",
+              }
+            : undefined,
+        });
+      }
+    });
 
     return scenes;
   }
@@ -390,27 +409,20 @@ export class GoveeApiClient {
       mode?: number;
     }[] = [];
     let modeIdx = 0;
-    const musicCats = Array.isArray(resp?.data?.categories) ? resp.data.categories : [];
-    for (const cat of musicCats) {
-      const catScenes = Array.isArray(cat?.scenes) ? cat.scenes : [];
-      for (const s of catScenes) {
-        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
-          continue;
-        }
-        const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
-        const effect = effects[0];
-        const code = effect?.sceneCode ?? s.sceneCode ?? 0;
-        if (code > 0) {
-          modes.push({
-            name: s.sceneName,
-            musicCode: code,
-            scenceParam: effect?.scenceParam || undefined,
-            mode: modeIdx,
-          });
-        }
-        modeIdx++;
+    this.walkCategories(resp?.data?.categories, s => {
+      const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
+      const effect = effects[0];
+      const code = effect?.sceneCode ?? s.sceneCode ?? 0;
+      if (code > 0) {
+        modes.push({
+          name: s.sceneName,
+          musicCode: code,
+          scenceParam: effect?.scenceParam || undefined,
+          mode: modeIdx,
+        });
       }
-    }
+      modeIdx++;
+    });
     return modes;
   }
 
@@ -444,25 +456,18 @@ export class GoveeApiClient {
     const resp = result.value;
 
     const diys: { name: string; diyCode: number; scenceParam?: string }[] = [];
-    const diyCats = Array.isArray(resp?.data?.categories) ? resp.data.categories : [];
-    for (const cat of diyCats) {
-      const catScenes = Array.isArray(cat?.scenes) ? cat.scenes : [];
-      for (const s of catScenes) {
-        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
-          continue;
-        }
-        const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
-        const effect = effects[0];
-        const code = effect?.sceneCode ?? s.sceneCode ?? 0;
-        if (code > 0) {
-          diys.push({
-            name: s.sceneName,
-            diyCode: code,
-            scenceParam: effect?.scenceParam || undefined,
-          });
-        }
+    this.walkCategories(resp?.data?.categories, s => {
+      const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
+      const effect = effects[0];
+      const code = effect?.sceneCode ?? s.sceneCode ?? 0;
+      if (code > 0) {
+        diys.push({
+          name: s.sceneName,
+          diyCode: code,
+          scenceParam: effect?.scenceParam || undefined,
+        });
       }
-    }
+    });
     return diys;
   }
 
