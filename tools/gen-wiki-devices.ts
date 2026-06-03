@@ -70,7 +70,7 @@ interface Texts {
   colName: string;
   colStatus: string;
   colSince: string;
-  /** „Mein Gerät steht auf ⚪" section */
+  /** "Your device shows ⚪?" help section (heading + body) */
   experimentalHeading: string;
   experimentalBody: string;
   /** Footer with timestamp */
