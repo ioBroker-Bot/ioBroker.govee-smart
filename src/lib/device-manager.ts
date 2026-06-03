@@ -11,7 +11,10 @@ import {
   SEGMENT_HARD_MAX,
   type MqttSegmentData,
 } from "./device-manager/lookups";
-import { buildCapabilitiesFromAppEntry as buildCapabilitiesFromAppEntryHelper } from "./device-manager/mapping";
+import {
+  buildCapabilitiesFromAppEntry as buildCapabilitiesFromAppEntryHelper,
+  filterCloudDevicesWithCapabilities,
+} from "./device-manager/mapping";
 import * as cacheHelpers from "./device-manager/cache";
 import * as cloudMergeHelpers from "./device-manager/cloud-merge";
 import type { AppDeviceEntry, GoveeApiClient } from "./govee-api-client";
@@ -396,18 +399,8 @@ export class DeviceManager {
       const rawCloudDevices = await this.cloudClient.getDevices();
 
       // Hard-filter: Govee's Device-List API returns historical/stale entries
-      // (deleted devices that are no longer in the app). Filter out entries
-      // without capabilities — those are almost certainly stale registrations.
-      const cloudDevices = Array.isArray(rawCloudDevices)
-        ? rawCloudDevices.filter(
-            cd =>
-              cd &&
-              typeof cd.sku === "string" &&
-              typeof cd.device === "string" &&
-              Array.isArray(cd.capabilities) &&
-              cd.capabilities.length > 0,
-          )
-        : [];
+      // (deleted devices that are no longer in the app) without capabilities.
+      const cloudDevices = filterCloudDevicesWithCapabilities(rawCloudDevices);
 
       if (Array.isArray(rawCloudDevices) && rawCloudDevices.length !== cloudDevices.length) {
         this.log.info(
@@ -549,16 +542,7 @@ export class DeviceManager {
     // list lives in /user/devices.
     try {
       const rawCloudDevices = await this.cloudClient.getDevices();
-      const cloudDevices = Array.isArray(rawCloudDevices)
-        ? rawCloudDevices.filter(
-            cd =>
-              cd &&
-              typeof cd.sku === "string" &&
-              typeof cd.device === "string" &&
-              Array.isArray(cd.capabilities) &&
-              cd.capabilities.length > 0,
-          )
-        : [];
+      const cloudDevices = filterCloudDevicesWithCapabilities(rawCloudDevices);
       this.mergeCloudDevices(cloudDevices);
     } catch (e) {
       this.log.debug(`refreshSceneDataForDevice: getDevices failed: ${errMessage(e)}`);

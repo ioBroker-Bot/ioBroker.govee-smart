@@ -436,7 +436,7 @@ function mapMode(cap: CloudCapability): StateDefinition[] {
     if (!opt || typeof opt.name !== "string") {
       continue;
     }
-    const val = typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value);
+    const val = safeStringify(opt.value);
     states[val] = opt.name;
   }
 
@@ -530,7 +530,7 @@ function mapWorkMode(cap: CloudCapability): StateDefinition[] {
     const modeStates: Record<string, string> = {};
     for (const opt of modeField.options) {
       if (opt && typeof opt.name === "string") {
-        modeStates[typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value)] = opt.name;
+        modeStates[safeStringify(opt.value)] = opt.name;
       }
     }
     states.push({
@@ -552,7 +552,7 @@ function mapWorkMode(cap: CloudCapability): StateDefinition[] {
       const valStates: Record<string, string> = {};
       for (const opt of valueField.options) {
         if (opt && typeof opt.name === "string") {
-          valStates[typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value)] = opt.name;
+          valStates[safeStringify(opt.value)] = opt.name;
         }
       }
       states.push({
@@ -707,7 +707,7 @@ function mapMusicSetting(cap: CloudCapability): StateDefinition[] {
       if (!opt || typeof opt.name !== "string") {
         continue;
       }
-      modeStates[typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value)] = opt.name;
+      modeStates[safeStringify(opt.value)] = opt.name;
     }
     states.push({
       id: "music_mode",
@@ -1065,6 +1065,57 @@ export function buildLanStateDefs(device: GoveeDevice, log: ioBroker.Logger): St
 }
 
 /**
+ * The three diagnostics states (export button, JSON result, trust tier).
+ * Shared by buildCloudStateDefs (tier default "unknown") and
+ * buildGroupStateDefs (tier default "verified") — only the tier default differs.
+ *
+ * @param tierDef Initial value for the diag.tier state
+ */
+function buildDiagStateDefs(tierDef: string): StateDefinition[] {
+  return [
+    {
+      id: "export",
+      name: tName("exportDiagnostics"),
+      type: "boolean",
+      role: "button",
+      write: true,
+      def: false,
+      capabilityType: "local",
+      capabilityInstance: "diagnosticsExport",
+      channel: "diag",
+    },
+    {
+      id: "result",
+      name: tName("diagnosticsJson"),
+      type: "string",
+      role: "json",
+      write: false,
+      def: "",
+      capabilityType: "local",
+      capabilityInstance: "diagnosticsResult",
+      channel: "diag",
+    },
+    {
+      id: "tier",
+      name: tName("deviceTier"),
+      type: "string",
+      role: "text",
+      write: false,
+      def: tierDef,
+      states: {
+        verified: resolveLabel("deviceTierVerified"),
+        reported: resolveLabel("deviceTierReported"),
+        seed: resolveLabel("deviceTierSeed"),
+        unknown: resolveLabel("deviceTierUnknown"),
+      },
+      capabilityType: "local",
+      capabilityInstance: "diagnosticsTier",
+      channel: "diag",
+    },
+  ];
+}
+
+/**
  * Build Cloud-owned state definitions for a device — everything that needs
  * Cloud capabilities or local synthetic decoration. Excludes LAN-default IDs
  * (the LAN phase owns those). Returns intersection state for BaseGroup
@@ -1244,52 +1295,9 @@ export function buildCloudStateDefs(
     });
   }
 
-  // Diagnostics — three states with different shapes (boolean button vs
-  // read-only string vs string with fixed states map). Inline for same
-  // reason as local snapshots.
-  stateDefs.push({
-    id: "export",
-    name: tName("exportDiagnostics"),
-    type: "boolean",
-    role: "button",
-    write: true,
-    def: false,
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsExport",
-    channel: "diag",
-  });
-  stateDefs.push({
-    id: "result",
-    name: tName("diagnosticsJson"),
-    type: "string",
-    role: "json",
-    write: false,
-    def: "",
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsResult",
-    channel: "diag",
-  });
-  // Trust tier for the user — verified/reported/seed/unknown. Tells
-  // power users whether the experimental toggle would buy them anything,
-  // and lets unknown-SKU users see at a glance that their device isn't
-  // in the catalogue yet.
-  stateDefs.push({
-    id: "tier",
-    name: tName("deviceTier"),
-    type: "string",
-    role: "text",
-    write: false,
-    def: "unknown",
-    states: {
-      verified: resolveLabel("deviceTierVerified"),
-      reported: resolveLabel("deviceTierReported"),
-      seed: resolveLabel("deviceTierSeed"),
-      unknown: resolveLabel("deviceTierUnknown"),
-    },
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsTier",
-    channel: "diag",
-  });
+  // Diagnostics — export button, JSON result, trust tier. Default tier
+  // "unknown" for a real device (its actual tier comes from the registry).
+  stateDefs.push(...buildDiagStateDefs("unknown"));
 
   return stateDefs;
 }
@@ -1403,50 +1411,10 @@ function buildGroupStateDefs(members: GoveeDevice[]): StateDefinition[] {
     }
   }
 
-  // v2.9.1 — BaseGroups now get the same three diag states (export / result /
-  // tier) as regular devices. Group-specific issues ("fan-out doesn't reach
-  // member X") are otherwise un-export-able via the user's self-service path.
-  // Tier defaults to "verified" because BaseGroup isn't a real SKU and
-  // therefore has no quirks entry — the diag-button just renders consistently.
-  stateDefs.push({
-    id: "export",
-    name: tName("exportDiagnostics"),
-    type: "boolean",
-    role: "button",
-    write: true,
-    def: false,
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsExport",
-    channel: "diag",
-  });
-  stateDefs.push({
-    id: "result",
-    name: tName("diagnosticsJson"),
-    type: "string",
-    role: "json",
-    write: false,
-    def: "",
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsResult",
-    channel: "diag",
-  });
-  stateDefs.push({
-    id: "tier",
-    name: tName("deviceTier"),
-    type: "string",
-    role: "text",
-    write: false,
-    def: "verified",
-    states: {
-      verified: resolveLabel("deviceTierVerified"),
-      reported: resolveLabel("deviceTierReported"),
-      seed: resolveLabel("deviceTierSeed"),
-      unknown: resolveLabel("deviceTierUnknown"),
-    },
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsTier",
-    channel: "diag",
-  });
+  // v2.9.1 — BaseGroups get the same three diag states. Tier defaults to
+  // "verified" because BaseGroup isn't a real SKU and has no quirks entry —
+  // the diag-button just renders consistently.
+  stateDefs.push(...buildDiagStateDefs("verified"));
 
   return stateDefs;
 }

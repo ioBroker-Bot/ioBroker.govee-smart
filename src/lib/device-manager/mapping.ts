@@ -26,6 +26,26 @@ export function cloudDeviceToGoveeDevice(cd: CloudDevice): GoveeDevice {
 }
 
 /**
+ * Filter a raw Cloud device list to entries that carry capabilities. Govee's
+ * /user/devices returns historical / deleted registrations without
+ * capabilities — those are almost certainly stale and must not be added.
+ *
+ * @param raw Raw Cloud device list (defensively re-checked for array-ness)
+ */
+export function filterCloudDevicesWithCapabilities(raw: CloudDevice[]): CloudDevice[] {
+  return Array.isArray(raw)
+    ? raw.filter(
+        cd =>
+          cd &&
+          typeof cd.sku === "string" &&
+          typeof cd.device === "string" &&
+          Array.isArray(cd.capabilities) &&
+          cd.capabilities.length > 0,
+      )
+    : [];
+}
+
+/**
  * Convert an AppApi device entry into a synthetic capability list — the
  * App API doesn't expose capability metadata, but the user wants the same
  * `info.online` / `sensorTemperature` / `sensorHumidity` / `battery`
