@@ -1,4 +1,4 @@
-import { httpsRequest } from "./http-client";
+import { httpsRequest, type HttpResult } from "./http-client";
 import {
   GOVEE_APP_BASE_URL,
   GOVEE_APP_VERSION,
@@ -155,6 +155,37 @@ export class GoveeApiClient {
   }
 
   /**
+   * Log a non-JSON fallback (empty / plain-text-status body) for an App-API
+   * endpoint on debug — shared by every fetch method so the "why is this null?"
+   * trace reads the same everywhere.
+   *
+   * @param endpoint Endpoint label for the log line (e.g. "/devices/snapshots sku=H61BE")
+   * @param result HttpResult envelope from httpsRequest
+   */
+  private logFallback(endpoint: string, result: HttpResult<unknown>): void {
+    if (result.fallback) {
+      this.log.debug(
+        `App API ${endpoint}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
+      );
+    }
+  }
+
+  /**
+   * Guard for bearer-token endpoints: returns true when a token is present,
+   * otherwise logs a uniform "no bearer token" skip line and returns false.
+   * Callers do `if (!this.requireBearer(endpoint)) return [];` (or `null`).
+   *
+   * @param endpoint Endpoint label for the skip log line
+   */
+  private requireBearer(endpoint: string): boolean {
+    if (this.bearerToken) {
+      return true;
+    }
+    this.log.debug(`App API skip ${endpoint}: no bearer token`);
+    return false;
+  }
+
+  /**
    * Fetch the per-account device list from the undocumented sensor
    * endpoint. One call returns every device the Govee Home app sees for
    * this account, with `lastDeviceData` + `deviceSettings` embedded as
@@ -169,8 +200,7 @@ export class GoveeApiClient {
    * @returns Parsed entries; never throws on a single malformed entry.
    */
   async fetchDeviceList(): Promise<AppDeviceEntry[]> {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /device/rest/devices/v1/list: no bearer token`);
+    if (!this.requireBearer(`/device/rest/devices/v1/list`)) {
       return [];
     }
     this.log.debug(`App API POST /device/rest/devices/v1/list bearer=yes`);
@@ -195,11 +225,7 @@ export class GoveeApiClient {
       headers: this.authHeaders(),
       body: {},
     });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /device/rest/devices/v1/list: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/device/rest/devices/v1/list`, result);
     const resp = result.value;
 
     const out: AppDeviceEntry[] = [];
@@ -273,11 +299,7 @@ export class GoveeApiClient {
         "User-Agent": GOVEE_USER_AGENT,
       },
     });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /light-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/light-effect-libraries sku=${sku}`, result);
     const resp = result.value;
 
     const scenes: {
@@ -338,8 +360,7 @@ export class GoveeApiClient {
   async fetchMusicLibrary(
     sku: string,
   ): Promise<{ name: string; musicCode: number; scenceParam?: string; mode?: number }[]> {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /music-effect-libraries sku=${sku}: no bearer token`);
+    if (!this.requireBearer(`/music-effect-libraries sku=${sku}`)) {
       return [];
     }
     this.log.debug(`App API GET /music-effect-libraries sku=${sku} bearer=yes`);
@@ -359,11 +380,7 @@ export class GoveeApiClient {
         }>;
       };
     }>({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /music-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/music-effect-libraries sku=${sku}`, result);
     const resp = result.value;
 
     const modes: {
@@ -404,8 +421,7 @@ export class GoveeApiClient {
    * @param sku Product model (e.g. "H61BE")
    */
   async fetchDiyLibrary(sku: string): Promise<{ name: string; diyCode: number; scenceParam?: string }[]> {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /diy-light-effect-libraries sku=${sku}: no bearer token`);
+    if (!this.requireBearer(`/diy-light-effect-libraries sku=${sku}`)) {
       return [];
     }
     this.log.debug(`App API GET /diy-light-effect-libraries sku=${sku} bearer=yes`);
@@ -424,11 +440,7 @@ export class GoveeApiClient {
         }>;
       };
     }>({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /diy-light-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/diy-light-effect-libraries sku=${sku}`, result);
     const resp = result.value;
 
     const diys: { name: string; diyCode: number; scenceParam?: string }[] = [];
@@ -461,8 +473,7 @@ export class GoveeApiClient {
    * @param sku Product model (e.g. "H61BE")
    */
   async fetchSkuFeatures(sku: string): Promise<Record<string, unknown> | null> {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /sku-supported-feature sku=${sku}: no bearer token`);
+    if (!this.requireBearer(`/sku-supported-feature sku=${sku}`)) {
       return null;
     }
     this.log.debug(`App API GET /sku-supported-feature sku=${sku} bearer=yes`);
@@ -470,11 +481,7 @@ export class GoveeApiClient {
     const result = await httpsRequest<{
       data?: Record<string, unknown>;
     } | null>({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /sku-supported-feature sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/sku-supported-feature sku=${sku}`, result);
     const resp = result.value;
     // Defensive: API can return literal `null` body on edge cases (Govee
     // response wrapped as JSON-null on some unknown SKUs). Without this
@@ -493,8 +500,7 @@ export class GoveeApiClient {
    * @param deviceId Device identifier (colon-separated)
    */
   async fetchSnapshots(sku: string, deviceId: string): Promise<{ name: string; bleCmds: string[][] }[]> {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /devices/snapshots sku=${sku}: no bearer token`);
+    if (!this.requireBearer(`/devices/snapshots sku=${sku}`)) {
       return [];
     }
     this.log.debug(`App API GET /devices/snapshots sku=${sku} device=${deviceId} bearer=yes`);
@@ -509,11 +515,7 @@ export class GoveeApiClient {
         }>;
       };
     }>({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /devices/snapshots sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/devices/snapshots sku=${sku}`, result);
     const resp = result.value;
 
     const results: { name: string; bleCmds: string[][] }[] = [];
@@ -555,8 +557,7 @@ export class GoveeApiClient {
       devices: { sku: string; deviceId: string }[];
     }[]
   > {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /exec-plat/home: no bearer token`);
+    if (!this.requireBearer(`/exec-plat/home`)) {
       return [];
     }
     this.log.debug(`App API GET /exec-plat/home bearer=yes`);
@@ -575,11 +576,7 @@ export class GoveeApiClient {
         }>;
       };
     }>({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /exec-plat/home: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
-      );
-    }
+    this.logFallback(`/exec-plat/home`, result);
     const resp = result.value;
 
     const groups: {
