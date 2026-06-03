@@ -18,8 +18,8 @@ export interface CloudRetryHandlerAdapter {
   cloudRetry: CloudRetryLoop | undefined;
   cloudWasConnected: boolean;
   setStateAsync(id: string, state: ioBroker.SettableState | ioBroker.StateValue): Promise<unknown>;
-  setTimeout(cb: () => void, ms: number): ioBroker.Timeout | undefined;
-  clearTimeout(h: ioBroker.Timeout): void;
+  setTimeout: (cb: () => void, ms: number) => ioBroker.Timeout | undefined;
+  clearTimeout: (h: ioBroker.Timeout) => void;
   /** Reload Cloud-state-tree after a recovered connection. */
   loadCloudStates(): Promise<void>;
 }

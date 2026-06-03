@@ -179,9 +179,9 @@ export interface WizardHost {
   /** Derive the device's state-tree prefix (channel path below namespace). */
   devicePrefix(device: GoveeDevice): string;
   /** Schedule a managed timeout; must be cancellable via clearTimeout. */
-  setTimeout(cb: () => void, ms: number): unknown;
+  setTimeout: (cb: () => void, ms: number) => unknown;
   /** Cancel a previously scheduled timeout. */
-  clearTimeout(handle: unknown): void;
+  clearTimeout: (handle: unknown) => void;
   /**
    * Apply the finished wizard result to the device — sets segmentCount,
    * manualMode, manualSegments, rebuilds state tree, persists to cache.

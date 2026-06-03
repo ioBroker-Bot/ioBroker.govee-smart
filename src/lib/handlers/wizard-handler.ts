@@ -19,8 +19,8 @@ export interface WizardHandlerAdapter {
   segmentWizard: SegmentWizard | null;
   getStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
   setStateAsync(id: string, state: ioBroker.SettableState | ioBroker.StateValue): Promise<unknown>;
-  setTimeout(cb: () => void, ms: number): ioBroker.Timeout | undefined;
-  clearTimeout(h: ioBroker.Timeout): void;
+  setTimeout: (cb: () => void, ms: number) => ioBroker.Timeout | undefined;
+  clearTimeout: (h: ioBroker.Timeout) => void;
   /** Apply manual segments — owned by main.ts because it touches StateManager + cache. */
   applyManualSegments(device: GoveeDevice, mode: boolean, indices?: number[]): Promise<void>;
 }

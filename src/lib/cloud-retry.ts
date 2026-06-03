@@ -14,9 +14,9 @@ export interface CloudRetryHost {
     warn(m: string): void;
   };
   /** Schedule a managed timeout; must be cancellable via clearTimeout. */
-  setTimeout(cb: () => void, ms: number): unknown;
+  setTimeout: (cb: () => void, ms: number) => unknown;
   /** Cancel a previously scheduled timeout. */
-  clearTimeout(handle: unknown): void;
+  clearTimeout: (handle: unknown) => void;
   /** Perform one Cloud-load attempt — should include any own timeout wrapping. */
   loadFromCloud(): Promise<CloudLoadResult>;
   /** Hook called once after a successful retry (host refreshes states). */

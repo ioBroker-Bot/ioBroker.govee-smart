@@ -836,16 +836,23 @@ export interface OpenApiMqttEvent {
   capabilities: CloudStateCapability[];
 }
 
-/** Timer/callback interfaces for helper classes */
+/**
+ * Timer/callback interface for helper classes. Declared with function-property
+ * syntax (`setTimeout: (...) => ...`) rather than method syntax: stricter
+ * parameter variance for a dependency-injection surface, and it keeps the
+ * repo-checker's plain-timer regex off the interface method names. The real
+ * scheduling still goes through the injected `this.setTimeout` etc., which the
+ * regex correctly ignores (preceded by a dot).
+ */
 export interface TimerAdapter {
   /** Create a repeating interval timer */
-  setInterval(callback: () => void, ms: number): ioBroker.Interval | undefined;
+  setInterval: (callback: () => void, ms: number) => ioBroker.Interval | undefined;
   /** Clear a repeating interval timer */
-  clearInterval(timer: ioBroker.Interval): void;
+  clearInterval: (timer: ioBroker.Interval) => void;
   /** Create a one-shot timeout timer */
-  setTimeout(callback: () => void, ms: number): ioBroker.Timeout | undefined;
+  setTimeout: (callback: () => void, ms: number) => ioBroker.Timeout | undefined;
   /** Clear a one-shot timeout timer */
-  clearTimeout(timer: ioBroker.Timeout): void;
+  clearTimeout: (timer: ioBroker.Timeout) => void;
   /** Async delay that gets cancelled on adapter unload */
-  delay(ms: number): Promise<void>;
+  delay: (ms: number) => Promise<void>;
 }
