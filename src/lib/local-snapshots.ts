@@ -1,4 +1,5 @@
 import { errMessage } from "./types";
+import { treeKey } from "./device-key";
 
 /** Per-segment state in a local snapshot */
 export interface SnapshotSegment {
@@ -226,9 +227,6 @@ export class LocalSnapshotStore {
    * @param deviceId Device identifier
    */
   private deviceKey(sku: string, deviceId: string): string {
-    const safeSku = typeof sku === "string" ? sku : "";
-    const safeId = typeof deviceId === "string" ? deviceId : "";
-    const shortId = safeId.replace(/:/g, "").toLowerCase().slice(-4);
-    return `${safeSku.toLowerCase()}_${shortId}`;
+    return treeKey(sku, deviceId);
   }
 }

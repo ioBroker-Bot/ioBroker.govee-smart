@@ -5,16 +5,8 @@ import { resolveSegmentCount } from "./device-manager";
 import { GOVEE_DEVICE_TYPE } from "./govee-constants";
 import type { I18nKey } from "./i18n";
 import { tDesc, tName } from "./i18n";
-import { normalizeDeviceId, type DeviceState, type GoveeDevice } from "./types";
-
-/**
- * Sanitize a string for ioBroker object ID
- *
- * @param str Input string to sanitize
- */
-function sanitize(str: string): string {
-  return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-}
+import type { DeviceState, GoveeDevice } from "./types";
+import { mapKey, treeKey } from "./device-key";
 
 /**
  * Channels whose state-set is fully described by capability-driven stateDefs.
@@ -435,12 +427,7 @@ export class StateManager {
       await this.syncInfoOnline(device);
     } else {
       // Group members: comma-separated device prefix IDs
-      const memberIds = (device.groupMembers ?? [])
-        .map(m => {
-          const shortId = normalizeDeviceId(m.deviceId).slice(-4);
-          return sanitize(`${m.sku}_${shortId}`);
-        })
-        .join(", ");
+      const memberIds = (device.groupMembers ?? []).map(m => treeKey(m.sku, m.deviceId)).join(", ");
       await this.ensureState(`${prefix}.info.members`, "Members", "string", "text", false);
       await this.adapter.setStateAsync(`${prefix}.info.members`, {
         val: memberIds,
@@ -941,12 +928,7 @@ export class StateManager {
     const prefix = this.devicePrefix(group);
     const stateId = `${prefix}.info.membersUnreachable`;
 
-    const unreachable = memberDevices
-      .filter(m => !m.state.online)
-      .map(m => {
-        const shortId = normalizeDeviceId(m.deviceId).slice(-4);
-        return sanitize(`${m.sku}_${shortId}`);
-      });
+    const unreachable = memberDevices.filter(m => !m.state.online).map(m => treeKey(m.sku, m.deviceId));
 
     await this.ensureState(stateId, "Unreachable Members", "string", "text", false);
     await this.adapter.setStateAsync(stateId, {
@@ -1104,9 +1086,8 @@ export class StateManager {
    * @param device Govee device
    */
   devicePrefix(device: GoveeDevice): string {
-    const shortId = normalizeDeviceId(device.deviceId).slice(-4);
     const folder = device.sku === "BaseGroup" ? "groups" : "devices";
-    return `${folder}.${sanitize(`${device.sku}_${shortId}`)}`;
+    return `${folder}.${treeKey(device.sku, device.deviceId)}`;
   }
 
   /**
@@ -1144,9 +1125,7 @@ export class StateManager {
    * @param device Govee device
    */
   private deviceKey(device: GoveeDevice): string {
-    // Use normalizeDeviceId which is defensive against non-string input —
-    // cached data on disk could theoretically be tampered with.
-    return `${device.sku}_${normalizeDeviceId(device.deviceId)}`;
+    return mapKey(device.sku, device.deviceId);
   }
 
   /**

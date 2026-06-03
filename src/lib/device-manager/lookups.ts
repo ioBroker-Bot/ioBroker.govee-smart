@@ -1,4 +1,5 @@
 import { normalizeDeviceId, type GoveeDevice } from "../types";
+import { mapKey } from "../device-key";
 
 /** Parsed per-segment data from MQTT BLE packets */
 export interface MqttSegmentData {
@@ -159,11 +160,12 @@ export function resolveSegmentCount(device: GoveeDevice): number {
 export const SEGMENT_HARD_MAX = 55;
 
 /**
- * Generate stable map key for a device.
+ * Generate the stable runtime map key for a device — thin wrapper over
+ * {@link mapKey} (device-key.ts), kept for the existing call sites.
  *
  */
 export function deviceKey(sku: string, deviceId: string): string {
-  return `${sku}_${normalizeDeviceId(deviceId)}`;
+  return mapKey(sku, deviceId);
 }
 
 /**

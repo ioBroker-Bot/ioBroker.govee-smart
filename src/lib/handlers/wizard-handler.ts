@@ -4,6 +4,7 @@ import type { SegmentWizard, WizardHost, WizardResult } from "../segment-wizard"
 import { SegmentWizard as SegmentWizardClass } from "../segment-wizard";
 import type { StateManager } from "../state-manager";
 import { parseSegmentList, type GoveeDevice } from "../types";
+import { sessionKey } from "../device-key";
 
 /**
  * Adapter surface required by the segment-wizard glue.
@@ -29,7 +30,7 @@ export interface WizardHandlerAdapter {
  *
  */
 export function deviceKeyFor(device: GoveeDevice): string {
-  return `${device.sku}:${device.deviceId}`;
+  return sessionKey(device.sku, device.deviceId);
 }
 
 /**

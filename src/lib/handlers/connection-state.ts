@@ -5,6 +5,7 @@ import type { GoveeOpenapiMqttClient } from "../govee-openapi-mqtt-client";
 import type { GoveeLanClient } from "../govee-lan-client";
 import type { StateManager } from "../state-manager";
 import { httpsRequest } from "../http-client";
+import { sessionKey } from "../device-key";
 import type { ChannelStatusSnapshot } from "../log-prefix";
 import { errMessage } from "../types";
 import { GOVEE_APP_VERSION, GOVEE_DEVICE_TYPE } from "../govee-constants";
@@ -149,7 +150,7 @@ export async function reapStaleDevices(adapter: ConnectionStateAdapter): Promise
   const liveDeviceIds = new Set(currentDevices.map(d => d.deviceId));
   adapter.deviceManager.getDiagnostics().pruneOrphans(liveDeviceIds);
 
-  const liveKeys = new Set(currentDevices.map(d => `${d.sku}:${d.deviceId}`));
+  const liveKeys = new Set(currentDevices.map(d => sessionKey(d.sku, d.deviceId)));
   for (const key of adapter.diagnosticsLastRun.keys()) {
     if (!liveKeys.has(key)) {
       adapter.diagnosticsLastRun.delete(key);

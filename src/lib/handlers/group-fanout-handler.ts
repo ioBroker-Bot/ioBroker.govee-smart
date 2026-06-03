@@ -2,6 +2,7 @@ import type { DeviceManager } from "../device-manager";
 import type { GroupFanoutHost } from "../group-fanout";
 import type { StateManager } from "../state-manager";
 import type { GoveeDevice } from "../types";
+import { sessionKey } from "../device-key";
 
 /**
  * Adapter surface required by the group-fanout glue. Loose
@@ -35,11 +36,11 @@ export function resolveGroupMembers(group: GoveeDevice, devices: GoveeDevice[]):
   }
   const byKey = new Map<string, GoveeDevice>();
   for (const d of devices) {
-    byKey.set(`${d.sku}:${d.deviceId}`, d);
+    byKey.set(sessionKey(d.sku, d.deviceId), d);
   }
   const out: GoveeDevice[] = [];
   for (const m of group.groupMembers) {
-    const d = byKey.get(`${m.sku}:${m.deviceId}`);
+    const d = byKey.get(sessionKey(m.sku, m.deviceId));
     if (d) {
       out.push(d);
     }

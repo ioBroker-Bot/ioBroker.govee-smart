@@ -1,6 +1,7 @@
 import type { DeviceManager } from "../device-manager";
 import type { GoveeDevice } from "../types";
 import { DIAGNOSTICS_EXPORT_THROTTLE_MS } from "../timing-constants";
+import { sessionKey } from "../device-key";
 
 /**
  * Adapter surface required for diagnostics export. Loose `setStateAsync`
@@ -34,7 +35,7 @@ export async function handleDiagnosticsExport(
   prefix: string,
   triggerStateId: string,
 ): Promise<void> {
-  const deviceKey = `${device.sku}:${device.deviceId}`;
+  const deviceKey = sessionKey(device.sku, device.deviceId);
   const now = Date.now();
   const last = lastRun.get(deviceKey) ?? 0;
   if (now - last < DIAGNOSTICS_EXPORT_THROTTLE_MS) {
