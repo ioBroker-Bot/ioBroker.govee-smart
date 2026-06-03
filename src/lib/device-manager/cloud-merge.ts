@@ -38,7 +38,7 @@ export function mergeCloudDevices(adapter: CloudMergeAdapter, cloudDevices: Clou
     if (existing) {
       existing.name = cd.deviceName || existing.name;
       existing.capabilities = Array.isArray(cd.capabilities) ? cd.capabilities : [];
-      existing.type = cd.type;
+      existing.type = cd.type || existing.type;
       existing.channels.cloud = true;
     } else {
       const device = cloudDeviceToGoveeDevice(cd);

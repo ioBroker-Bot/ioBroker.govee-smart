@@ -141,6 +141,21 @@ export type CacheSnapshotProvider = (sku: string, deviceId: string) => unknown;
 export type LocalSnapshotsProvider = (sku: string, deviceId: string) => unknown[];
 
 /**
+ * Append to a bounded ring-buffer array — pushes `entry`, then drops the
+ * oldest entries so the array never exceeds `max`.
+ *
+ * @param arr Target array (mutated in place)
+ * @param entry Entry to append
+ * @param max Maximum retained length
+ */
+function pushBounded<T>(arr: T[], entry: T, max: number): void {
+  arr.push(entry);
+  if (arr.length > max) {
+    arr.splice(0, arr.length - max);
+  }
+}
+
+/**
  * Collects diagnostic context per device and produces the
  * `diag.result` JSON. Replaces the inline
  * `device-manager.generateDiagnostics()` so log/MQTT/API hooks can write
@@ -217,11 +232,7 @@ export class DiagnosticsCollector {
     if (typeof msg !== "string") {
       return;
     }
-    const b = this.get(deviceId);
-    b.logs.push({ ts: new Date().toISOString(), level, msg });
-    if (b.logs.length > MAX_LOGS) {
-      b.logs.splice(0, b.logs.length - MAX_LOGS);
-    }
+    pushBounded(this.get(deviceId).logs, { ts: new Date().toISOString(), level, msg }, MAX_LOGS);
   }
 
   /**
@@ -257,11 +268,7 @@ export class DiagnosticsCollector {
     } else {
       return;
     }
-    const b = this.get(deviceId);
-    b.packets.push(entry);
-    if (b.packets.length > MAX_PACKETS) {
-      b.packets.splice(0, b.packets.length - MAX_PACKETS);
-    }
+    pushBounded(this.get(deviceId).packets, entry, MAX_PACKETS);
   }
 
   /**
@@ -293,11 +300,7 @@ export class DiagnosticsCollector {
     if (typeof error === "string" && error) {
       entry.error = error;
     }
-    const b = this.get(deviceId);
-    b.lanSends.push(entry);
-    if (b.lanSends.length > MAX_LAN_SENDS) {
-      b.lanSends.splice(0, b.lanSends.length - MAX_LAN_SENDS);
-    }
+    pushBounded(this.get(deviceId).lanSends, entry, MAX_LAN_SENDS);
   }
 
   /**
@@ -389,10 +392,7 @@ export class DiagnosticsCollector {
    */
   private appendResponse(b: DeviceBuffers, entry: ApiResponseEntry): void {
     const list = b.responses.get(entry.endpoint) ?? [];
-    list.push(entry);
-    if (list.length > MAX_RESPONSES_PER_ENDPOINT) {
-      list.splice(0, list.length - MAX_RESPONSES_PER_ENDPOINT);
-    }
+    pushBounded(list, entry, MAX_RESPONSES_PER_ENDPOINT);
     b.responses.set(entry.endpoint, list);
     if (b.responses.size > MAX_RESPONSE_ENDPOINTS) {
       const first = b.responses.keys().next().value;

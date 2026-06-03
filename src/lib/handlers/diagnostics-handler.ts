@@ -1,5 +1,6 @@
 import type { DeviceManager } from "../device-manager";
 import type { GoveeDevice } from "../types";
+import { DIAGNOSTICS_EXPORT_THROTTLE_MS } from "../timing-constants";
 
 /**
  * Adapter surface required for diagnostics export. Loose `setStateAsync`
@@ -36,7 +37,7 @@ export async function handleDiagnosticsExport(
   const deviceKey = `${device.sku}:${device.deviceId}`;
   const now = Date.now();
   const last = lastRun.get(deviceKey) ?? 0;
-  if (now - last < 2000) {
+  if (now - last < DIAGNOSTICS_EXPORT_THROTTLE_MS) {
     adapter.log.debug(`Diagnostics export throttled for ${device.name} — last run ${now - last}ms ago`);
     await adapter.setStateAsync(triggerStateId, { val: false, ack: true });
     return;

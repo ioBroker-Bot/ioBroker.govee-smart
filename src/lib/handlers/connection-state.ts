@@ -2,6 +2,8 @@ import type { DeviceManager } from "../device-manager";
 import type { GoveeCloudClient } from "../govee-cloud-client";
 import type { GoveeMqttClient } from "../govee-mqtt-client";
 import type { GoveeOpenapiMqttClient } from "../govee-openapi-mqtt-client";
+import type { GoveeLanClient } from "../govee-lan-client";
+import type { StateManager } from "../state-manager";
 import { httpsRequest } from "../http-client";
 import type { ChannelStatusSnapshot } from "../log-prefix";
 import { errMessage } from "../types";
@@ -20,14 +22,16 @@ export interface ConnectionStateAdapter {
   readonly diagnosticsLastRun: Map<string, number>;
   readonly mqttClient: GoveeMqttClient | null;
   readonly openapiMqttClient: GoveeOpenapiMqttClient | null;
-  readonly lanClient: unknown;
-  readonly stateManager: { cleanupDevices(devices: unknown[]): Promise<unknown> } | null;
+  readonly lanClient: GoveeLanClient | null;
+  readonly stateManager: StateManager | null;
   readonly lanScanDone: boolean;
   readonly statesReady: boolean;
   readonly cloudInitDone: boolean;
   readonly appApiInitialPollDone: boolean;
   readyLogged: boolean;
   lastConnectionState: boolean | null;
+  /** In-memory channel-status snapshot pulled by the log-prefix wrapper. */
+  channelStatus?: ChannelStatusSnapshot;
   setStateAsync(id: string, state: ioBroker.SettableState | ioBroker.StateValue): Promise<unknown>;
 }
 
@@ -62,7 +66,7 @@ export function updateConnectionState(adapter: ConnectionStateAdapter): void {
   // Sync the in-memory channelStatus snapshot used by the log-prefix wrapper.
   // Only flips between "on" and "off" — "n/a" (not configured) is set once
   // in onReady from config and never overridden here.
-  const cs = (adapter as { channelStatus?: ChannelStatusSnapshot }).channelStatus;
+  const cs = adapter.channelStatus;
   if (cs) {
     if (cs.lan !== "n/a") {
       cs.lan = hasDevices ? "on" : "off";

@@ -227,35 +227,24 @@ export class SkuCache {
     const nowMs = Date.now();
     let pruned = 0;
     const prunedDetails: string[] = [];
-    try {
-      if (!fs.existsSync(this.cacheDir)) {
-        return 0;
-      }
-      for (const file of fs.readdirSync(this.cacheDir)) {
-        if (!file.endsWith(".json")) {
-          continue;
+    this.forEachCacheFile(full => {
+      try {
+        const raw = fs.readFileSync(full, "utf-8");
+        const data = JSON.parse(raw) as CachedDeviceData;
+        // Legacy entries without timestamp: keep, set timestamp on next save
+        if (typeof data.lastSeenOnNetwork !== "number") {
+          return;
         }
-        const full = path.join(this.cacheDir, file);
-        try {
-          const raw = fs.readFileSync(full, "utf-8");
-          const data = JSON.parse(raw) as CachedDeviceData;
-          // Legacy entries without timestamp: keep, set timestamp on next save
-          if (typeof data.lastSeenOnNetwork !== "number") {
-            continue;
-          }
-          if (data.lastSeenOnNetwork < cutoff) {
-            const ageDays = Math.round((nowMs - data.lastSeenOnNetwork) / 86400000);
-            fs.unlinkSync(full);
-            pruned++;
-            prunedDetails.push(`${data.sku} ${data.deviceId} (${ageDays}d)`);
-          }
-        } catch {
-          // skip corrupt files
+        if (data.lastSeenOnNetwork < cutoff) {
+          const ageDays = Math.round((nowMs - data.lastSeenOnNetwork) / 86400000);
+          fs.unlinkSync(full);
+          pruned++;
+          prunedDetails.push(`${data.sku} ${data.deviceId} (${ageDays}d)`);
         }
+      } catch {
+        // skip corrupt files
       }
-    } catch {
-      // cache dir doesn't exist yet
-    }
+    });
     if (pruned > 0) {
       this.log.info(
         `Cache: pruned ${pruned} stale entries (not seen for ${maxAgeDays}+ days): ${prunedDetails.join(", ")}`,
@@ -267,17 +256,34 @@ export class SkuCache {
   /** Delete all cached files. */
   clear(): void {
     try {
-      if (!fs.existsSync(this.cacheDir)) {
-        return;
-      }
-      for (const file of fs.readdirSync(this.cacheDir)) {
-        if (file.endsWith(".json")) {
-          fs.unlinkSync(path.join(this.cacheDir, file));
-        }
-      }
+      this.forEachCacheFile(full => fs.unlinkSync(full));
       this.log.debug("Cache cleared");
     } catch (e) {
       this.log.debug(`Cache clear failed: ${errMessage(e)}`);
+    }
+  }
+
+  /**
+   * Iterate the `*.json` files in the cache dir, calling `cb` with each file's
+   * absolute path. A missing or vanished dir is swallowed (cb not called).
+   * Centralises the existsSync + readdir + json-filter shared by prune/clear.
+   *
+   * @param cb Callback invoked with each cache file's absolute path
+   */
+  private forEachCacheFile(cb: (fullPath: string) => void): void {
+    let files: string[];
+    try {
+      if (!fs.existsSync(this.cacheDir)) {
+        return;
+      }
+      files = fs.readdirSync(this.cacheDir);
+    } catch {
+      return;
+    }
+    for (const file of files) {
+      if (file.endsWith(".json")) {
+        cb(path.join(this.cacheDir, file));
+      }
     }
   }
 

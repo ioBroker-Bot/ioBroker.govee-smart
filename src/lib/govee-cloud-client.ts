@@ -1,6 +1,7 @@
 import { httpsRequest, HttpError, type HttpsRequestFn } from "./http-client";
 import {
   classifyError,
+  type CapabilityOption,
   type CloudDevice,
   type CloudDeviceListResponse,
   type CloudDeviceStateResponse,
@@ -28,6 +29,22 @@ let requestIdCounter = 0;
 function nextRequestId(prefix: string): string {
   requestIdCounter = (requestIdCounter + 1) % 1_000_000;
   return `${prefix}_${Date.now()}_${requestIdCounter}`;
+}
+
+/**
+ * Map a scenes-endpoint capability's options to CloudScene entries, dropping
+ * malformed options (missing name or non-object value). Shared by getScenes
+ * and getDiyScenes.
+ *
+ * @param opts Raw options array from a scenes-endpoint capability
+ */
+function mapSceneOptions(opts: CapabilityOption[] | undefined): CloudScene[] {
+  return (Array.isArray(opts) ? opts : [])
+    .filter(
+      (o): o is { name: string; value: Record<string, unknown> } =>
+        !!o && typeof o.name === "string" && typeof o.value === "object",
+    )
+    .map(o => ({ name: o.name, value: o.value }));
 }
 
 /**
@@ -226,15 +243,7 @@ export class GoveeCloudClient {
       }
       const opts = Array.isArray(cap.parameters?.options) ? cap.parameters.options : [];
       this.log.debug(`Scenes endpoint: instance=${cap.instance}, options=${opts.length}`);
-      const mapped: CloudScene[] = opts
-        .filter(
-          (o): o is { name: string; value: Record<string, unknown> } =>
-            !!o && typeof o.name === "string" && typeof o.value === "object",
-        )
-        .map(o => ({
-          name: o.name,
-          value: o.value,
-        }));
+      const mapped = mapSceneOptions(opts);
 
       if (cap.instance === "lightScene") {
         lightScenes.push(...mapped);
@@ -269,14 +278,7 @@ export class GoveeCloudClient {
       }
       const opts = Array.isArray(cap.parameters?.options) ? cap.parameters.options : [];
       this.log.debug(`DIY-Scenes endpoint: instance=${cap.instance}, options=${opts.length}`);
-      scenes.push(
-        ...opts
-          .filter(
-            (o): o is { name: string; value: Record<string, unknown> } =>
-              !!o && typeof o.name === "string" && typeof o.value === "object",
-          )
-          .map(o => ({ name: o.name, value: o.value })),
-      );
+      scenes.push(...mapSceneOptions(opts));
     }
 
     return scenes;

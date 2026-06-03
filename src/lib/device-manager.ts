@@ -1063,12 +1063,6 @@ export class DeviceManager {
    * @param sku Govee SKU
    * @param displayName Device name as shown in Govee Home
    */
-  /**
-   * Public for sub-module helpers (cloud-merge).
-   *
-   * @param sku Product SKU
-   * @param displayName Display name from Cloud
-   */
   public maybeNudgeSeedSku(sku: string, displayName: string | undefined): void {
     const upper = (typeof sku === "string" ? sku : "").toUpperCase();
     if (!upper || this.nudgedSeedSkus.has(upper)) {
@@ -1474,12 +1468,8 @@ export class DeviceManager {
   /**
    * Whether at least one device in the registry would consume App-API
    * readings (sensors, appliances). Used to skip the App-API poll on
-   * Lights-only installations.
-   */
-  /**
-   * True wenn mindestens ein Device App-API-Werte konsumiert (Sensoren,
-   * Appliances). Adapter-checkAllReady wartet darauf damit „ready" erst
-   * geloggt wird wenn Sensor-Werte tatsächlich da sind.
+   * Lights-only installations, and as a checkAllReady gate so "ready" is
+   * only logged once sensor values can actually arrive.
    */
   public hasDeviceNeedingAppApi(): boolean {
     for (const dev of this.devices.values()) {

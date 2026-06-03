@@ -33,7 +33,18 @@ import { StateManager } from "./lib/state-manager";
 // AdapterConfig is augmented globally in src/lib/adapter-config.d.ts —
 // TypeScript picks it up via tsconfig.json `include`, no value-import needed.
 import { errMessage, rgbIntToHex, rgbToHex, type CloudStateCapability, type GoveeDevice } from "./lib/types";
-import { APP_API_INITIAL_DELAY_MS, APP_API_POLL_INTERVAL_MS, CLOUD_FULL_LIMITS } from "./lib/timing-constants";
+import {
+  APP_API_INITIAL_DELAY_MS,
+  APP_API_POLL_INTERVAL_MS,
+  APP_VERSION_CHECK_INTERVAL_MS,
+  APP_VERSION_INITIAL_DELAY_MS,
+  CLOUD_FULL_LIMITS,
+  LAN_SCAN_INITIAL_WAIT_MS,
+  LAN_SCAN_INTERVAL_MS,
+  ONLINE_SYNC_INTERVAL_MS,
+  READY_SAFETY_TIMEOUT_MS,
+  STALE_DEVICE_CLEANUP_DELAY_MS,
+} from "./lib/timing-constants";
 
 // Rate-limit defaults moved to lib/timing-constants.ts as CLOUD_FULL_LIMITS so
 // every module that touches Govee budgeting reads the same canonical values.
@@ -389,7 +400,7 @@ class GoveeAdapter extends utils.Adapter {
         (sourceIp, status) => {
           this.deviceManager!.handleLanStatus(sourceIp, status);
         },
-        30_000,
+        LAN_SCAN_INTERVAL_MS,
         config.networkInterface || "",
       );
 
@@ -397,7 +408,7 @@ class GoveeAdapter extends utils.Adapter {
       this.lanScanTimer = this.setTimeout(() => {
         this.lanScanDone = true;
         connectionState.checkAllReady(this);
-      }, 3_000);
+      }, LAN_SCAN_INITIAL_WAIT_MS);
 
       // --- MQTT (if account credentials provided) ---
       // Initialize MQTT before Cloud so scene library can load on first cycle
@@ -621,7 +632,7 @@ class GoveeAdapter extends utils.Adapter {
       // process doesn't leak memory across Cloud-side device turnover.
       this.cleanupTimer = this.setTimeout(() => {
         connectionState.reapStaleDevices(this).catch(e => this.log.debug(`Device cleanup failed: ${errMessage(e)}`));
-      }, 30_000);
+      }, STALE_DEVICE_CLEANUP_DELAY_MS);
 
       // info.online sync — re-evaluates per-device online truth every 20 s.
       // For Lights this drives the offline-transition (lastLanReplyAt TTL).
@@ -645,30 +656,24 @@ class GoveeAdapter extends utils.Adapter {
             groupFanoutHandler.updateGroupReachability(this);
           }
         })();
-      }, 20_000);
+      }, ONLINE_SYNC_INTERVAL_MS);
 
       // App-Version-Drift-Monitor — daily check + initial nach 2 min wenn der
       // Adapter-Start ohne MQTT-Login durchgeschlagen ist (z.B. LAN-only).
-      this.appVersionCheckTimer = this.setInterval(
-        () => {
-          connectionState
-            .checkAppVersionDrift(this)
-            .catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
-        },
-        24 * 60 * 60 * 1000,
-      );
-      this.appVersionInitialTimer = this.setTimeout(
-        () => {
-          this.appVersionInitialTimer = undefined;
-          if (this.unloading) {
-            return;
-          }
-          connectionState
-            .checkAppVersionDrift(this)
-            .catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
-        },
-        2 * 60 * 1000,
-      );
+      this.appVersionCheckTimer = this.setInterval(() => {
+        connectionState
+          .checkAppVersionDrift(this)
+          .catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
+      }, APP_VERSION_CHECK_INTERVAL_MS);
+      this.appVersionInitialTimer = this.setTimeout(() => {
+        this.appVersionInitialTimer = undefined;
+        if (this.unloading) {
+          return;
+        }
+        connectionState
+          .checkAppVersionDrift(this)
+          .catch(e => this.log.debug(`App version check error: ${errMessage(e)}`));
+      }, APP_VERSION_INITIAL_DELAY_MS);
 
       connectionState.updateConnectionState(this);
 
@@ -683,7 +688,7 @@ class GoveeAdapter extends utils.Adapter {
           this.readyLogged = true;
           connectionState.logDeviceSummary(this);
         }
-      }, 60_000);
+      }, READY_SAFETY_TIMEOUT_MS);
     } catch (error) {
       this.log.error(`onReady failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
     }
@@ -844,22 +849,6 @@ class GoveeAdapter extends utils.Adapter {
   }
 
   /**
-   * Called by device-manager when a device state changes
-   *
-   * @param device Updated device
-   * @param state Changed state values
-   */
-
-  /**
-   * Rebuild state definitions for one device and feed them into StateManager.
-   * Used both from the full-list callback and from targeted refreshes
-   * (e.g. after a local snapshot was added or removed — no reason to rebuild
-   * the entire tree for every device then).
-   *
-   * @param device Target device
-   * @param allDevices Full device list (needed to resolve group members)
-   */
-  /**
    * Public delegate for snapshot-glue + state-change-router modules — a
    * Cloud-data event (new snapshot in app, refresh-button, etc.) needs a
    * full Cloud-phase rebuild for the affected device.
@@ -871,35 +860,19 @@ class GoveeAdapter extends utils.Adapter {
     deviceEvents.onCloudDataReady(this, device, allDevices);
   }
 
-  /**
-   * Called by device-manager when the device list changes
-   *
-   * @param devices Current list of all devices
-   */
-
   /** Public delegate — connection-state handler exports the real implementation. */
   public reapStaleDevices(): Promise<void> {
     return connectionState.reapStaleDevices(this);
   }
 
   /**
-   * Find device for a state ID
-   *
-   * @param localId Local state ID without namespace prefix
-   */
-  /**
-   * Map state suffix to command name.
-   *
-   * Simple suffixes live in a lookup table, segment indices need regex
-   * extraction because they're dynamic. The three music states all route
-   * to the same "music" command — the handler reads sibling values.
+   * Map a state suffix to a command name — public delegate for handler modules,
+   * stateless lookup in lib/handlers/group-state-helpers. Simple suffixes live
+   * in a lookup table; segment indices need regex extraction because they're
+   * dynamic. The three music states all route to the same "music" command —
+   * the handler reads sibling values.
    *
    * @param suffix State ID suffix (e.g. "power", "brightness")
-   */
-  /**
-   * Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers.
-   *
-   * @param suffix State suffix
    */
   public stateToCommand(suffix: string): string | null {
     return groupStateHelpers.stateToCommand(suffix);
@@ -921,21 +894,15 @@ class GoveeAdapter extends utils.Adapter {
   }
 
   /**
-   * Central entry point for manual-segment updates. Sets the device flags,
-   * rebuilds the segment tree (which writes manual_mode + manual_list with
-   * ack=true), and persists to cache. Both the user state-change handler
-   * and the wizard route their final decisions here.
+   * Central entry point for manual-segment updates (public for the wizard +
+   * state-change-router). Sets the device flags, rebuilds the segment tree
+   * (which writes manual_mode + manual_list with ack=true), and persists to
+   * cache. Both the user state-change handler and the wizard route their final
+   * decisions here.
    *
    * @param device Target device
    * @param mode    Whether manual mode should be active
    * @param indices Physical indices when mode=true, ignored otherwise
-   */
-  /**
-   * Public for handler modules (wizard, state-change-router).
-   *
-   * @param device Target device
-   * @param mode Manual mode flag
-   * @param indices Physical segment indices
    */
   public async applyManualSegments(device: GoveeDevice, mode: boolean, indices?: number[]): Promise<void> {
     if (!this.stateManager) {
@@ -949,11 +916,6 @@ class GoveeAdapter extends utils.Adapter {
 
   // ───────── Segment-Detection-Wizard ─────────
 
-  /**
-   * Handle incoming sendTo messages (from jsonConfig).
-   *
-   * @param obj ioBroker message object
-   */
   /** Construct host object for MessageRouter. */
   private buildMessageRouterHost(): MessageRouterHost {
     return {
@@ -985,14 +947,7 @@ class GoveeAdapter extends utils.Adapter {
   }
 
   /**
-   * Helper: clear `mqttVerificationCode` in adapter native after a successful
-   * login or a 455-fail.
-   *
-   * Idempotent: liest erst den aktuellen Wert, schreibt nur wenn dirty.
-   * Verhindert den Adapter-Restart der durch jeden
-   * `extendForeignObjectAsync(system.adapter.X, native:...)`-Call ausgelöst
-   * wird (Memory v2.1.3-Bug). Vorher gab es nach jedem 2FA-Login einen
-   * unnötigen Restart.
+   * Send a sendTo response back to the caller, if the message expects one.
    *
    * @param obj ioBroker message object
    * @param data Response data payload
@@ -1002,9 +957,6 @@ class GoveeAdapter extends utils.Adapter {
       this.sendTo(obj.from, obj.command, data as Record<string, unknown>, obj.callback);
     }
   }
-
-  /** Construct host object for SnapshotHandler — adapter dependencies injected. */
-  /** Dropdowns whose value is a mode-selection — reset to "---" (0) when the mode stops. */
 }
 
 if (require.main !== module) {

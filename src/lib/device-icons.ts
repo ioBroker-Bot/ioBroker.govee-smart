@@ -41,9 +41,8 @@ const GROUP =
 
 /**
  * Map a Govee device type (e.g. "devices.types.light") to a `data:` URI
- * suitable for `common.icon`. Unknown types fall back to the LIGHT icon
- * because v1.x of the adapter only handles lights — once appliances are
- * merged in v2.x, the table grows.
+ * suitable for `common.icon`. Unknown / unmapped types fall back to the
+ * LIGHT icon (lights are by far the most common Govee device).
  *
  * @param govType Govee API type string (full prefix like "devices.types.light")
  * @returns Data-URI string ready to assign to `common.icon`

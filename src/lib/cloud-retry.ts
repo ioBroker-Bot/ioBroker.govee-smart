@@ -1,7 +1,5 @@
 import { errMessage, type CloudLoadResult } from "./types";
-
-/** Fallback delay when Cloud fails transiently (network/timeout). */
-const TRANSIENT_RETRY_MS = 5 * 60_000;
+import { TRANSIENT_RETRY_MS } from "./timing-constants";
 
 /**
  * Dependencies the retry loop needs. Extracting this interface decouples the

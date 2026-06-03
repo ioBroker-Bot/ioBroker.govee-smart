@@ -318,83 +318,22 @@ Single Page, drei Sektionen:
 55. **Per-Device Button > globaler Button (v2.7.0)** — Wenn ein Refresh-Vorgang pro Gerät Sinn macht, gehört der Trigger pro Gerät unter den jeweiligen Channel — NICHT auf Adapter-Ebene. API-Budget: 5 Calls statt N×5. Discoverability: User klickt im selben Pfad wo das Refresh-Resultat erscheint, nicht in `info/*`. Gating in `capability-mapper.ts` über die relevante Capability — Thermometer/Sensor/Heater bekommen den Button gar nicht erst.
 56. **HTTP 200 mit empty body ≠ Fehler (v2.7.0)** — Undokumentierte Govee-App-Endpoints liefern für unbekannte SKUs HTTP 200 mit komplett leerem Body. `httpsRequest` in `http-client.ts` resolvet das jetzt als `null` statt zu werfen. Caller mit `resp?.data?.…` optional chaining + `Array.isArray` Guards bekommen das transparent — kein Debug-Spam mehr. Nur non-empty non-JSON wird weiter als Parse-Error gemeldet.
 
-## Tests (848 unit + 57 package + integration)
+## Tests (843 unit + 57 package + integration)
 
-```
-test/testCapabilityMapper.ts → Capability Mapping + Cloud State Value Mapping + Quirks + Groups + Drift (80)
-  - mapCapabilities: on_off, range, color, scenes, property, toggle, LAN defaults
-  - mapCapabilities branches: segment, dynamic_scene, music, work_mode, unknown, edge cases
-  - mapCloudStateValue: all types, null/undefined, unknown capability, edge cases
-  - applyQuirksToStates: known SKU, unknown SKU, non-colorTemp
-  - buildDeviceStateDefs groups: no members, control intersection, scene/music intersection, Cloud-only caps, unreachable
-  - Drift: API schema violations — non-array/malformed/null/undefined, missing parameters, string coercion
-test/testCloudRetry.ts       → Cloud-Retry-Loop state machine (24)
-  - handleResult: transient / rate-limited / auth-failed / ok
-  - Retry scheduling: retryAfterMs respect, 5-min transient backoff, auth stops permanently
-  - onCloudRestored callback firing order
-test/testDeviceManager.ts    → Device Manager + CommandRouter + Drift (123)
-  - LAN discovery, IP update, MQTT status, unknown device/IP handling
-  - sendCommand channel routing: LAN→Cloud fallback, ptReal scene, segment→LAN ptReal, gradient, snapshot ptReal
-  - toCloudValue: power, brightness, color hex→int, scene/snapshot/diy index lookup, segments
-  - parseSegmentBatch: range, all, comma, brightness-only, clamp, invalid, mixed
-  - findCapabilityForCommand: all command types, unknown, empty caps, non-array, malformed entries
-  - Drift: malformed cloud device list, non-string sku/device, non-array caps, null entries
-  - logDedup: category tracking, warn vs debug
-  - handleMqttStatus edge cases + segment sync (AA A5 callback path)
-  - handleLanStatus edge cases: zero brightness, colorTemInKelvin 0
-  - DIY scene via LAN: library match, no match fallback
-  - colorTemperature via LAN, no channel warning
-  - generateDiagnostics: all data, quirks
-  - parseMqttSegmentData: single packet, multi-packet indices, limit, non-AA-A5 filter, empty/zero/invalid, full 5-packet
-  - resolveSegmentCount: cache-wins, Cloud-min fallback, widersprüchliche Caps
-  - getEffectiveSegmentIndices: manualMode on/off, empty, edge cases
-test/testDeviceRegistry.ts   → DeviceRegistry / devices.json loader (~25)
-  - getQuirks/getEntry/getStatus/getName, status-Filter (verified/reported active, seed gated by experimentalQuirks toggle), case-insensitive lookup, applyColorTempQuirk against runtime
-test/testDiagnostics.ts      → Diagnostics ring buffer (logs/MQTT-Pakete/Endpoint-Responses)
-test/testLocalSnapshots.ts   → Local Snapshots + Drift (17)
-  - Create dir, empty device, save/retrieve, overwrite, multiple, delete, non-existent, per-device, corrupt, colorTemp
-  - Segment data: save/retrieve with segments, backwards compat, overwrite
-  - Drift: non-string deviceId/sku must not throw
-test/testLanClient.ts        → LAN Client BLE Packet Builder (35)
-  - buildScenePackets: activation, little-endian, A3 data, XOR checksum, empty param
-  - buildGradientPacket: ON, OFF, checksum
-  - buildMusicModePacket: Energic, Spectrum, Rolling, Rhythm, checksum
-  - buildDiyPackets: activation-only, A1 data, checksums
-  - buildSegmentBitmask / SegmentColorPacket / SegmentBrightnessPacket: verified against real captures
-  - flashSingleSegment + restoreAllSegments atomic datagram builds
-  - applySceneSpeed: single page, multi-page, no match, empty/invalid, out-of-range
-test/testRateLimiter.ts      → Rate Limiter (11)
-  - Limits, daily usage, queueing, priority sorting, stop/clear, counter tracking
-test/testSegmentWizard.ts    → Segment-Detection-Wizard state machine (39)
-  - runStep routing: start / yes / no / done / abort / unknown action
-  - start: device-not-found, no-segment-capability, already-active guard, baseline capture, initial flash
-  - answer: visible vs dark tracking, advance, auto-finalize at SEGMENT_HARD_MAX
-  - done: requires at least one answer, finalizes with contiguous or gaps
-  - finish: applyWizardResult host call, restoreBaseline, session close
-  - compactIndices: range-notation output
-  - Idle timeout: 5-min auto-abort, clearIdleTimer on dispose
-test/testSkuCache.ts         → SKU Cache + Drift (23)
-  - Create dir, empty cache, save/loadAll, overwrite, separate devices, same SKU, clear, corrupt, normalized ID, libraries, null features
-  - pruneStale: age-based eviction, scenesChecked-guard
-  - segmentCount / manualMode / manualSegments round-trip (cut-strip persistence)
-  - Drift: non-string deviceId/sku must not throw
-test/testTypes.ts            → Shared Utilities + Drift (57)
-  - normalizeDeviceId: colons, lowercase, empty string, undefined/null/number/object safe returns
-  - rgbToHex / hexToRgb / rgbIntToHex: standard + edge cases
-  - classifyError: NETWORK, TIMEOUT, AUTH, RATE_LIMIT, UNKNOWN, string/non-Error, .code property
-  - parseSegmentList: comma / range / mixed / whitespace / dedupe / sort / invalid / reversed / per-device-max / hard-backstop
-test/testStateManager.ts     → State Manager (49)
-  - devicePrefix: SKU+shortId, BaseGroup folder, special chars, colons
-  - createDeviceStates: device+info+control, native props, defaults, unit/min/max, no IP, BaseGroup no model/serial/ip/online
-  - createDeviceStates channels: scenes / music / snapshot routing, multi-channel
-  - createGroupsOnlineState: create + update
-  - group members: info.members with groupMembers, empty members, diagnostics cleanup
-  - updateGroupMembersUnreachable: create when unreachable, delete when all reachable
-  - resolveStatePath: control, scenes, music, snapshots, diagnostics, unknown→control
-  - updateDeviceState / cleanupDevices / cleanupAllChannelStates (stale removal, empty channel, migration, dropdown reset)
-  - createSegmentStates: per-segment states, default, excess cleanup, no fields, manual-mode list normalisation
-test/testPackageFiles.ts     → @iobroker/testing (57)
-```
+Unit tests live next to their module as `src/lib/<module>.test.ts` (vitest) — one
+suite per source file (e.g. `device-manager.test.ts`, `capability-mapper.test.ts`,
+`command-router.test.ts`, `state-manager.test.ts`, `segment-wizard.test.ts`,
+`sku-cache.test.ts`, `types.test.ts`, the five client suites
+`govee-{lan,cloud,mqtt,openapi-mqtt,api}-client.test.ts`, plus `cloud-retry`,
+`device-registry`, `diagnostics`, `group-fanout`, `http-client`, `i18n`,
+`local-snapshots`, `log-channel-fail`, `message-router`, `rate-limiter`,
+`snap-restore`). Each suite covers the happy path plus a "Drift" block that
+hardens the module against malformed / non-string / null API payloads.
+
+Package + integration validation lives under `test/`: `package.js`
+(@iobroker/testing, 57 checks) and `integration.js` (adapter start-up harness).
+
+Run: `npx vitest run` (unit) · `npm test` (unit + package) · `npm run test:integration`.
 
 ## Versionshistorie (letzte 7)
 

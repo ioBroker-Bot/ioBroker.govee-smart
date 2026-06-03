@@ -99,6 +99,6 @@ export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: Cl
  * snapshot_cloud dropdown options) propagate to ioBroker objects.
  *
  */
-export async function reloadCloudStates(adapter: CloudRetryHandlerAdapter): Promise<void> {
+export async function reloadCloudStates(adapter: { loadCloudStates(): Promise<void> }): Promise<void> {
   await adapter.loadCloudStates();
 }

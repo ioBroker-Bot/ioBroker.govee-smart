@@ -31,6 +31,33 @@ export const READY_TIMEOUT_MS = 60_000;
 /** Minimum Gap zwischen zwei `mqttAuth: requestCode` Calls (30 s). */
 export const VERIFICATION_REQUEST_THROTTLE_MS = 30_000;
 
+/** Initial wait for the first LAN-scan replies before flipping lanScanDone (3 s). */
+export const LAN_SCAN_INITIAL_WAIT_MS = 3_000;
+
+/** Multicast LAN-discovery scan interval (30 s). */
+export const LAN_SCAN_INTERVAL_MS = 30_000;
+
+/** info.online re-evaluation interval for all devices (20 s). */
+export const ONLINE_SYNC_INTERVAL_MS = 20_000;
+
+/** Safety timeout to log "ready" even if a channel is still settling (60 s). */
+export const READY_SAFETY_TIMEOUT_MS = 60_000;
+
+/** Delay after startup before reaping stale devices (30 s — lets the LAN scan settle). */
+export const STALE_DEVICE_CLEANUP_DELAY_MS = 30_000;
+
+/** Daily app-version-drift check interval (24 h). */
+export const APP_VERSION_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/** Initial app-version-drift check delay after startup (2 min). */
+export const APP_VERSION_INITIAL_DELAY_MS = 2 * 60 * 1000;
+
+/** Fallback retry delay after a transient Cloud-load failure (5 min). */
+export const TRANSIENT_RETRY_MS = 5 * 60_000;
+
+/** Per-device diagnostics-export throttle (2 s) — guards against button spam. */
+export const DIAGNOSTICS_EXPORT_THROTTLE_MS = 2_000;
+
 // === Wizard ===
 
 /** Idle-Timeout für den Segment-Detection-Wizard (5 min). */
