@@ -329,10 +329,8 @@ export class CommandRouter {
     value: unknown,
     decision: TransportDecision,
   ): Promise<void> {
-    if (decision.kind === "skip") {
-      this.handleSkip(device, command, decision.reason);
-      return;
-    }
+    // No skip-guard here: sendCommand() returns on a skip decision before it
+    // ever dispatches to a segment handler, so `decision` is lan|cloud here.
     const segIdx = parseInt(command.split(":")[1], 10);
     if (isNaN(segIdx) || segIdx < 0) {
       return;
@@ -358,10 +356,7 @@ export class CommandRouter {
    * @param decision Routing decision from resolveTransport
    */
   private async dispatchSegmentBatch(device: GoveeDevice, value: unknown, decision: TransportDecision): Promise<void> {
-    if (decision.kind === "skip") {
-      this.handleSkip(device, "segmentBatch", decision.reason);
-      return;
-    }
+    // sendCommand() already returned on a skip decision — `decision` is lan|cloud.
     const parsed = typeof value === "string" ? this.parseSegmentBatch(device, value) : this.coerceParsedBatch(value);
     if (!parsed) {
       return;
@@ -399,10 +394,7 @@ export class CommandRouter {
     value: unknown,
     decision: TransportDecision,
   ): Promise<void> {
-    if (decision.kind === "skip") {
-      this.handleSkip(device, command, decision.reason);
-      return;
-    }
+    // sendCommand() already returned on a skip decision — `decision` is lan|cloud.
     const segIdx = parseInt(command.split(":")[1], 10);
     if (isNaN(segIdx) || segIdx < 0) {
       return;

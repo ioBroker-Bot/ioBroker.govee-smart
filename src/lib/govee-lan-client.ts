@@ -1,6 +1,7 @@
 import * as dgram from "node:dgram";
 import { clampByte, type LanDevice, type LanMessage, type LanStatus, type TimerAdapter } from "./types";
 import { FORCE_COLOR_MODE_SETTLE_MS } from "./timing-constants";
+import { SEGMENT_COUNT_MAX } from "./device-manager/lookups";
 
 const MULTICAST_ADDR = "239.255.255.250";
 const SCAN_PORT = 4001;
@@ -507,10 +508,10 @@ export class GoveeLanClient {
    * @param idx Target segment index (0-based) to flash white
    */
   flashSingleSegment(ip: string, idx: number): void {
-    if (idx < 0 || idx >= 56) {
+    if (idx < 0 || idx >= SEGMENT_COUNT_MAX) {
       return;
     }
-    const MAX_SEGMENTS = 56;
+    const MAX_SEGMENTS = SEGMENT_COUNT_MAX;
     const others = Array.from({ length: MAX_SEGMENTS }, (_, i) => i).filter(i => i !== idx);
     // Step 0: force color mode. Without this, the strip stays in whatever
     // mode it was (Scene/Gradient/Music) and silently ignores the three

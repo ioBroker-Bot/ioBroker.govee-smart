@@ -159,6 +159,9 @@ export function resolveSegmentCount(device: GoveeDevice): number {
 /** Protocol limit: Govee's segment bitmask is 7 bytes × 8 bits = 56 slots (0..55). */
 export const SEGMENT_HARD_MAX = 55;
 
+/** Number of addressable segment slots (SEGMENT_HARD_MAX + 1 = 56). */
+export const SEGMENT_COUNT_MAX = SEGMENT_HARD_MAX + 1;
+
 /**
  * Generate the stable runtime map key for a device — thin wrapper over
  * {@link mapKey} (device-key.ts), kept for the existing call sites.

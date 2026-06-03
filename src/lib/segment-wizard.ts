@@ -1,4 +1,4 @@
-import { SEGMENT_HARD_MAX } from "./device-manager";
+import { SEGMENT_COUNT_MAX, SEGMENT_HARD_MAX } from "./device-manager/lookups";
 import { WIZARD_IDLE_TIMEOUT_MS } from "./timing-constants";
 import type { GoveeDevice } from "./types";
 
@@ -380,7 +380,7 @@ export class SegmentWizard {
       sku: device.sku,
       name: device.name,
       current: 0,
-      total: SEGMENT_HARD_MAX + 1,
+      total: SEGMENT_COUNT_MAX,
       visible: [],
       startedAt: Date.now(),
       baseline,
@@ -622,7 +622,7 @@ export class SegmentWizard {
     // Fallback (Cloud or no LAN): two sendCommand calls with pacing.
     // Fallback drives the full protocol range — we can't know the real count
     // yet. The device silently drops indices it doesn't physically have.
-    const total = SEGMENT_HARD_MAX + 1;
+    const total = SEGMENT_COUNT_MAX;
     const others = Array.from({ length: total }, (_, i) => i).filter(i => i !== idx);
     if (others.length > 0) {
       await this.host.sendCommand(device, "segmentBatch", {
