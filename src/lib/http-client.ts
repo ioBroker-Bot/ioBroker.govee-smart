@@ -1,9 +1,9 @@
 import * as https from "node:https";
 
 /**
- * Module-level keep-alive Agent — vermeidet TLS-Handshake (~200ms) pro
- * Request. maxSockets begrenzt parallele Verbindungen pro Host damit wir
- * nicht aus Versehen Govee mit 100 gleichzeitigen Calls treffen.
+ * Module-level keep-alive agent — avoids the TLS handshake (~200ms) per
+ * request. maxSockets limits parallel connections per host so we don't
+ * accidentally hit Govee with 100 simultaneous calls.
  */
 const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 4 });
 
@@ -19,7 +19,7 @@ export interface HttpRequestOptions {
   body?: unknown;
   /** Timeout in milliseconds (default 15000) */
   timeout?: number;
-  /** Optional AbortSignal — wird der Request abgebrochen sobald abort() */
+  /** Optional AbortSignal — the request is aborted as soon as abort() fires. */
   signal?: AbortSignal;
 }
 
@@ -51,9 +51,9 @@ export interface HttpResult<T> {
 }
 
 /**
- * Signature der httpsRequest-Funktion. Cloud/Mqtt-Clients nehmen das als
- * optionalen DI-Parameter — Default ist die echte httpsRequest, Tests können
- * einen Mock injizieren ohne Module-Replacement.
+ * Signature of the httpsRequest function. Cloud/MQTT clients take it as an
+ * optional DI parameter — the default is the real httpsRequest, and tests can
+ * inject a mock without module replacement.
  */
 export type HttpsRequestFn = <T>(options: HttpRequestOptions) => Promise<HttpResult<T>>;
 
@@ -115,10 +115,9 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<HttpResult
         const statusCode = res.statusCode ?? 0;
 
         if (statusCode < 200 || statusCode >= 400) {
-          // M4 — Body-Snippet aus Error-Message rausnehmen damit
-          // Tokens/API-Keys nicht im warn-Log auftauchen wenn der
-          // Server sie reflektiert. responseBody bleibt für debug
-          // separat verfügbar.
+          // M4 — keep the body snippet out of the error message so tokens /
+          // API keys don't show up in the warn log if the server reflects
+          // them. responseBody stays separately available for debug.
           reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
           return;
         }
@@ -167,19 +166,19 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<HttpResult
       cleanupAbort();
       reject(err);
     });
-    // M5 — Timeout-Error trägt Endpoint + Wait-Dauer im Text, damit der
-    // warn-Log dem User sagt WO und WIE LANGE gewartet wurde. Vorher nur
-    // „Timeout" ohne Kontext → Stack-Trace war die einzige Info-Quelle und
-    // die ist Dev-Speak.
+    // M5 — the timeout error carries the endpoint + wait duration in its text
+    // so the warn log tells the user WHERE and HOW LONG it waited. Previously
+    // just "Timeout" without context → the stack trace was the only source of
+    // info, and that is dev-speak.
     req.on("timeout", () => {
       const ms = reqOptions.timeout ?? 15_000;
       const method = options.method ?? "GET";
       req.destroy(new Error(`Timeout after ${ms}ms for ${method} ${reqOptions.hostname}${reqOptions.path}`));
     });
 
-    // M3 — AbortSignal-Support. Wer den Request macht kann ihn abbrechen
-    // (z.B. Adapter-onUnload via AbortController) damit der Stop nicht
-    // 15s auf das Timeout warten muss.
+    // M3 — AbortSignal support. Whoever makes the request can abort it
+    // (e.g. adapter onUnload via AbortController) so the stop doesn't have to
+    // wait 15s for the timeout.
     if (options.signal) {
       if (options.signal.aborted) {
         req.destroy(new Error("Aborted"));
@@ -207,9 +206,8 @@ export class HttpError extends Error {
   /** Response headers */
   readonly headers: Record<string, string | string[] | undefined>;
   /**
-   * Raw response body — NICHT in `message` damit Tokens/API-Keys nicht
-   * via warn-Log geleakt werden. Nur für gezieltes debug-Logging beim
-   * Caller verfügbar.
+   * Raw response body — NOT in `message` so tokens / API keys aren't leaked
+   * via the warn log. Available only for targeted debug logging at the caller.
    */
   readonly responseBody: string;
 

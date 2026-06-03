@@ -51,14 +51,15 @@ const CHANNEL_NAMES: Record<string, string> = {
  * needing a separate `createDeviceStates` pass for sensor-only devices.
  * Keep IDs lowercase; resolveStatePath calls this on the raw stateId.
  */
-// Beide Lookup-Sets enthalten zwei Schreibweisen pro State-ID:
-//   - „raw"-Form (z.B. `temperature`) für instances die direkt so heißen
-//   - sanitizeId-Output (z.B. `sensor_temperature`) für camelCase-instances
-//     die durch sanitizeId zu snake_case konvertiert wurden
-// `sanitizeId` in capability-mapper konvertiert camelCase → snake_case, also
-// werden „sensorTemperature" zu „sensor_temperature" und „lackWaterEvent"
-// zu „lack_water_event". Ohne diese Aliase fielen sanitize-Varianten auf den
-// safe-default „control" zurück und die States wären nicht erreichbar.
+// Both lookup sets contain two spellings per state ID:
+//   - the "raw" form (e.g. `temperature`) for instances named exactly that
+//   - the sanitizeId output (e.g. `sensor_temperature`) for camelCase instances
+//     that sanitizeId converted to snake_case
+// `sanitizeId` in capability-mapper converts camelCase → snake_case, so
+// "sensorTemperature" becomes "sensor_temperature" and "lackWaterEvent"
+// becomes "lack_water_event". Without these aliases the sanitized variants
+// would fall back to the safe default "control" and the states would be
+// unreachable.
 const SENSOR_STATE_IDS = new Set([
   // raw forms
   "temperature",
@@ -916,15 +917,14 @@ export class StateManager {
   /**
    * Update info.membersUnreachable for a group.
    *
-   * Pflegt den state IMMER (existing) und schreibt eine comma-separated
-   * Liste der unreachable members oder einen leeren String wenn alle
-   * online sind. Vorher haben wir bei „alle reachable" das Object
-   * gelöscht — das produzierte aber js-controller-WARN „State
-   * 'X.membersUnreachable' has no existing object" alle ~2 Minuten,
-   * weil parallele updateGroupReachability-Aufrufe (LAN+MQTT-Status-
-   * Updates feuern fast gleichzeitig) eine race condition zwischen
-   * setStateAsync (Object existiert) und safeDeleteState (Object weg)
-   * triggern können. State immer existent zu halten umgeht das komplett.
+   * Always keeps the state (existing) and writes a comma-separated list of the
+   * unreachable members, or an empty string when all are online. Previously we
+   * deleted the object on "all reachable" — but that produced a js-controller
+   * WARN "State 'X.membersUnreachable' has no existing object" every ~2 minutes,
+   * because parallel updateGroupReachability calls (LAN+MQTT status updates fire
+   * almost simultaneously) could trigger a race condition between setStateAsync
+   * (object exists) and safeDeleteState (object gone). Always keeping the state
+   * present avoids that entirely.
    *
    * @param group BaseGroup device
    * @param memberDevices Resolved member devices

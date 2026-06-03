@@ -3,40 +3,40 @@ import type { GoveeDevice } from "./types";
 import { readDeviceBaseline } from "./device-baseline";
 
 /**
- * Host-Interface — die Adapter-Funktionen die der SnapshotHandler braucht
- * ohne von der Adapter-Klasse direkt zu hängen.
+ * Host interface — the adapter functions the SnapshotHandler needs without
+ * depending directly on the adapter class.
  *
- * Pattern analog `WizardHost` in segment-wizard.ts. Vorteil: testbar mit
- * Mocks, dependencies-flow ist explizit.
+ * Same pattern as `WizardHost` in segment-wizard.ts. Benefit: testable with
+ * mocks, the dependency flow is explicit.
  */
 export interface SnapshotHandlerHost {
   /** Adapter logger. */
   log: ioBroker.Logger;
   /** Local snapshot persistence (file-based JSON store). */
   store: LocalSnapshotStore;
-  /** Adapter-namespace prefix (z.B. "govee-smart.0"). */
+  /** Adapter namespace prefix (e.g. "govee-smart.0"). */
   namespace: string;
-  /** Resolved object-prefix für ein Gerät (z.B. "devices.h61be_525f"). */
+  /** Resolved object prefix for a device (e.g. "devices.h61be_525f"). */
   devicePrefix: (device: GoveeDevice) => string;
   /** State-read (volles ID `<namespace>.<prefix>.<channel>.<state>`). */
   getState: (id: string) => Promise<ioBroker.State | null | undefined>;
   /** Send-command via LAN→Cloud-Routing (DeviceManager.sendCommand). */
   sendCommand: (device: GoveeDevice, command: string, value: unknown) => Promise<void>;
-  /** Targeted state-tree refresh nach save/delete (snapshot_local Dropdown). */
+  /** Targeted state-tree refresh after save/delete (snapshot_local dropdown). */
   refreshDeviceStates: (device: GoveeDevice) => void;
 }
 
 /**
- * Lokaler Snapshot-Manager — kapselt save/restore/delete für die
- * snapshot_save / snapshot_local / snapshot_delete Dropdown-States.
+ * Local snapshot manager — encapsulates save/restore/delete for the
+ * snapshot_save / snapshot_local / snapshot_delete dropdown states.
  *
- * Vorher in `main.ts` als 3 private Methoden mit ~105 Zeilen. Hier in
- * eigenen Klasse mit Host-Interface — testbar isoliert, main.ts wird
- * kleiner, Maintainability gesteigert.
+ * Previously 3 private methods (~105 lines) in `main.ts`. Now its own class
+ * with a host interface — testable in isolation, main.ts gets smaller,
+ * maintainability improved.
  */
 export class SnapshotHandler {
   /**
-   * @param host Adapter dependencies via Host-Interface (testbar via Mocks)
+   * @param host Adapter dependencies via the host interface (testable with mocks)
    */
   constructor(private readonly host: SnapshotHandlerHost) {}
 

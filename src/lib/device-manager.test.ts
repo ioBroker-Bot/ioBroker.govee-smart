@@ -23,12 +23,12 @@ import type { CloudCapability, DeviceState, GoveeDevice, LanDevice, MqttStatusUp
  * seed-status entries to be active. Real-world default has them off.
  * beforeEach so other test files cannot leak a reset between cases.
  *
- * NOTE: Diese Helpers sind ABSICHTLICH inline statt aus `./test-helpers`
- * importiert. Mocha's ESM-Loader bricht reproduzierbar wenn dieser
- * test-file (alphabetisch der erste der test-helpers.ts importieren
- * würde) den Import macht — `device-manager` ohne Extension wird dann
- * als ESM-URL angesehen und Cannot-find-module geworfen. Solange die
- * test-suite noch CJS+ts-node nutzt, bleiben die DM-helpers inline.
+ * NOTE: these helpers are INTENTIONALLY inline rather than imported from
+ * `./test-helpers`. Mocha's ESM loader breaks reproducibly when this test
+ * file (alphabetically the first one that would import test-helpers.ts) does
+ * the import — `device-manager` without an extension is then treated as an
+ * ESM URL and a Cannot-find-module is thrown. As long as the test suite still
+ * uses CJS+ts-node, the DM helpers stay inline.
  */
 const QUIRK_TEST_REGISTRY = {
   devices: {
@@ -1263,9 +1263,9 @@ describe("DeviceManager", () => {
         onCloudDataReady: () => {},
         onGroupMembersReady: () => {},
       });
-      // Govee schickt gelegentlich `brightness: "50"` (String) — der Adapter
-      // muss das via coerceFiniteNumber zu 50 (Number) coerce'n und nicht
-      // den String unverändert in den number-typed State propagieren.
+      // Govee occasionally sends `brightness: "50"` (string) — the adapter must
+      // coerce it to 50 (number) via coerceFiniteNumber and not propagate the
+      // string unchanged into the number-typed state.
       dm.handleMqttStatus({
         sku: "H6160",
         device: "AABBCCDDEEFF0011",

@@ -39,11 +39,11 @@ export interface ConnectionStateAdapter {
 /**
  * Update global `info.connection` — the ioBroker-IDC indicator.
  *
- * Semantik:
- * - Mit Devices: `connected = true` wenn MIND. ein Device online ist.
- *   Wenn alle offline → false (User sieht: kein Device antwortet).
- * - Ohne Devices: `connected = true` wenn der LAN-Stack läuft. Sonst
- *   false (z.B. EADDRINUSE oder bind-Fehler).
+ * Semantics:
+ * - With devices: `connected = true` when AT LEAST one device is online.
+ *   If all are offline → false (the user sees: no device responds).
+ * - Without devices: `connected = true` when the LAN stack is running,
+ *   otherwise false (e.g. EADDRINUSE or a bind error).
  *
  * Write-only-on-change cache (lastConnectionState) so we don't spam
  * setStateAsync on every device-state-update.
@@ -204,12 +204,12 @@ export function logDeviceSummary(adapter: ConnectionStateAdapter): void {
   // come up moments later. The user-visible online state lives in the
   // state tree where it stays accurate.
   //
-  // Channel-Status (v2.10.1): nur konfigurierte channels werden gezeigt, mit
-  // ✓ (ready) oder ✗ (init-Versuch gescheitert). Pro ✗ folgt eine WARN-Zeile
-  // mit konkretem Grund + Retry-Verhalten. Channel-Namen sind so umbenannt
-  // dass User sie auseinanderhalten kann (Cloud REST vs Lights Push vs
-  // Sensor Push — vorher hieß alles uneinheitlich „Cloud", „MQTT",
-  // „Cloud-events").
+  // Channel status (v2.10.1): only configured channels are shown, with
+  // ✓ (ready) or ✗ (init attempt failed). Each ✗ is followed by a WARN line
+  // with a concrete reason + retry behaviour. Channel names are renamed so the
+  // user can tell them apart (Cloud REST vs Lights Push vs Sensor Push —
+  // previously everything was inconsistently called "Cloud", "MQTT",
+  // "Cloud-events").
   const allDevices = adapter.deviceManager?.getDevices() ?? [];
   const lights = allDevices.filter(d => d.type === GOVEE_DEVICE_TYPE.LIGHT);
   const anyLightOnLan = lights.some(d => d.lanIp);

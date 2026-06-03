@@ -267,8 +267,8 @@ describe("DiagnosticsCollector", () => {
   });
 
   // ===========================================================================
-  // v2.9.1 Diag-Coverage-Welle — pro Klasse mindestens ein Regression-Test.
-  // Findings-Klassen A-K aus dem Brief `feedback_diag_system_self_service.md`.
+  // v2.9.1 diag-coverage wave — at least one regression test per class.
+  // Finding classes A-K from the brief `feedback_diag_system_self_service.md`.
   // ===========================================================================
 
   describe("v2.9.1 Class A — raw Bytes in generate() (TUKEY-Blocker)", () => {

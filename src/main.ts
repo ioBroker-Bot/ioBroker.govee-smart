@@ -67,23 +67,23 @@ class GoveeAdapter extends utils.Adapter {
   /** Repeating timer for the App-API poll (sensor-state pull). */
   private appApiPollTimer: ioBroker.Interval | undefined;
   /**
-   * One-shot timer for the FIRST app-api poll (5s nach start) — Handle
-   *  damit onUnload das wegräumen kann bevor es ins Leere feuert.
+   * One-shot timer for the FIRST app-api poll (5s after start) — kept as a
+   * handle so onUnload can clear it before it fires into the void.
    */
   private appApiInitialTimer: ioBroker.Timeout | undefined;
-  /** One-shot timer for cloud-init 60s safety timeout — gleiches Pattern. */
+  /** One-shot timer for cloud-init 60s safety timeout — same pattern. */
   /** Public for handler modules. */
   public cloudInitTimer: ioBroker.Timeout | undefined;
   /**
-   * Letzter info.connection-Wert — Cache damit nicht jeder device-update
-   *  einen unnötigen setStateAsync macht (H4).
+   * Last info.connection value — cached so not every device update issues an
+   * unnecessary setStateAsync (H4).
    */
   /** Public for handler modules (connection-state). */
   public lastConnectionState: boolean | null = null;
-  // === Lifecycle-Flags (Adapter-Boot-Sequenz) ===
-  // checkAllReady() prüft alle 5 Voraussetzungen gleichzeitig — sie laufen
-  // parallel ab, kein lineares STATE_MACHINE-Pattern weil Channels
-  // unabhängig connecten.
+  // === Lifecycle flags (adapter boot sequence) ===
+  // checkAllReady() checks all 5 preconditions at once — they run in parallel,
+  // not a linear STATE_MACHINE pattern, because the channels connect
+  // independently.
   /** LAN-Scan-Initial-Wait abgeschlossen — public for connection-state handler. */
   public lanScanDone = false;
   /** State-Tree-Erstellung fertig — public for connection-state + device-events handlers. */
@@ -94,10 +94,10 @@ class GoveeAdapter extends utils.Adapter {
   public appApiInitialPollDone = false;
   /** Mehrfach-Ready-Log-Guard — public for connection-state handler. */
   public readyLogged = false;
-  /** Cloud war mindestens einmal connected — für „restored"-Log nach Down. */
+  /** Cloud was connected at least once — for the "restored" log after a down. */
   /** Public for handler modules. */
   public cloudWasConnected = false;
-  /** Tägliches Interval für App-Version-Drift-Check gegen App-Store. */
+  /** Daily interval for the app-version-drift check against the app store. */
   private appVersionCheckTimer: ioBroker.Interval | undefined;
   /**
    * 20 s Timer that re-evaluates `info.online` for every device via
@@ -273,11 +273,11 @@ class GoveeAdapter extends utils.Adapter {
       };
 
       // Sync individual segment states after batch command.
-      // Wichtig: Wizard sendet `segmentBatch` mit Indizes 0..SEGMENT_HARD_MAX
-      // damit das Gerät die echte Strip-Länge selbst zeigt. Wir dürfen das
-      // ECHO aber nur in States schreiben die wirklich existieren — sonst
-      // produziert js-controller den „has no existing object"-WARN für
-      // jeden index oberhalb der Cap (z.B. segments.51..55 bei 19-Strip).
+      // Important: the wizard sends `segmentBatch` with indices 0..SEGMENT_HARD_MAX
+      // so the device reveals its real strip length itself. But we may only
+      // write that ECHO into states that actually exist — otherwise js-controller
+      // produces the "has no existing object" WARN for every index above the cap
+      // (e.g. segments.51..55 on a 19-segment strip).
       this.deviceManager.onSegmentBatchUpdate = (device, batch) => {
         const prefix = this.stateManager!.devicePrefix(device);
         const cap = typeof device.segmentCount === "number" && device.segmentCount > 0 ? device.segmentCount : 0;
@@ -527,8 +527,8 @@ class GoveeAdapter extends utils.Adapter {
           this.deviceManager
             ?.pollAppApi()
             .then(() => {
-              // H2 — Mark initial-poll-done und re-check Ready damit der
-              // Adapter „ready" loggen kann sobald Sensor-Werte da sind.
+              // H2 — mark initial-poll-done and re-check Ready so the adapter
+              // can log "ready" as soon as sensor values are in.
               if (!this.appApiInitialPollDone) {
                 this.appApiInitialPollDone = true;
                 connectionState.checkAllReady(this);
@@ -537,10 +537,10 @@ class GoveeAdapter extends utils.Adapter {
             .catch(e => this.log.debug(`pollAppApi failed: ${errMessage(e)}`));
         };
         this.appApiPollTimer = this.setInterval(triggerAppApiPoll, APP_API_POLL_INTERVAL_MS);
-        // Initial poll: gibt MQTT Zeit für den Bearer-Login. Ohne diesen
-        // Sofort-Poll bleiben Sensoren wie H5179 die ersten 2 Minuten nach
-        // Start offline (Online-Signal kommt nur via App-API). Handle in
-        // Member-Variable damit onUnload den Timer cleart.
+        // Initial poll: gives MQTT time for the bearer login. Without this
+        // immediate poll, sensors like the H5179 stay offline for the first
+        // 2 minutes after start (the online signal only comes via App-API).
+        // Kept in a member variable so onUnload can clear the timer.
         this.appApiInitialTimer = this.setTimeout(triggerAppApiPoll, APP_API_INITIAL_DELAY_MS);
 
         if (!cachedOk) {
@@ -643,8 +643,8 @@ class GoveeAdapter extends utils.Adapter {
         })();
       }, ONLINE_SYNC_INTERVAL_MS);
 
-      // App-Version-Drift-Monitor — daily check + initial nach 2 min wenn der
-      // Adapter-Start ohne MQTT-Login durchgeschlagen ist (z.B. LAN-only).
+      // App-version-drift monitor — daily check + an initial one after 2 min if
+      // the adapter start fell through without an MQTT login (e.g. LAN-only).
       this.appVersionCheckTimer = this.setInterval(() => {
         connectionState
           .checkAppVersionDrift(this)
@@ -668,8 +668,8 @@ class GoveeAdapter extends utils.Adapter {
       // 60s deckt normalen MQTT-Connect + 1 Reconnect-Attempt ab.
       this.readyTimer = this.setTimeout(() => {
         if (!this.readyLogged) {
-          // Safety-Timeout: log ready trotzdem auch wenn ein Channel zu lange
-          // braucht. READY_TIMEOUT_MS deckt normalen MQTT-Connect + 1 Reconnect.
+          // Safety timeout: log ready anyway even if a channel takes too long.
+          // READY_TIMEOUT_MS covers a normal MQTT connect + 1 reconnect.
           this.readyLogged = true;
           connectionState.logDeviceSummary(this);
         }

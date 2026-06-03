@@ -29,28 +29,28 @@ export function resolveGroupMembers(group: GoveeDevice, devices: GoveeDevice[]):
 }
 
 /**
- * Host-Interface für GroupFanoutHandler — die Adapter-Funktionen die der
- * Handler braucht ohne von der Adapter-Klasse direkt zu hängen.
+ * Host interface for GroupFanoutHandler — the adapter functions the handler
+ * needs without depending directly on the adapter class.
  *
- * Pattern analog `WizardHost` und `SnapshotHandlerHost`. main.ts bleibt
- * schlank, der Group-Fan-Out-Pfad ist isoliert testbar.
+ * Same pattern as `WizardHost` and `SnapshotHandlerHost`. main.ts stays slim
+ * and the group fan-out path is isolated and testable.
  */
 export interface GroupFanoutHost {
   /** Adapter logger. */
   log: ioBroker.Logger;
-  /** Adapter-namespace prefix (z.B. "govee-smart.0"). */
+  /** Adapter namespace prefix (e.g. "govee-smart.0"). */
   namespace: string;
-  /** Device-Liste — typisch DeviceManager.getDevices(). */
+  /** Device list — typically DeviceManager.getDevices(). */
   getDevices: () => GoveeDevice[];
   /** Send-command via LAN→Cloud-Routing (DeviceManager.sendCommand). */
   sendCommand: (device: GoveeDevice, command: string, value: unknown) => Promise<void>;
-  /** Resolved object-prefix für ein Gerät. */
+  /** Resolved object prefix for a device. */
   devicePrefix: (device: GoveeDevice) => string;
-  /** State-Suffix → Command-Name lookup (main.ts STATE_TO_COMMAND-Map). */
+  /** State-suffix → command-name lookup (main.ts STATE_TO_COMMAND map). */
   stateToCommand: (stateSuffix: string) => string | undefined;
-  /** Get-object — für common.states-Lookup beim scene/music Mapping. */
+  /** Get-object — for the common.states lookup during scene/music mapping. */
   getObject: (id: string) => Promise<ioBroker.Object | null | undefined>;
-  /** Music-Command-Sender (kapselt die music_mode/sensitivity/auto_color STRUCT). */
+  /** Music command sender (wraps the music_mode/sensitivity/auto_color STRUCT). */
   sendMusicCommand: (
     device: GoveeDevice,
     devicePrefix: string,
@@ -60,28 +60,27 @@ export interface GroupFanoutHost {
 }
 
 /**
- * Group fan-out handler — dispatcht Group-Commands an die einzelnen
- * Mitglieder mit Capability-Match. Vorher in main.ts als 4 private
- * Methoden mit ~100 Zeilen.
+ * Group fan-out handler — dispatches group commands to the individual members
+ * with a capability match. Previously 4 private methods (~100 lines) in main.ts.
  *
- * Die scene/music-Spezial-Pfade matchen den Group-Dropdown-Namen gegen
- * den Member-Dropdown-Namen — nicht 1:1-Indizes, weil die Member
- * verschiedene Scene-Listen haben können.
+ * The scene/music special paths match the group dropdown name against the
+ * member dropdown name — not 1:1 indices, because the members can have
+ * different scene lists.
  */
 export class GroupFanoutHandler {
   /**
-   * @param host Adapter dependencies via Host-Interface
+   * @param host Adapter dependencies via the host interface
    */
   constructor(private readonly host: GroupFanoutHost) {}
 
   /**
    * Fan out a group command to all online member devices.
-   * Basic controls (power/brightness/color) gehen direkt durch.
-   * Scenes/music werden Name-basiert gemappt.
+   * Basic controls (power/brightness/color) pass straight through.
+   * Scenes/music are mapped by name.
    *
-   * @param group BaseGroup-Device
-   * @param stateSuffix State-Suffix (z.B. "control.power" oder "scenes.light_scene")
-   * @param value Command-Value
+   * @param group BaseGroup device
+   * @param stateSuffix State suffix (e.g. "control.power" or "scenes.light_scene")
+   * @param value Command value
    */
   async fanOut(group: GoveeDevice, stateSuffix: string, value: ioBroker.StateValue): Promise<void> {
     if (!group.groupMembers) {
@@ -97,7 +96,7 @@ export class GroupFanoutHandler {
     if (!command) {
       return;
     }
-    // Dropdown-Reset — kein Command nötig
+    // Dropdown reset — no command needed
     if ((command === "lightScene" || command === "music") && (value === "0" || value === 0)) {
       return;
     }
@@ -161,7 +160,7 @@ export class GroupFanoutHandler {
     stateSuffix: string,
     value: ioBroker.StateValue,
   ): Promise<void> {
-    // Sensitivity/auto_color werden direkt forwarded
+    // Sensitivity/auto_color are forwarded directly
     if (stateSuffix !== "music.music_mode") {
       await this.host.sendMusicCommand(member, this.host.devicePrefix(member), stateSuffix, value);
       return;

@@ -4,49 +4,48 @@ import { VERIFICATION_REQUEST_THROTTLE_MS } from "./timing-constants";
 import { resolveLabel } from "./i18n";
 
 /**
- * Host-Interface für MessageRouter.
+ * Host interface for MessageRouter.
  *
- * Pattern analog SnapshotHandler/GroupFanoutHandler. main.ts bleibt
- * schlank, der onMessage/sendTo-Pfad ist isoliert testbar.
+ * Same pattern as SnapshotHandler/GroupFanoutHandler — main.ts stays slim and
+ * the onMessage/sendTo path is isolated and testable.
  */
 export interface MessageRouterHost {
   /** Adapter logger. */
   log: ioBroker.Logger;
-  /** Liefert die Adapter-Konfiguration für den runMqttAuthAction-Pfad. */
+  /** Provides the adapter config for the runMqttAuthAction path. */
   getConfig: () => { goveeEmail: string; goveePassword: string; mqttVerificationCode?: string };
-  /** Sendet die JSON-Response zurück an den Caller (sendMessageResponse-Pfad). */
+  /** Sends the JSON response back to the caller (sendMessageResponse path). */
   sendResponse: (obj: ioBroker.Message, data: unknown) => void;
-  /** Factory für ein One-Shot-MqttClient (für Login-Test). */
+  /** Factory for a one-shot MqttClient (for the login test). */
   createMqttProbeClient: () => GoveeMqttClient;
-  /** Liefert die Liste der Devices die Segmente haben (für getSegmentDevices). */
+  /** Provides the list of devices that have segments (for getSegmentDevices). */
   getSegmentDeviceList: () => Array<{ value: string; label: string }>;
-  /** Wizard-Step-Routing — main.ts behält den Wizard-State. */
+  /** Wizard-step routing — main.ts keeps the wizard state. */
   runWizardStep: (action: string, deviceKey: string) => Promise<Record<string, unknown>>;
 }
 
 /**
- * Router für ioBroker.Message events (sendTo aus dem Admin-UI).
+ * Router for ioBroker.Message events (sendTo from the admin UI).
  *
- * Dispatcht 3 Commands:
- *  - `getSegmentDevices` — selectSendTo-Datenquelle für den Wizard
- *  - `segmentWizard` — Wizard-Step (start/yes/no/done/abort)
- *  - `mqttAuth` — Login-Test + Verification-Code-Anforderung
+ * Dispatches 3 commands:
+ *  - `getSegmentDevices` — selectSendTo data source for the wizard
+ *  - `segmentWizard` — wizard step (start/yes/no/done/abort)
+ *  - `mqttAuth` — login test + verification-code request
  */
 export class MessageRouter {
   /** Last time `requestCode` was triggered — guards against double-click email spam. */
   private lastVerificationRequestMs = 0;
 
   /**
-   * @param host Adapter dependencies via Host-Interface
+   * @param host Adapter dependencies via the host interface
    */
   constructor(private readonly host: MessageRouterHost) {}
 
   /**
-   * Sync entry-point — registered as `this.on("message", ...)`. Wraps
-   * the async handler in a catch so unhandled rejections können den
-   * Adapter nicht crashen.
+   * Sync entry-point — registered as `this.on("message", ...)`. Wraps the
+   * async handler in a catch so unhandled rejections can't crash the adapter.
    *
-   * @param obj Inkommende ioBroker-Message
+   * @param obj Incoming ioBroker message
    */
   onMessage(obj: ioBroker.Message): void {
     if (!obj?.command) {
@@ -59,9 +58,9 @@ export class MessageRouter {
   }
 
   /**
-   * Async handler — dispatcht zu den 3 Sub-Handlern.
+   * Async handler — dispatches to the 3 sub-handlers.
    *
-   * @param obj Inkommende ioBroker-Message
+   * @param obj Incoming ioBroker message
    */
   private async handleMessage(obj: ioBroker.Message): Promise<void> {
     try {
@@ -95,12 +94,12 @@ export class MessageRouter {
    * Handle the `mqttAuth` onMessage commands.
    *
    * Two actions:
-   *   - `test`        — try a one-shot login mit der aktuellen Settings-Combo
-   *                     und liefere ein einzelnes user-readable Ergebnis.
-   *   - `requestCode` — POST an /verification, Govee mailt fresh code.
-   *                     30s in-memory throttle gegen double-click email-spam.
+   *   - `test`        — try a one-shot login with the current settings combo
+   *                     and return a single user-readable result.
+   *   - `requestCode` — POST to /verification, Govee mails a fresh code.
+   *                     30s in-memory throttle against double-click email spam.
    *
-   * @param action Action-Name aus dem jsonConfig sendTo-Button
+   * @param action Action name from the jsonConfig sendTo button
    */
   private async runMqttAuthAction(action: string): Promise<{ result: string }> {
     const config = this.host.getConfig();

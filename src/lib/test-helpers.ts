@@ -1,13 +1,13 @@
 /**
- * Geteilte Test-Mocks und Factories für alle Test-Dateien.
+ * Shared test mocks and factories for all test files.
  *
- * Vorher waren `mockLog`, `mockTimers`, `createTestDevice` etc. inline in
- * `device-manager.test.ts` — andere Tests dupliziert. Hier zentral.
+ * `mockLog`, `mockTimers`, `createTestDevice` etc. were previously inline in
+ * `device-manager.test.ts` — duplicated across other tests. Centralised here.
  */
 
 import type { CloudCapability, GoveeDevice } from "./types";
 
-/** No-op Logger mit allen ioBroker.Logger-Methoden. */
+/** No-op logger with all ioBroker.Logger methods. */
 export const mockLog: ioBroker.Logger = {
   info: () => {},
   warn: () => {},
@@ -18,11 +18,12 @@ export const mockLog: ioBroker.Logger = {
 };
 
 /**
- * Timer-Adapter für Tests.
+ * Timer adapter for tests.
  *
- * `setTimeout` feuert SOFORT — async-await-Pfade die auf `await new Promise(r => setTimeout(r, ...))`
- * basieren, würden sonst stallen. `setInterval` feuert NICHT — Tests die
- * Polling beobachten brauchen explizit eine andere Mock-Strategie.
+ * `setTimeout` fires IMMEDIATELY — async-await paths based on
+ * `await new Promise(r => setTimeout(r, ...))` would otherwise stall.
+ * `setInterval` does NOT fire — tests that observe polling need a different
+ * mock strategy explicitly.
  */
 export const mockTimers = {
   setInterval: () => undefined,
@@ -36,9 +37,8 @@ export const mockTimers = {
 } as never;
 
 /**
- * Standard-Capability-Set für ein reguläres Light-Gerät (H6160-artig).
- * Reicht für die meisten Tests die Capabilities erwarten ohne sich für
- * Details zu interessieren.
+ * Standard capability set for a regular light device (H6160-like). Enough for
+ * most tests that expect capabilities without caring about the details.
  */
 export function lightCapabilities(): CloudCapability[] {
   return [
@@ -71,10 +71,10 @@ export function lightCapabilities(): CloudCapability[] {
 }
 
 /**
- * Erstelle ein Test-GoveeDevice mit sinnvollen Defaults. Override-Pattern
- * via Spread: `createTestDevice({ sku: "H1234" })`.
+ * Create a test GoveeDevice with sensible defaults. Override pattern via
+ * spread: `createTestDevice({ sku: "H1234" })`.
  *
- * @param overrides Override einzelner Felder
+ * @param overrides Override individual fields
  */
 export function createTestDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
   return {
@@ -109,9 +109,9 @@ export function createTestDevice(overrides: Partial<GoveeDevice> = {}): GoveeDev
 }
 
 /**
- * Recorder für Mock-Method-Aufrufe in Tests.
+ * Recorder for mock method calls in tests.
  *
- * Nutzung:
+ * Usage:
  * ```ts
  * const tracker = createCallTracker();
  * mockObj.someMethod = tracker.track("someMethod");

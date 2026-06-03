@@ -42,8 +42,8 @@ rqXRfboQnoZsG4q5WTP468SQvvG5
 -----END CERTIFICATE-----`;
 
 /**
- * Signature für `mqtt.connect`-Factory — Tests können einen FakeMqttClient
- * injizieren ohne die echte Network-Lib zu starten. Default = `mqtt.connect`.
+ * Signature for the `mqtt.connect` factory — tests can inject a FakeMqttClient
+ * without starting the real network lib. Default = `mqtt.connect`.
  */
 export type MqttConnectFn = (url: string, opts: mqtt.IClientOptions) => mqtt.MqttClient;
 
@@ -105,13 +105,31 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
   /** Fired on 454 (pending) or 455 (failed) so the adapter can surface the actionable warning + auto-clear the code on failed. */
   private onVerificationFailed: ((reason: "pending" | "failed") => void) | null = null;
 
+  /** Persisted credentials from a previous run; null until setPersistedCredentials() is called. */
+  private persisted: PersistedMqttCredentials | null = null;
+  /** Hook fired after a successful login so the adapter can persist the new credentials. */
+  private onCredentialsRefresh: ((creds: PersistedMqttCredentials) => void) | null = null;
+  /** Pre-scheduled timer for proactive token refresh (5 min before expiry). */
+  private refreshTimer: ioBroker.Timeout | undefined = undefined;
+  /**
+   * True between calling mqtt.connect() with persisted creds and the first
+   * `connect` event. If `close` fires while this is still true, the cached
+   * cert/token are invalid — wipe them so the next attempt does a fresh login.
+   */
+  private persistedAttemptInFlight = false;
+  /**
+   * Last time `requestVerificationCode` actually issued a request — guards
+   * against Govee marking the account as suspicious from rapid-fire user clicks.
+   */
+  private lastVerificationRequestMs = 0;
+
   /**
    * @param email Govee account email
    * @param password Govee account password
    * @param log ioBroker logger
    * @param timers Timer adapter
-   * @param httpsRequestImpl optional DI für Tests — Default ist die echte httpsRequest
-   * @param mqttConnectImpl optional DI für Tests — Default ist die echte mqtt.connect
+   * @param httpsRequestImpl optional DI for tests — default is the real httpsRequest
+   * @param mqttConnectImpl optional DI for tests — default is the real mqtt.connect
    */
   constructor(
     email: string,
@@ -195,20 +213,6 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
         return null;
     }
   }
-
-  /** Persisted credentials from a previous run; null until setPersistedCredentials() is called. */
-  private persisted: PersistedMqttCredentials | null = null;
-  /** Hook fired after a successful login so the adapter can persist the new credentials. */
-  private onCredentialsRefresh: ((creds: PersistedMqttCredentials) => void) | null = null;
-  /** Pre-scheduled timer for proactive token refresh (5 min before expiry). */
-  private refreshTimer: ioBroker.Timeout | undefined = undefined;
-
-  /**
-   * True between calling mqtt.connect() with persisted creds and the first
-   * `connect` event. If `close` fires while this is still true, the cached
-   * cert/token are invalid — wipe them so the next attempt does a fresh login.
-   */
-  private persistedAttemptInFlight = false;
 
   /**
    * Hand the client persisted credentials from a previous successful login.
@@ -304,10 +308,10 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
         this.verificationCode = "";
         this.onVerificationConsumed?.();
       }
-      // H11 — Login-Response-Validation. Govee schickt accountId + topic
-      // bei erfolgreichem Login. Fehlt eines, wäre die clientId
-      // `AP/undefined/<uuid>` und Govee-Broker rejected mit unklarem
-      // disconnect. Frühzeitig validieren mit klarem Fehler.
+      // H11 — login-response validation. Govee sends accountId + topic on a
+      // successful login. If either is missing the clientId would be
+      // `AP/undefined/<uuid>` and the Govee broker rejects with an unclear
+      // disconnect. Validate early with a clear error.
       const accIdRaw = loginResp.client.accountId;
       if (typeof accIdRaw !== "string" && typeof accIdRaw !== "number") {
         throw new Error(`Login response missing accountId (got ${typeof accIdRaw})`);
@@ -368,7 +372,7 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
       const category = classifyError(err);
       const msg = `MQTT connection failed: ${errMessage(err)}`;
 
-      // State-Sync: connect() throw = not connected, unabhängig von Fehlertyp
+      // State sync: a connect() throw = not connected, regardless of error type
       this.onConnection?.(false);
 
       // Govee verification 454: pause reconnect until the user submits a
@@ -602,9 +606,9 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
       this.handleMessage(payload, topic);
     });
     this.client.on("error", err => {
-      // H10 — error-events klassifizieren, sonst sieht der User nur debug.
-      // close-event-fallback fängt vieles, aber nicht spurious network
-      // errors die nicht zu Disconnect führen.
+      // H10 — classify error events, otherwise the user only sees debug. The
+      // close-event fallback catches a lot, but not spurious network errors
+      // that don't lead to a disconnect.
       this.lastErrorCategory = logDedup(this.log, this.lastErrorCategory, "MQTT", err);
     });
     this.client.on("close", () => {
@@ -667,8 +671,8 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
    */
   private async refreshBearerSilently(): Promise<void> {
     if (this.disposed) {
-      // Adapter wurde gestoppt zwischen Timer-Schedule und Timer-Fire —
-      // nicht mehr loggen + nicht mehr Login-Call.
+      // Adapter was stopped between timer-schedule and timer-fire — no more
+      // logging and no more login call.
       return;
     }
     this.log.debug("Proactive MQTT bearer refresh triggered");
@@ -746,12 +750,6 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
     }
     return result.value;
   }
-
-  /**
-   * Last time `requestVerificationCode` actually issued a request — guards against
-   * Govee marking the account as suspicious from rapid-fire user clicks.
-   */
-  private lastVerificationRequestMs = 0;
 
   /**
    * Trigger Govee's verification-code email. Govee sends a one-time code

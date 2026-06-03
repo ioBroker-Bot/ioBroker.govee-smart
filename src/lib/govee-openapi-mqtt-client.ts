@@ -187,9 +187,9 @@ export class GoveeOpenapiMqttClient extends ReconnectingMqttClient {
 
       const raw = JSON.parse(rawStr) as Record<string, unknown>;
 
-      // typeof-Guards (analog Account-MQTT-Client) — Govee schickt sku/device
-      // gelegentlich als Number; ohne Guard würde später .replace()/.split()
-      // auf Konsumenten-Seite crashen.
+      // typeof guards (like the account MQTT client) — Govee occasionally sends
+      // sku/device as a number; without the guard a later .replace()/.split()
+      // on the consumer side would crash.
       const sku = typeof raw.sku === "string" ? raw.sku : "";
       const device = typeof raw.device === "string" ? raw.device : "";
 

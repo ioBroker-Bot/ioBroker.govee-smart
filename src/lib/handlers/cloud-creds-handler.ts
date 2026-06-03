@@ -71,9 +71,9 @@ export async function loadPersistedCredsFromState(
       accountTopic?: unknown;
       tokenExpiresAt?: unknown;
     };
-    // typeof-Guards — JSON.parse liefert raw, this.decrypt() wirft auf
-    // non-string-Input. Defensive: wenn das State-Blob durch ein Tool
-    // editiert wurde und falsche Typen drin hat, returnen wir null.
+    // typeof guards — JSON.parse returns raw, this.decrypt() throws on
+    // non-string input. Defensive: if the state blob was edited by a tool and
+    // holds wrong types, we coerce them to empty strings.
     const safeStr = (v: unknown): string => (typeof v === "string" ? v : "");
     const bearerToken = adapter.decrypt(safeStr(obj.bearerToken));
     const p12Cert = adapter.decrypt(safeStr(obj.p12Cert));

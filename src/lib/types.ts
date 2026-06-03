@@ -1,15 +1,15 @@
 /**
- * Ergebnis eines Cloud-Load-Versuchs. Der Retry-Loop wertet `reason` aus,
- * um Rate-Limits und permanente Fehler korrekt zu behandeln.
+ * Result of a cloud-load attempt. The retry loop inspects `reason` to handle
+ * rate limits and permanent failures correctly.
  */
 export type CloudLoadResult =
-  /** Erfolgreich */
+  /** Success */
   | { ok: true }
-  /** Netzwerk/Timeout — einfach später retryen */
+  /** Network/timeout — just retry later */
   | { ok: false; reason: "transient" }
-  /** Govee 429 — retry-after respektieren */
+  /** Govee 429 — respect retry-after */
   | { ok: false; reason: "rate-limited"; retryAfterMs: number }
-  /** Auth-Fehler (ungültiger API-Key) — KEIN Retry, User muss Config korrigieren */
+  /** Auth error (invalid API key) — NO retry, user must fix the config */
   | { ok: false; reason: "auth-failed"; message: string };
 
 // --- Cloud API v2 Types ---

@@ -627,11 +627,11 @@ describe("StateManager", () => {
       await createAllStatesForTest(sm, dev, []);
 
       const delCalls = calls.filter(c => c.method === "delObjectAsync").map(c => c.args[0] as string);
-      // safeDeleteState skipt das delete weil getObjectAsync(null) returnt
+      // safeDeleteState skips the delete because getObjectAsync returns null
       expect(delCalls).not.toContain("groups.basegroup_1311.info.diagnostics_export");
       expect(delCalls).not.toContain("groups.basegroup_1311.info.diagnostics_result");
       expect(delCalls).not.toContain("groups.basegroup_1311.info.diagnostics_tier");
-      // diag-channel-recursive bleibt — operiert auf bekannter "groups have no diag" Konvention
+      // diag-channel-recursive stays — operates on the known "groups have no diag" convention
       expect(delCalls).toContain("groups.basegroup_1311.diag");
     });
   });
@@ -659,12 +659,12 @@ describe("StateManager", () => {
 
       await sm.updateGroupMembersUnreachable(group, [m1]);
 
-      // State + Object existieren weiter, der Inhalt wird auf empty-string gesetzt
+      // State + object keep existing, the content is set to an empty string
       expect(objects.has("groups.basegroup_1311.info.membersUnreachable")).toBe(true);
       const val = states.get("groups.basegroup_1311.info.membersUnreachable");
       expect(val!.val).toBe("");
-      // Kritisch: keinerlei delObject/delState — sonst entsteht der „has no existing object"-WARN
-      // alle 2 Min wenn parallele updateGroupReachability-Aufrufe race-condition produzieren
+      // Critical: no delObject/delState at all — otherwise the "has no existing object" WARN
+      // appears every 2 min when parallel updateGroupReachability calls produce a race condition
       const delObj = calls.filter(c => c.method === "delObjectAsync").map(c => c.args[0] as string);
       const delSt = calls.filter(c => c.method === "delStateAsync").map(c => c.args[0] as string);
       expect(delObj).not.toContain("groups.basegroup_1311.info.membersUnreachable");

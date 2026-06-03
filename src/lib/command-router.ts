@@ -905,9 +905,9 @@ export class CommandRouter {
    * @param value Command value
    */
   private async sendCloudCommand(device: GoveeDevice, command: string, value: unknown): Promise<void> {
-    // M19 — Closure capture: lokale Variable nach Guard. Verhindert Race
-    // wenn `setCloudClient(null)` zwischen Guard-Check und executeRateLimited
-    // läuft (z.B. Adapter-Stop mid-await).
+    // M19 — closure capture: local variable after the guard. Prevents a race
+    // when `setCloudClient(null)` runs between the guard check and
+    // executeRateLimited (e.g. adapter stop mid-await).
     const cloudClient = this.cloudClient;
     if (!cloudClient) {
       return;
@@ -916,8 +916,8 @@ export class CommandRouter {
     // Find the matching capability
     const cap = this.findCapabilityForCommand(device, command);
     if (!cap) {
-      // M20 — dedup-warn statt nur debug. User klickt einen State, kein
-      // Channel-Match → Fehlersuche braucht das Erstauftreten als warn.
+      // M20 — dedup-warn instead of just debug. The user clicks a state, no
+      // channel match → troubleshooting needs the first occurrence as a warn.
       const prev = this.lastErrorByCategory.get("no-capability") ?? null;
       this.lastErrorByCategory.set(
         "no-capability",

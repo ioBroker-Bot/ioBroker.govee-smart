@@ -261,15 +261,15 @@ export class DeviceManager {
   }
 
   /**
-   * Entfernt ein Gerät aus dem internen Tracking. Aufgerufen wenn ein Gerät
-   * aus dem Govee-Account entfernt wurde — die jsonl-Objects räumt
-   * `cleanupDevices` (state-manager) ab; hier nur die in-memory-Maps.
+   * Remove a device from internal tracking. Called when a device was removed
+   * from the Govee account — the jsonl objects are cleaned up by
+   * `cleanupDevices` (state-manager); here only the in-memory maps.
    *
-   * Returnt die deviceId des gedroppten Geräts (zur Diagnostics-Cleanup),
-   * oder null wenn nichts zu entfernen war.
+   * Returns the deviceId of the dropped device (for diagnostics cleanup), or
+   * null if there was nothing to remove.
    *
-   * @param sku Govee-SKU
-   * @param deviceId Device-ID (mit/ohne Doppelpunkte)
+   * @param sku Govee SKU
+   * @param deviceId Device ID (with/without colons)
    */
   removeDevice(sku: string, deviceId: string): string | null {
     const key = this.deviceKey(sku, deviceId);
@@ -278,8 +278,8 @@ export class DeviceManager {
       return null;
     }
     this.devices.delete(key);
-    // nudgedSeedSkus bleibt — wir wollen den seed-Hinweis nicht erneut
-    // pushen wenn ein gleicher SKU später wieder reinpoppt.
+    // nudgedSeedSkus stays — we don't want to push the seed hint again if the
+    // same SKU pops back in later.
     return dev.deviceId;
   }
 
@@ -487,7 +487,7 @@ export class DeviceManager {
         };
       }
 
-      // Auth failure: API-Key falsch oder widerrufen — KEIN Retry
+      // Auth failure: API key wrong or revoked — NO retry
       const category = classifyError(err);
       if (category === "AUTH") {
         return {
@@ -497,7 +497,7 @@ export class DeviceManager {
         };
       }
 
-      // Netzwerk/Timeout/Unknown: transient, einfach später
+      // Network/timeout/unknown: transient, just retry later
       return { ok: false, reason: "transient" };
     }
   }
@@ -966,9 +966,9 @@ export class DeviceManager {
   /**
    * Apply LAN-discovery data (IP, reachability, freshness) to an existing
    * device. Marks it online and fires `onDeviceUpdate` if it was offline —
-   * Discovery-Antwort beweist dass das Gerät am Netz ist; ohne diesen Pfad
-   * bleibt info.online für gecachte Lichter forever false (MQTT pusht nur
-   * bei Zustandswechseln, main.ts skipped devStatus-Poll wenn MQTT up).
+   * a discovery reply proves the device is on the network; without this path
+   * info.online stays forever false for cached lights (MQTT only pushes on
+   * state changes, main.ts skips the devStatus poll when MQTT is up).
    *
    * @param matched The existing device to update
    * @param lanDevice Discovery frame
@@ -1099,9 +1099,9 @@ export class DeviceManager {
 
   /**
    * Translate an MQTT status payload into a `DeviceState` patch. API-Boundary
-   * defense: Govee schickt gelegentlich brightness/onOff/color als String —
-   * `coerceFiniteNumber` returnt null bei Drift, das Feld bleibt unverändert
-   * statt mit kaputtem Wert geschrieben zu werden.
+   * defense: Govee occasionally sends brightness/onOff/color as a string —
+   * `coerceFiniteNumber` returns null on drift, leaving the field unchanged
+   * instead of writing it with a broken value.
    *
    * MQTT-push proves the device talked to the Govee broker — but the broker
    * can replay last-will/retained messages. For Lights, info.online comes
@@ -1160,8 +1160,8 @@ export class DeviceManager {
     }
     const maxSeen = Math.max(...segData.map(s => s.index)) + 1;
     const current = device.segmentCount ?? 0;
-    // L6 — Plausibilitäts-Cap: SEGMENT_HARD_MAX (55) ist die Govee-Protokoll-
-    // Obergrenze. Werte darüber kommen nur aus broken/spoofed Paketen.
+    // L6 — plausibility cap: SEGMENT_HARD_MAX (55) is the Govee protocol upper
+    // limit. Values above it only come from broken/spoofed packets.
     if (maxSeen > SEGMENT_HARD_MAX) {
       this.log.debug(`${device.name}: ignoring segmentCount=${maxSeen} (above protocol limit ${SEGMENT_HARD_MAX})`);
       return;

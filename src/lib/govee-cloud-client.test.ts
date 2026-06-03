@@ -61,7 +61,7 @@ describe("GoveeCloudClient", () => {
         throw new Error("expected throw");
       } catch (e) {
         expect(e).toBeInstanceOf(HttpError);
-        // 429 wird mit retry-after-Hinweis re-thrown
+        // 429 is re-thrown with a retry-after hint
         expect((e as HttpError).message).toContain("retry after 60s");
       }
       expect(client.getFailureReason()).toBe("rate-limited by Govee — will retry");

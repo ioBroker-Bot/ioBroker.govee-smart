@@ -3,9 +3,9 @@ import { type HttpRequestOptions, type HttpResult, type HttpsRequestFn } from ".
 import { mockLog, mockTimers } from "./test-helpers";
 
 /**
- * Timer-Mock der NICHT sofort feuert — wichtig für connect()-Tests, sonst
- * würde scheduleReconnect → setTimeout → sofort callback → erneuter
- * connect → infinite loop. Hier nur queue, never call.
+ * Timer mock that does NOT fire immediately — important for connect() tests,
+ * otherwise scheduleReconnect → setTimeout → immediate callback → another
+ * connect → infinite loop. Here just queue, never call.
  */
 const noopTimers = {
   setInterval: () => undefined,
@@ -230,9 +230,9 @@ describe("GoveeMqttClient", () => {
     });
 
     it("should fire onVerificationConsumed when login succeeds with a code", async () => {
-      // Login succeeds (returns client object) — wir kommen also über die 454-Branch hinaus.
-      // getIotKey wird der zweite Call sein und FAILT mit network — darum kommt mqtt.connect
-      // nie ins Spiel, aber onVerificationConsumed wurde schon vor dem getIotKey-Aufruf gefeuert.
+      // Login succeeds (returns client object) — so we get past the 454 branch.
+      // getIotKey is the second call and FAILS with network — so mqtt.connect
+      // never comes into play, but onVerificationConsumed already fired before the getIotKey call.
       let callIdx = 0;
       const fake = makeFakeHttps((_opts, _idx) => {
         if (callIdx++ === 0) {
@@ -262,14 +262,14 @@ describe("GoveeMqttClient", () => {
     });
 
     it("should set lastErrorCategory back to null after VERIFICATION_PENDING when next login succeeds", async () => {
-      // Erst: 454-PENDING gesetzt
+      // First: 454-PENDING set
       let callIdx = 0;
       const fake = makeFakeHttps((_opts, _idx) => {
         const i = callIdx++;
         if (i === 0) {
           return { status: 454, message: "verification required" };
         }
-        // Nächste Calls: erfolgreicher login + getIotKey-fail
+        // Next calls: successful login + getIotKey fail
         if (i === 1) {
           return {
             client: {
@@ -288,12 +288,12 @@ describe("GoveeMqttClient", () => {
         () => {},
       );
       expect(client.getFailureReason()).toMatch(/verification/i);
-      // Login klappt jetzt — getIotKey-Fail produziert eine NETWORK-category (oder UNKNOWN)
+      // Login works now — the getIotKey fail produces a NETWORK category (or UNKNOWN)
       await client.connect(
         () => {},
         () => {},
       );
-      // login war erfolgreich; iot-key-call schlug fehl → category != VERIFICATION_PENDING
+      // login was successful; the iot-key call failed → category != VERIFICATION_PENDING
       expect(client.getFailureReason()).not.toBe("Govee asked for verification — request a code in adapter settings");
     });
   });

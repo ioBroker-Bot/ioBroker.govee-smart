@@ -1,34 +1,34 @@
 /**
- * Zentrale Zeitkonstanten für den Adapter.
+ * Central timing constants for the adapter.
  *
- * Magic-Numbers vermeiden — wenn eine Konstante an mehreren Stellen
- * gebraucht wird, importiert sie hier und benennt sie eindeutig.
+ * Avoid magic numbers — when a constant is used in more than one place, import
+ * it from here and give it a unique name.
  *
- * Konvention: `_MS` für Millisekunden, `_S` für Sekunden, `_MIN` für Minuten.
+ * Convention: `_MS` for milliseconds, `_S` for seconds, `_MIN` for minutes.
  */
 
 // === MQTT ===
 
-/** Maximale konsekutive Auth-Fehler bevor Reconnect permanent gestoppt wird. */
+/** Maximum consecutive auth failures before reconnect is stopped permanently. */
 export const MQTT_MAX_AUTH_FAILURES = 3;
 
-// === App-API (Sensor-Polling) ===
+// === App API (sensor polling) ===
 
-/** Intervall für den App-API-Poll (Sensor-Werte). 2 min. */
+/** Interval for the App-API poll (sensor values). 2 min. */
 export const APP_API_POLL_INTERVAL_MS = 2 * 60 * 1000;
 
 /**
- * Verzögerung des ersten App-API-Polls nach Adapter-Start (5 s — gibt MQTT
- * Zeit für den Bearer-Login).
+ * Delay of the first App-API poll after adapter start (5 s — gives MQTT time
+ * for the bearer login).
  */
 export const APP_API_INITIAL_DELAY_MS = 5_000;
 
-// === Adapter-Lifecycle ===
+// === Adapter lifecycle ===
 
-/** Hard-Timeout für Cloud-Initialisierung (60 s). */
+/** Hard timeout for cloud initialisation (60 s). */
 export const READY_TIMEOUT_MS = 60_000;
 
-/** Minimum Gap zwischen zwei `mqttAuth: requestCode` Calls (30 s). */
+/** Minimum gap between two `mqttAuth: requestCode` calls (30 s). */
 export const VERIFICATION_REQUEST_THROTTLE_MS = 30_000;
 
 /** Initial wait for the first LAN-scan replies before flipping lanScanDone (3 s). */
@@ -60,32 +60,32 @@ export const DIAGNOSTICS_EXPORT_THROTTLE_MS = 2_000;
 
 // === Wizard ===
 
-/** Idle-Timeout für den Segment-Detection-Wizard (5 min). */
+/** Idle timeout for the segment-detection wizard (5 min). */
 export const WIZARD_IDLE_TIMEOUT_MS = 5 * 60_000;
 
 // === LAN command-router ===
 
 /**
- * Wartezeit zwischen `colorwc`-Modus-Wechsel und folgenden Segment-Befehlen.
- * Empirisch: ~150 ms; kürzer und Govee verschluckt das Segment-Update weil
- * das Gerät noch im Scene/Music-Modus ist.
+ * Wait time between a `colorwc` mode switch and the following segment commands.
+ * Empirically ~150 ms; any shorter and Govee swallows the segment update because
+ * the device is still in scene/music mode.
  */
 export const FORCE_COLOR_MODE_SETTLE_MS = 150;
 
-// === Cloud Rate-Limiter ===
+// === Cloud rate-limiter ===
 
 /**
- * Govee Cloud-API-Budget (mit Sicherheitsmargen). Govee gibt 10/min und
- * 10.000/Tag — wir halten uns auf 8/min und 9.000/Tag damit Spitzen
- * (z.B. paralleles Refresh aller Devices) nicht ins 429 laufen.
+ * Govee Cloud-API budget (with safety margins). Govee allows 10/min and
+ * 10,000/day — we stay at 8/min and 9,000/day so spikes (e.g. a parallel
+ * refresh of all devices) don't run into a 429.
  */
 export const CLOUD_FULL_LIMITS = { perMinute: 8, perDay: 9000 };
 
-// === OpenAPI-MQTT ===
+// === OpenAPI MQTT ===
 
 /**
- * Maximale konsekutive Auth-Fehler beim OpenAPI-MQTT-Connect bevor der
- * Reconnect permanent gestoppt wird. Govee sendet 401 wenn der API-Key
- * ungültig ist — endlosens retry würde nur Account-Lock-Risiken pflegen.
+ * Maximum consecutive auth failures on the OpenAPI-MQTT connect before the
+ * reconnect is stopped permanently. Govee returns 401 when the API key is
+ * invalid — endless retries would only cultivate account-lock risk.
  */
 export const OPENAPI_MQTT_MAX_AUTH_FAILURES = 5;

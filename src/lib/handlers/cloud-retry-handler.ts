@@ -25,9 +25,9 @@ export interface CloudRetryHandlerAdapter {
 }
 
 /**
- * Initial Cloud-Load mit 60-Sekunden-Hardtimeout. Blockiert nicht länger —
- * wenn Cloud hängt, geht Adapter mit LAN+MQTT weiter, und der Retry-Loop
- * probiert's passend zum Fehlergrund erneut.
+ * Initial cloud load with a 60-second hard timeout. Doesn't block any longer —
+ * if the cloud hangs the adapter continues with LAN+MQTT and the retry loop
+ * tries again according to the failure reason.
  *
  */
 export async function cloudInitWithTimeout(adapter: CloudRetryHandlerAdapter): Promise<CloudLoadResult> {

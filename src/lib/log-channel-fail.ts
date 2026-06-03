@@ -55,9 +55,8 @@ export function logChannelFail(log: ioBroker.Logger, opts: LogChannelFailOptions
 
   dedup.lastCategory = category;
   log.warn(userMessage);
-  // Stack-Trace + raw message land auf debug, nicht im warn. So bekommt der
-  // User eine klare Aussage und der Dev hat die Details wenn er debug-Log
-  // aktiviert.
+  // Stack trace + raw message go to debug, not warn — the user gets a clear
+  // statement and the dev has the details once debug logging is enabled.
   if (err instanceof Error && err.stack) {
     log.debug(`${channel} fail detail: ${err.stack}`);
   } else {

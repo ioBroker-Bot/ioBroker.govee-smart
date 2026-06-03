@@ -47,9 +47,9 @@ export function parseMqttSegmentData(commands: string[]): MqttSegmentData[] {
       continue;
     }
 
-    // M2 — XOR-Checksum-Validation. Govee BLE-Pakete haben am letzten Byte
-    // (Index 19) einen XOR über Bytes 0-18. Spoofed/malformed Pakete
-    // schlüpfen sonst durch und persistieren falsche segmentCount.
+    // M2 — XOR checksum validation. Govee BLE packets carry an XOR over bytes
+    // 0-18 in the last byte (index 19). Spoofed/malformed packets would
+    // otherwise slip through and persist a wrong segmentCount.
     let xor = 0;
     for (let i = 0; i < 19; i++) {
       xor ^= bytes[i];

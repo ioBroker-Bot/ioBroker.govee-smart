@@ -139,7 +139,7 @@ export class GoveeApiClient {
 
   /**
    * Auth headers for the bearer-token-protected sensor endpoints.
-   * Caller-pflichten Guard: hasBearerToken() prüfen bevor Aufruf.
+   * Caller-side guard: check hasBearerToken() before calling.
    */
   private authHeaders(): Record<string, string> {
     if (!this.bearerToken) {

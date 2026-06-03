@@ -825,10 +825,10 @@ function sanitizeId(str: string): string {
  * @param str camelCase input string
  */
 function humanize(str: string): string {
-  // Reihenfolge: erst Underscore → Space, dann camelCase-split, dann
-  // trim + erstes Zeichen uppercase. Vorher: leading-underscore-IDs
-  // (z.B. `_segment_color`) wurden zu ` segment color` mit leading
-  // Space und ohne Capitalization (^\w matched space, nicht word-char).
+  // Order: first underscore → space, then camelCase split, then trim +
+  // uppercase the first character. Previously leading-underscore IDs
+  // (e.g. `_segment_color`) became ` segment color` with a leading space
+  // and no capitalization (^\w matches a space, not a word char).
   return str
     .replace(/_/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -1049,8 +1049,8 @@ const SCENE_DROPDOWN_RULES: ReadonlyArray<{
  * applied, or [] for devices without a LAN address (sensors, appliances,
  * groups).
  *
- * Phase-Architektur: gehört zur LAN-Phase. Wird gerufen wenn ein Gerät per
- * LAN-Discovery sichtbar wird oder mit lanIp aus dem Cache geladen wird.
+ * Phase architecture: belongs to the LAN phase. Called when a device becomes
+ * visible via LAN discovery or is loaded with a lanIp from the cache.
  *
  * @param device Govee device
  * @param log Adapter logger — forwarded to applyQuirksToStates.
@@ -1121,8 +1121,8 @@ function buildDiagStateDefs(tierDef: string): StateDefinition[] {
  * (the LAN phase owns those). Returns intersection state for BaseGroup
  * devices.
  *
- * Phase-Architektur: gehört zur Cloud-Phase. Wird gerufen wenn capabilities
- * für ein Gerät aus dem Cache oder einem frischen Cloud-Load verfügbar sind.
+ * Phase architecture: belongs to the Cloud phase. Called when capabilities for
+ * a device become available from the cache or a fresh cloud load.
  *
  * @param device Govee device
  * @param log Adapter logger — forwarded to mapCapabilities / applyQuirksToStates.

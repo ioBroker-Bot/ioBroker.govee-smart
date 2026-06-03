@@ -64,8 +64,8 @@ export function onDeviceStateUpdate<
   // Mirror power-off to mode-dropdown reset. Covers MQTT/LAN-initiated
   // power changes (Govee app or physical remote) so the UI stays honest:
   // a device that's off can't be "playing Aurora-A" anymore.
-  // L11 — defensive auch 0 als false akzeptieren (Govee schickt Power
-  // theoretisch als boolean, aber MQTT-Boundary könnte 0 durchschleusen).
+  // L11 — defensively accept 0 as false too (Govee should send power as a
+  // boolean, but the MQTT boundary could let a 0 slip through).
   const powerOff = state.power === false || (state.power as unknown) === 0;
   if (powerOff && adapter.stateManager) {
     const prefix = adapter.stateManager.devicePrefix(device);

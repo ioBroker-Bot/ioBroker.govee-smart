@@ -413,13 +413,12 @@ export class DiagnosticsCollector {
   }
 
   /**
-   * Drop buffers für alle Devices die NICHT in der live-Liste sind.
+   * Drop buffers for all devices that are NOT in the live list.
    *
-   * Aufgerufen aus dem Adapter-cleanup-Pfad (reapStaleDevices) damit
-   * Logs/Packets/Responses für längst entfernte Govee-App-Devices
-   * nicht endlos im Speicher bleiben.
+   * Called from the adapter cleanup path (reapStaleDevices) so logs / packets /
+   * responses for long-removed Govee-app devices don't stay in memory forever.
    *
-   * @param liveDeviceIds Set der aktuell aktiven device-Ids
+   * @param liveDeviceIds Set of the currently active device ids
    */
   pruneOrphans(liveDeviceIds: Set<string>): void {
     for (const id of this.buffers.keys()) {

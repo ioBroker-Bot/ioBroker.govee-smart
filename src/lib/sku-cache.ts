@@ -89,9 +89,9 @@ export class SkuCache {
   constructor(dataDir: string, log: ioBroker.Logger) {
     this.cacheDir = path.join(dataDir, "cache");
     this.log = log;
-    // mkdir try/catch — Permission/Read-only-FS soll Constructor nicht crashen
-    // (würde sonst onReady throw → adapter restart-loop). Bei Fehlschlag wird
-    // dataAvailable=false markiert; save/load skippen dann silent.
+    // mkdir try/catch — a permission / read-only FS must not crash the
+    // constructor (that would throw in onReady → adapter restart loop). On
+    // failure dataAvailable=false is set and save/load skip silently.
     try {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
@@ -103,7 +103,7 @@ export class SkuCache {
     }
   }
 
-  /** False wenn Cache-Dir nicht zugreifbar ist — save/load skipt dann. */
+  /** False when the cache dir is not accessible — save/load then skip. */
   private dataAvailable = false;
 
   /**

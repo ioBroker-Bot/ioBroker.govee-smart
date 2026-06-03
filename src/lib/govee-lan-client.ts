@@ -45,9 +45,9 @@ export class GoveeLanClient {
   private scanSocket: dgram.Socket | null = null;
   private listenSocket: dgram.Socket | null = null;
   /**
-   * Persistent send-socket — vorher wurde pro Command ein neuer dgram-
-   *  Socket angelegt, gesendet, geschlossen. Beim Adapter-Stop mid-send
-   *  konnte der Callback in einen halb-zerlegten Adapter feuern.
+   * Persistent send-socket — previously a new dgram socket was created, used to
+   * send, and closed per command. On adapter stop mid-send the callback could
+   * fire into a half-torn-down adapter.
    */
   private sendSocket: dgram.Socket | null = null;
   private scanTimer: ioBroker.Interval | undefined = undefined;
@@ -80,7 +80,7 @@ export class GoveeLanClient {
    * unrelated polling.
    */
   private readonly lastCommandSentMs = new Map<string, number>();
-  /** Multicast-Membership-Adresse — gemerkt für dropMembership in stop(). */
+  /** Multicast membership address — remembered for dropMembership in stop(). */
   private multicastBind: string | undefined;
 
   /**
@@ -148,7 +148,7 @@ export class GoveeLanClient {
 
     this.multicastBind = bindAddr;
 
-    // Persistent Send-Socket für Commands — einmal anlegen, in stop() schliessen.
+    // Persistent send-socket for commands — create once, close in stop().
     this.sendSocket = dgram.createSocket("udp4");
     this.sendSocket.on("error", err => {
       this.log.debug(`LAN send socket error: ${err.message}`);
@@ -160,9 +160,9 @@ export class GoveeLanClient {
       this.handleMessage(msg, rinfo.address);
     });
     this.listenSocket.on("error", err => {
-      // EADDRINUSE = Port 4002 schon belegt (zweite Adapter-Instanz?). User
-      // muss das wissen — Adapter wäre sonst halb-tot (Discovery via scan
-      // geht, Status-Antworten verloren).
+      // EADDRINUSE = port 4002 already taken (a second adapter instance?). The
+      // user needs to know — otherwise the adapter is half-dead (discovery via
+      // scan works, status replies are lost).
       const code = (err as NodeJS.ErrnoException).code;
       if (code === "EADDRINUSE") {
         this.log.warn(`LAN listen port ${LISTEN_PORT} already in use — second instance? Status updates will be lost.`);
@@ -184,9 +184,9 @@ export class GoveeLanClient {
       this.scanSocket.on("error", err => {
         this.log.debug(`LAN scan socket error: ${err.message}`);
       });
-      // bind(0, bindAddr) — ephemeraler Port, aber an gewähltes Interface
-      // gebunden. Vorher: bind() ohne Adresse → ANY → asymmetrisch zum
-      // Listen-Socket der das bindAddr nutzt.
+      // bind(0, bindAddr) — ephemeral port, but bound to the chosen interface.
+      // Previously bind() without an address → ANY → asymmetric to the listen
+      // socket that uses bindAddr.
       this.scanSocket.bind(0, bindAddr, () => {
         if (this.stopped) {
           return;
@@ -195,12 +195,11 @@ export class GoveeLanClient {
         try {
           this.scanSocket?.addMembership(MULTICAST_ADDR, bindAddr);
         } catch {
-          // Membership-fail typischerweise OS-Routing-Issue (z.B. interface
-          // bindAddr nicht in der multicast-routing-table). LAN-Discovery
-          // bleibt trotzdem partial-funktional über setBroadcast(true), aber
-          // das ist asymmetrisch — Antworten kommen evtl. nicht zurück.
-          // Auf info-level loggen so der User die Ursache der "no devices"-
-          // Symptomatik in den Logs findet.
+          // A membership fail is typically an OS routing issue (e.g. interface
+          // bindAddr not in the multicast routing table). LAN discovery stays
+          // partially functional via setBroadcast(true), but that is asymmetric
+          // — replies may not come back. Log at info level so the user can find
+          // the cause of the "no devices" symptom in the logs.
           this.log.info(
             `LAN: could not join multicast group on ${bindAddr ?? "default interface"} — discovery may be incomplete`,
           );
@@ -244,8 +243,8 @@ export class GoveeLanClient {
     }
     this.pendingFlashTimers.clear();
     if (this.scanSocket) {
-      // dropMembership symmetrisch zu addMembership — auf macOS/Windows kann
-      // der Multicast-Filter sonst auf der NIC bis Process-Exit hängenbleiben.
+      // dropMembership symmetric to addMembership — on macOS/Windows the
+      // multicast filter could otherwise linger on the NIC until process exit.
       try {
         if (this.multicastBind) {
           this.scanSocket.dropMembership(MULTICAST_ADDR, this.multicastBind);
@@ -276,9 +275,9 @@ export class GoveeLanClient {
       }
       this.sendSocket = null;
     }
-    // L4 — seenDeviceIps clear, sonst überleben Einträge zwischen
-    // start/stop-Zyklen im selben Process (korrektheit nicht beeinflusst,
-    // aber discovery-log-info bei IP-Wechsel würde verloren gehen).
+    // L4 — clear seenDeviceIps, otherwise entries survive between start/stop
+    // cycles in the same process (correctness unaffected, but the
+    // discovery-log info on an IP change would be lost).
     this.seenDeviceIps.clear();
     this.multicastBind = undefined;
   }
@@ -300,9 +299,8 @@ export class GoveeLanClient {
       msg: { cmd, data },
     };
     const buf = Buffer.from(JSON.stringify(message));
-    // L5 — Govee-Spec ist UDP-PMTU-bound. Bei sehr grossen ptReal-Payloads
-    // (viele BLE-Pakete in JSON) warnen damit der User weiß warum etwas
-    // verloren geht.
+    // L5 — the Govee spec is UDP-PMTU-bound. Warn on very large ptReal payloads
+    // (many BLE packets in JSON) so the user knows why something gets lost.
     if (buf.length > 1400) {
       this.log.debug(`LAN payload large (${buf.length} bytes) — may be PMTU-fragmented for ${ip}`);
     }
@@ -591,9 +589,9 @@ export class GoveeLanClient {
    * @param sourceIp Source IP address from UDP rinfo
    */
   private handleMessage(msg: Buffer, sourceIp: string): void {
-    // L9 — Size-Bound. Pathologische Pakete (mehrere reassembled UDP-Frames)
-    // könnten 64KB+ haben. JSON.parse von 64KB+ blockiert den Event-Loop
-    // für ms-Spannen — bei vielen Devices gleichzeitig spürbar.
+    // L9 — size bound. Pathological packets (several reassembled UDP frames)
+    // could be 64KB+. JSON.parse of 64KB+ blocks the event loop for ms spans —
+    // noticeable with many devices at once.
     if (msg.length > 8192) {
       this.log.debug(`LAN message dropped from ${sourceIp}: oversize ${msg.length} bytes`);
       return;

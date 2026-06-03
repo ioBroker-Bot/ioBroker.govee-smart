@@ -69,15 +69,15 @@ export class GoveeCloudClient {
   private onResponse: ((deviceId: string, endpoint: string, body: unknown) => void) | null = null;
 
   /**
-   * Letzte Fehler-Kategorie für getFailureReason() — gesetzt bei jedem
-   * HTTP-Fehler im request-Pfad.
+   * Last error category for getFailureReason() — set on every HTTP error in
+   * the request path.
    */
   private lastErrorCategory: ErrorCategory | null = null;
 
   /**
    * @param apiKey Govee API key
    * @param log ioBroker logger
-   * @param httpsRequestImpl optional DI für Tests — Default ist die echte httpsRequest
+   * @param httpsRequestImpl optional DI for tests — default is the real httpsRequest
    */
   constructor(apiKey: string, log: ioBroker.Logger, httpsRequestImpl: HttpsRequestFn = httpsRequest) {
     this.apiKey = apiKey;
@@ -86,10 +86,10 @@ export class GoveeCloudClient {
   }
 
   /**
-   * Short user-facing reason for "Cloud not connected", or null wenn der
-   * Client noch keinen Fehler gesehen hat. Analog zu mqtt-client —
-   * `logDeviceSummary` nutzt das damit der Adapter klare Diagnose-Texte
-   * statt „see earlier errors" loggen kann.
+   * Short user-facing reason for "Cloud not connected", or null when the
+   * client has not seen an error yet. Like the mqtt-client — `logDeviceSummary`
+   * uses it so the adapter can log clear diagnostic text instead of
+   * "see earlier errors".
    */
   getFailureReason(): string | null {
     switch (this.lastErrorCategory) {
@@ -305,15 +305,15 @@ export class GoveeCloudClient {
           `Cloud API: ${method} ${path}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) — treated as no data`,
         );
       }
-      // Reset Failure-Kategorie bei Erfolg — getFailureReason() returnt
-      // dann null bis zum nächsten Fehler.
+      // Reset the failure category on success — getFailureReason() then returns
+      // null until the next error.
       this.lastErrorCategory = null;
       return result.value;
     } catch (err) {
-      // 429 explizit per statusCode klassifizieren — classifyError schaut nur in
-      // err.message, und HttpError("Too many requests", 429, …) hat keinen "429"-
-      // oder "Rate limit"-Marker im Text. Ohne diesen Branch landet 429 als
-      // UNKNOWN, getFailureReason() liefert dann den falschen Ready-Hint.
+      // Classify 429 explicitly by status code — classifyError only looks at
+      // err.message, and HttpError("Too many requests", 429, …) has no "429"
+      // or "Rate limit" marker in the text. Without this branch 429 lands as
+      // UNKNOWN and getFailureReason() returns the wrong ready hint.
       if (err instanceof HttpError && err.statusCode === 429) {
         this.lastErrorCategory = "RATE_LIMIT";
         const retryAfter = String(err.headers["retry-after"] ?? "unknown");

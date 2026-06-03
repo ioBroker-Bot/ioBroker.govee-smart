@@ -193,10 +193,10 @@ export class SegmentWizard {
   /**
    * Clear any pending idle-timer. Called from onUnload.
    *
-   * Wenn ein Wizard noch läuft beim Adapter-Stop: Strip bleibt im
-   * weiß-flash-Zustand. UX trade-off — onUnload muss synchron sein,
-   * restoreBaseline kann hier nicht awaiten. User-Hinweis schon im
-   * start-Log.
+   * If a wizard is still running on adapter stop the strip stays in its
+   * white-flash state. UX trade-off — onUnload must be synchronous, so
+   * restoreBaseline can't be awaited here. The user is already hinted at this
+   * in the start log.
    */
   public dispose(): void {
     if (this.session) {
@@ -351,7 +351,7 @@ export class SegmentWizard {
   }
 
   /**
-   * User ends the session — "Strip zu Ende, keine weiteren Segmente".
+   * User ends the session — "end of strip, no further segments".
    * The currently-flashed segment was NOT answered, so it doesn't count.
    */
   public async done(): Promise<WizardResponse> {

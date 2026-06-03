@@ -1647,10 +1647,10 @@ describe("CapabilityMapper", () => {
     // wipe-bug structurally impossible. Each test fails when a future
     // refactor breaks the corresponding link.
 
-    it("Invariante 1: LAN_STATE_IDS deckt alle getDefaultLanStates-Einträge", () => {
-      // Wer zu getDefaultLanStates ein fünftes Feld hinzufügt aber LAN_STATE_IDS
-      // nicht erweitert: das neue Feld läuft in den cloud-owned cleanup → wird
-      // beim nächsten Restart gelöscht.
+    it("Invariant 1: LAN_STATE_IDS covers all getDefaultLanStates entries", () => {
+      // If someone adds a fifth field to getDefaultLanStates but doesn't extend
+      // LAN_STATE_IDS: the new field runs into the cloud-owned cleanup → gets
+      // deleted on the next restart.
       for (const def of getDefaultLanStates()) {
         expect(LAN_STATE_IDS.has(def.id), `LAN_STATE_IDS missing entry for ${def.id}`).toBe(true);
       }
@@ -1660,11 +1660,11 @@ describe("CapabilityMapper", () => {
       ).toBe(getDefaultLanStates().length);
     });
 
-    it("Invariante 2: buildCloudStateDefs hat keinen Overlap mit LAN_STATE_IDS", () => {
-      // Wer den LAN_STATE_IDS-Dedup-Filter in buildCloudStateDefs vergisst:
-      // power/brightness/etc. werden doppelt angelegt — einmal aus LAN-Phase,
-      // einmal aus Cloud-cap. Cleanup wischt eine, andere bleibt; State-Wert
-      // springt zwischen Quellen.
+    it("Invariant 2: buildCloudStateDefs has no overlap with LAN_STATE_IDS", () => {
+      // If someone forgets the LAN_STATE_IDS dedup filter in buildCloudStateDefs:
+      // power/brightness/etc. are created twice — once from the LAN phase, once
+      // from the cloud cap. Cleanup wipes one, the other stays; the state value
+      // jumps between sources.
       const device: GoveeDevice = {
         sku: "H6172",
         deviceId: "AA:BB:CC:DD:EE:FF",
