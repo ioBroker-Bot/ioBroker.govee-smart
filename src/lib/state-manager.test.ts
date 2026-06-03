@@ -63,6 +63,15 @@ function createMockAdapter(): {
       calls.push({ method: "setStateAsync", args: [id, val] });
       states.set(id, val as unknown as ioBroker.State);
     },
+    setStateChangedAsync: async (id: string, val: Record<string, unknown>) => {
+      const prev = states.get(id) as { val?: unknown } | undefined;
+      const changed = !prev || prev.val !== (val as { val?: unknown }).val;
+      calls.push({ method: "setStateChangedAsync", args: [id, val, { changed }] });
+      if (changed) {
+        states.set(id, val as unknown as ioBroker.State);
+      }
+      return { id } as never;
+    },
     getStateAsync: async (id: string) => {
       calls.push({ method: "getStateAsync", args: [id] });
       return states.get(id) ?? null;
@@ -1037,9 +1046,9 @@ describe("StateManager", () => {
       const dev = createTestDevice();
       await createAllStatesForTest(sm, dev, basicControlDefs());
 
-      const before = calls.filter(c => c.method === "setStateAsync").length;
+      const before = calls.filter(c => c.method === "setStateChangedAsync").length;
       await sm.updateDeviceState(dev, {});
-      const after = calls.filter(c => c.method === "setStateAsync").length;
+      const after = calls.filter(c => c.method === "setStateChangedAsync").length;
       expect(after - before).toBe(0);
     });
 
@@ -1049,17 +1058,36 @@ describe("StateManager", () => {
       const dev = createTestDevice();
       await createAllStatesForTest(sm, dev, basicControlDefs());
 
-      const before = calls.filter(c => c.method === "setStateAsync").length;
+      const before = calls.filter(c => c.method === "setStateChangedAsync").length;
       await sm.updateDeviceState(dev, {
         power: true,
         brightness: 75,
         colorRgb: "#ff0000",
       });
-      const after = calls.filter(c => c.method === "setStateAsync").length;
-      // Three fields set → three setStateAsync calls, no extra getObjectAsync
+      const after = calls.filter(c => c.method === "setStateChangedAsync").length;
+      // Three fields set → three setStateChangedAsync calls, no extra getObjectAsync
       expect(after - before).toBe(3);
       const getObjectCalls = calls.filter(c => c.method === "getObjectAsync");
       expect(getObjectCalls.filter(c => String(c.args[0]).includes(".control."))).toHaveLength(0);
+    });
+
+    it("uses setStateChangedAsync — a repeated identical value is not re-written", async () => {
+      const { adapter, calls } = createMockAdapter();
+      const sm = new StateManager(adapter as never);
+      const dev = createTestDevice();
+      await createAllStatesForTest(sm, dev, basicControlDefs());
+
+      await sm.updateDeviceState(dev, { power: true });
+      await sm.updateDeviceState(dev, { power: true }); // identical — LAN poll re-delivery
+
+      const powerWrites = calls.filter(
+        c => c.method === "setStateChangedAsync" && String(c.args[0]).endsWith(".control.power"),
+      );
+      // Invoked both times (we always call setStateChangedAsync), but only the
+      // first actually changed the value — the second is a no-op timestamp-wise.
+      expect(powerWrites).toHaveLength(2);
+      expect((powerWrites[0].args[2] as { changed: boolean }).changed).toBe(true);
+      expect((powerWrites[1].args[2] as { changed: boolean }).changed).toBe(false);
     });
   });
 

@@ -838,7 +838,12 @@ export class StateManager {
     const writes: Promise<unknown>[] = [];
 
     const set = (id: string, val: ioBroker.StateValue): void => {
-      writes.push(this.adapter.setStateAsync(id, { val, ack: true }).catch(() => undefined));
+      // setStateChangedAsync (not setStateAsync): the LAN devStatus poll (every
+      // 30 s when no MQTT is connected) re-delivers identical power / brightness
+      // / colorRgb / colorTemperature each cycle — only write (and bump the
+      // timestamp) on a real value change. Freshness lives on the device object
+      // (lastLanReplyAt / lastSeenOnNetwork), not on these control-state ts.
+      writes.push(this.adapter.setStateChangedAsync(id, { val, ack: true }).catch(() => undefined));
     };
 
     // info.online for Lights is owned by syncInfoOnline — direct writes here
