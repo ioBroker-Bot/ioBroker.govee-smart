@@ -122,8 +122,6 @@ class GoveeAdapter extends utils.Adapter {
   /** Cached admin language from system.config — used for wizard UI text */
   /** Public for handler modules. */
   public adminLanguage = "en";
-  /** Last time `requestCode` was triggered via onMessage — guards against double-click email spam. */
-  private lastVerificationRequestMs = 0;
   /**
    * Set true at the start of onUnload — async paths (onStateChange,
    * applyCloudCapabilities, retrySceneData, …) check this between awaits

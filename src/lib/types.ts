@@ -464,10 +464,9 @@ export function classifyError(err: unknown): ErrorCategory {
 }
 
 /**
- * Render an unknown error to a string for logging.
- *
- * Prefer `e.stack` over `e.message` so warn/error logs include where the
- * error originated. For non-Error values falls back to `String(...)`.
+ * Render an unknown error to a string for logging. Returns `e.message` for
+ * Error values (the stack stays out of warn/error lines — debug paths that
+ * want the trace render it themselves) and `String(...)` for everything else.
  *
  * @param e Caught value (usually `unknown` in catch blocks)
  */
@@ -578,10 +577,11 @@ export function logDedup(
 
 /**
  * Clamp a value to the 0-255 byte range. NaN/non-numeric inputs become 0.
+ * Shared with govee-lan-client (LAN command bounds-check).
  *
  * @param v Input value
  */
-function clampByte(v: unknown): number {
+export function clampByte(v: unknown): number {
   const n = typeof v === "number" && Number.isFinite(v) ? v : 0;
   return Math.max(0, Math.min(255, Math.round(n)));
 }

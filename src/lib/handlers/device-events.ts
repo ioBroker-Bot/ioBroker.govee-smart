@@ -20,7 +20,6 @@ import * as groupStateHelpers from "./group-state-helpers";
 export interface DeviceEventsAdapter {
   readonly log: ioBroker.Logger;
   readonly namespace: string;
-  readonly language?: ioBroker.Languages;
   readonly deviceManager: DeviceManager | null;
   readonly stateManager: StateManager | null;
   readonly localSnapshots: LocalSnapshotStore | null;

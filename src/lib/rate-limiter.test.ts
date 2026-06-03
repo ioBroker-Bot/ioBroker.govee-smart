@@ -39,7 +39,7 @@ describe("RateLimiter", () => {
     });
 
     expect(called).toBe(3);
-    expect(rl.dailyUsage).toBe(3);
+    expect(rl.getUsageSnapshot().usedToday).toBe(3);
   });
 
   it("should queue calls when minute limit exceeded", async () => {
@@ -76,7 +76,7 @@ describe("RateLimiter", () => {
 
     expect(called).toBe(2);
     expect(queued).toBe(false);
-    expect(rl.dailyUsage).toBe(2);
+    expect(rl.getUsageSnapshot().usedToday).toBe(2);
   });
 
   it("should enqueue with priority sorting", () => {
@@ -125,51 +125,13 @@ describe("RateLimiter", () => {
     await rl.tryExecute(async () => {});
 
     expect((rl as any).callsThisMinute).toBe(2);
-    expect(rl.dailyUsage).toBe(2);
+    expect(rl.getUsageSnapshot().usedToday).toBe(2);
   });
 
   it("should block when both limits are independently exceeded", async () => {
     // Daily limit reached first
     const rl = new RateLimiter(mockLog, mockTimers, 100, 1);
     await rl.tryExecute(async () => {});
-    expect(rl.canMakeCall()).toBe(false);
-  });
-
-  it("should update limits dynamically", async () => {
-    const rl = new RateLimiter(mockLog, mockTimers, 2, 100);
-    let called = 0;
-
-    await rl.tryExecute(async () => {
-      called++;
-    });
-    await rl.tryExecute(async () => {
-      called++;
-    });
-    expect(rl.canMakeCall()).toBe(false);
-
-    // Increase limit — should allow more calls
-    rl.updateLimits(4, 100);
-    expect(rl.canMakeCall()).toBe(true);
-
-    await rl.tryExecute(async () => {
-      called++;
-    });
-    expect(called).toBe(3);
-  });
-
-  it("should reduce limits dynamically", async () => {
-    const rl = new RateLimiter(mockLog, mockTimers, 10, 100);
-    let called = 0;
-
-    await rl.tryExecute(async () => {
-      called++;
-    });
-    await rl.tryExecute(async () => {
-      called++;
-    });
-
-    // Reduce to 2/min — should now be blocked
-    rl.updateLimits(2, 100);
     expect(rl.canMakeCall()).toBe(false);
   });
 });

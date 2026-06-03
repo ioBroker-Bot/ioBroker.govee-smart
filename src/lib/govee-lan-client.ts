@@ -1,5 +1,6 @@
 import * as dgram from "node:dgram";
-import type { LanDevice, LanMessage, LanStatus, TimerAdapter } from "./types";
+import { clampByte, type LanDevice, type LanMessage, type LanStatus, type TimerAdapter } from "./types";
+import { FORCE_COLOR_MODE_SETTLE_MS } from "./timing-constants";
 
 const MULTICAST_ADDR = "239.255.255.250";
 const SCAN_PORT = 4001;
@@ -521,7 +522,7 @@ export class GoveeLanClient {
     // tracked so stop() can cancel it explicitly: ioBroker timers eventually
     // fire into a torn-down adapter otherwise (the wrapper-tracked handles
     // get cleared in onUnload, but only via this Set).
-    const delayMs = 150;
+    const delayMs = FORCE_COLOR_MODE_SETTLE_MS;
     const handle = this.timers.setTimeout(() => {
       if (handle !== undefined) {
         this.pendingFlashTimers.delete(handle);
@@ -702,19 +703,6 @@ export class GoveeLanClient {
 }
 
 // --- BLE Packet Builder for ptReal ---
-
-/**
- * Clamp a value to 0-255. NaN / non-numeric → 0. Centralised so every LAN
- * command goes through the same bounds-check.
- *
- * @param v Input value
- */
-function clampByte(v: number): number {
-  if (typeof v !== "number" || !Number.isFinite(v)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(255, Math.round(v)));
-}
 
 /**
  * Clamp a value to 0-100. NaN / non-numeric → 0.

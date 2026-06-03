@@ -168,14 +168,6 @@ export class StateManager {
   }
 
   /**
-   * Idempotent state-delete: prüft erst ob das Object existiert. Wenn nicht,
-   * no-op (verhindert „has no existing object"-WARN den `delStateAsync`
-   * sonst intern triggert wenn das Object weg ist).
-   *
-   * Pattern: Caller will ein State löschen (z.B. weil der Zustand „cleaned"
-   * geworden ist), aber weiß nicht ob das Object jemals da war. delObject
-   * + delState ist nur dann sicher wenn das Object EXISTIERT.
-   *
    * Force-replace `common.states` on a persisted state object if any existing
    * value is non-string (= translation object from older releases).
    *

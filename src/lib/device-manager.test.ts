@@ -1156,42 +1156,6 @@ describe("DeviceManager", () => {
     });
   });
 
-  describe("logDedup", () => {
-    it("should change category on different error types", () => {
-      const warnings: string[] = [];
-      const debugs: string[] = [];
-      const dedupLog: ioBroker.Logger = {
-        debug: (msg: string) => {
-          debugs.push(msg);
-        },
-        info: () => {},
-        warn: (msg: string) => {
-          warnings.push(msg);
-        },
-        error: () => {},
-        silly: () => {},
-        level: "debug",
-      };
-
-      const dedupDm = new DeviceManager(dedupLog, mockTimers);
-
-      // First call — new category: 1 warn + 1 debug (stack on debug, v2.10.1)
-      (dedupDm as any).logDedup("Cloud failed", new Error("ECONNREFUSED"));
-      expect(warnings).toHaveLength(1);
-      expect(debugs).toHaveLength(1); // stack-trace went to debug
-
-      // Same category — should debug (repeated), no new warn
-      (dedupDm as any).logDedup("Cloud failed", new Error("ENOTFOUND"));
-      expect(warnings).toHaveLength(1); // no new warning
-      expect(debugs).toHaveLength(2); // +1 repeated
-
-      // Different category — should warn again + new stack debug
-      (dedupDm as any).logDedup("Cloud failed", new Error("HTTP 401"));
-      expect(warnings).toHaveLength(2);
-      expect(debugs).toHaveLength(3); // +1 stack for new category
-    });
-  });
-
   describe("handleMqttStatus — edge cases", () => {
     function setupDevice(): void {
       const lanDevice: LanDevice = {

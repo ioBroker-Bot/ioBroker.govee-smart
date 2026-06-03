@@ -5,14 +5,7 @@ import { applySceneSpeed } from "./govee-lan-client";
 import type { RateLimiter } from "./rate-limiter";
 import { getDeviceQuirks, type ConfigurableOverrideCommand, type TransportTarget } from "./device-registry";
 import { GOVEE_DEVICE_TYPE } from "./govee-constants";
-
-/**
- * Delay between switching the device into static-color mode and sending the
- * follow-up segment commands. Empirically the firmware needs ~150 ms for the
- * mode flip; shorter delays leave the device still in scene/music mode and the
- * subsequent segment writes are silently dropped.
- */
-const FORCE_COLOR_MODE_SETTLE_MS = 150;
+import { FORCE_COLOR_MODE_SETTLE_MS } from "./timing-constants";
 
 /**
  * Outcome of `resolveTransport` — decides which channel handles a command

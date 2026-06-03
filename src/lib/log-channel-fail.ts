@@ -3,8 +3,10 @@ import { classifyError, type ErrorCategory } from "./types";
 
 /**
  * Per-channel/per-category dedup tracker — fires the warn message once per
- * category, subsequent failures in the same category drop to debug. Wraps
- * the lower-level `logDedup` logic so each channel has its own map.
+ * category, subsequent failures in the same category drop to debug. Same
+ * warn-on-change / debug-on-repeat policy as `logDedup` (types.ts), but each
+ * channel carries its own tracker so channels dedup independently and the
+ * warn line is the user-translated message from {@link formatChannelFail}.
  */
 export interface ChannelDedupState {
   /** Last category seen for this channel. null = next failure is a fresh warn. */

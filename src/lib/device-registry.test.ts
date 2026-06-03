@@ -156,15 +156,6 @@ describe("DeviceRegistry", () => {
       expect(reg.getStatus("H9999")).toBeUndefined();
     });
 
-    it("getName returns the Govee app name", () => {
-      expect(reg.getName("H61BE")).toBe("Glide Wall Light Wide");
-      expect(reg.getName("H5179")).toBe("Wifi Thermometer");
-    });
-
-    it("getName returns undefined for unknown SKU", () => {
-      expect(reg.getName("H9999")).toBeUndefined();
-    });
-
     it("getEntry returns the full entry", () => {
       const e = reg.getEntry("H5179");
       expect(e).toBeDefined();
@@ -177,7 +168,6 @@ describe("DeviceRegistry", () => {
     it("SKU lookup is case-insensitive", () => {
       expect(reg.getQuirks("h7160")).toEqual({ brokenPlatformApi: true });
       expect(reg.getStatus("h61be")).toBe("verified");
-      expect(reg.getName("h7160")).toBe("Smart Space Heater");
     });
 
     it("getKnownSkus returns all SKUs regardless of status", () => {

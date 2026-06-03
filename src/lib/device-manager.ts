@@ -1339,30 +1339,6 @@ export class DeviceManager {
   }
 
   /**
-   * Log error with dedup — only warn on category change, debug on repeat.
-   * v2.10.1: stack-trace stays on debug-level only. warn carries err.message
-   * (clean one-liner) so admin-logs don't drown in Node-internal frames.
-   *
-   * @param context Error context description
-   * @param err Error to log
-   */
-  private logDedup(context: string, err: unknown): void {
-    const category = classifyError(err);
-    const cleanMsg = err instanceof Error ? err.message : String(err);
-    const headline = `${context}: ${cleanMsg}`;
-    if (category !== this.lastErrorCategory) {
-      this.lastErrorCategory = category;
-      this.log.warn(headline);
-      // stack only on debug — admin doesn't need Node internals in warn
-      if (err instanceof Error && err.stack) {
-        this.log.debug(`${context} stack: ${err.stack}`);
-      }
-    } else {
-      this.log.debug(`${headline} (repeated)`);
-    }
-  }
-
-  /**
    * Persist a device's current runtime state to the SKU cache. Safe no-op
    * when no cache is configured.
    *

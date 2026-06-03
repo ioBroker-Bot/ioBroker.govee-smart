@@ -294,15 +294,10 @@ export class DeviceRegistry {
   }
 
   /**
-   * Govee-app display name for a SKU, or undefined if unknown.
-   *
-   * @param sku Govee SKU (case-insensitive)
+   * All SKUs known to the registry (regardless of status). Production never
+   * calls this — it is a read-only introspection seam for the loader unit
+   * tests (verify count / dedup / filtering of malformed entries).
    */
-  getName(sku: string): string | undefined {
-    return this.getEntry(sku)?.name;
-  }
-
-  /** All SKUs known to the registry (regardless of status). */
   getKnownSkus(): string[] {
     return [...this.entries.keys()];
   }
