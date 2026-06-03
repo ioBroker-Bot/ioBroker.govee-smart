@@ -97,7 +97,7 @@ src/lib/handlers/                        → 8 Handler-Files für main.ts (v2.6.
   cloud-retry-handler.ts                 → cloudInitWithTimeout + buildCloudRetryHost + ensure + handleFailure + manualRefresh
   diagnostics-handler.ts                 → handleDiagnosticsExport (Throttle + JSON-Dump)
   group-fanout-handler.ts                → buildGroupFanoutHost + resolveGroupMembers + updateGroupReachability
-  group-state-helpers.ts                 → STATE_TO_COMMAND + COMMAND_DROPDOWN + MODE_DROPDOWNS + stateToCommand + reset-Helpers
+  dropdown-reset-helpers.ts              → STATE_TO_COMMAND + COMMAND_DROPDOWN + MODE_DROPDOWNS + stateToCommand + reset-Helpers
   snapshot-handler-glue.ts               → buildSnapshotHost (closure-Factory)
   state-change-router.ts                 → onStateChange + sub-handlers + dropdown-resolver + sendMusicCommand + handleManualSegments
   wizard-handler.ts                      → buildWizardHost + applyWizardResult + runWizardStep + deviceKey-Helpers

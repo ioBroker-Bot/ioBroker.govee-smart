@@ -21,7 +21,7 @@ import * as cloudStateLoader from "./lib/handlers/cloud-state-loader";
 import * as connectionState from "./lib/handlers/connection-state";
 import * as deviceEvents from "./lib/handlers/device-events";
 import * as groupFanoutHandler from "./lib/handlers/group-fanout-handler";
-import * as groupStateHelpers from "./lib/handlers/group-state-helpers";
+import * as dropdownReset from "./lib/handlers/dropdown-reset-helpers";
 import * as snapshotHandlerGlue from "./lib/handlers/snapshot-handler-glue";
 import * as stateChangeRouter from "./lib/handlers/state-change-router";
 import * as wizardHandler from "./lib/handlers/wizard-handler";
@@ -867,7 +867,7 @@ class GoveeAdapter extends utils.Adapter {
 
   /**
    * Map a state suffix to a command name — public delegate for handler modules,
-   * stateless lookup in lib/handlers/group-state-helpers. Simple suffixes live
+   * stateless lookup in lib/handlers/dropdown-reset-helpers. Simple suffixes live
    * in a lookup table; segment indices need regex extraction because they're
    * dynamic. The three music states all route to the same "music" command —
    * the handler reads sibling values.
@@ -875,7 +875,7 @@ class GoveeAdapter extends utils.Adapter {
    * @param suffix State ID suffix (e.g. "power", "brightness")
    */
   public stateToCommand(suffix: string): string | null {
-    return groupStateHelpers.stateToCommand(suffix);
+    return dropdownReset.stateToCommand(suffix);
   }
 
   /** Public delegate for cloud-retry-handler's CloudRetryHandlerAdapter interface. */

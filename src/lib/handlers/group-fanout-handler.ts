@@ -1,8 +1,8 @@
 import type { DeviceManager } from "../device-manager";
 import type { GroupFanoutHost } from "../group-fanout";
+import { resolveGroupMembers } from "../group-fanout";
 import type { StateManager } from "../state-manager";
 import type { GoveeDevice } from "../types";
-import { sessionKey } from "../device-key";
 
 /**
  * Adapter surface required by the group-fanout glue. Loose
@@ -20,33 +20,10 @@ export interface GroupFanoutHandlerAdapter {
   sendMusicCommand(device: GoveeDevice, devicePrefix: string, stateSuffix: string, value: unknown): Promise<void>;
 }
 
-/**
- * Resolve group member references to actual device objects. Pure helper —
- * builds a once-per-call lookup index instead of N×Array.find, since the
- * call fan-out (every state-update touches updateGroupReachability → all
- * groups → resolveGroupMembers) made the linear scan dominate the hot path
- * on accounts with many devices and many groups.
- *
- * @param group BaseGroup device with groupMembers
- * @param devices Full device list to search
- */
-export function resolveGroupMembers(group: GoveeDevice, devices: GoveeDevice[]): GoveeDevice[] {
-  if (!group.groupMembers) {
-    return [];
-  }
-  const byKey = new Map<string, GoveeDevice>();
-  for (const d of devices) {
-    byKey.set(sessionKey(d.sku, d.deviceId), d);
-  }
-  const out: GoveeDevice[] = [];
-  for (const m of group.groupMembers) {
-    const d = byKey.get(sessionKey(m.sku, m.deviceId));
-    if (d) {
-      out.push(d);
-    }
-  }
-  return out;
-}
+// resolveGroupMembers (canonical resolver) lives in ../group-fanout, shared with
+// the GroupFanoutHandler class; imported above for local use and re-exported so
+// callers reaching it via this glue module (device-events) keep working.
+export { resolveGroupMembers };
 
 /**
  * Recalculate `info.membersUnreachable` for all groups. Called when any

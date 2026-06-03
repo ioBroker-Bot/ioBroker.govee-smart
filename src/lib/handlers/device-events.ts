@@ -7,7 +7,7 @@ import type { StateManager } from "../state-manager";
 import { errMessage, type DeviceState, type GoveeDevice } from "../types";
 import * as connectionState from "./connection-state";
 import * as groupFanoutHandler from "./group-fanout-handler";
-import * as groupStateHelpers from "./group-state-helpers";
+import * as dropdownReset from "./dropdown-reset-helpers";
 
 /**
  * Adapter surface required by the device-event helpers — covers the
@@ -43,7 +43,7 @@ export function onDeviceStateUpdate<
   T extends DeviceEventsAdapter &
     connectionState.ConnectionStateAdapter &
     groupFanoutHandler.GroupFanoutHandlerAdapter &
-    groupStateHelpers.GroupStateHelpersAdapter,
+    dropdownReset.GroupStateHelpersAdapter,
 >(adapter: T, device: GoveeDevice, state: Partial<DeviceState>): void {
   if (adapter.stateManager) {
     adapter.stateManager.updateDeviceState(device, state).catch(() => {});
@@ -69,7 +69,7 @@ export function onDeviceStateUpdate<
   const powerOff = state.power === false || (state.power as unknown) === 0;
   if (powerOff && adapter.stateManager) {
     const prefix = adapter.stateManager.devicePrefix(device);
-    groupStateHelpers.resetModeDropdowns(adapter, prefix, "").catch(() => undefined);
+    dropdownReset.resetModeDropdowns(adapter, prefix, "").catch(() => undefined);
   }
 }
 

@@ -1,4 +1,32 @@
 import { errMessage, type GoveeDevice } from "./types";
+import { sessionKey } from "./device-key";
+
+/**
+ * Resolve a group's member references to the actual device objects. Builds a
+ * once-per-call lookup index (sessionKey → device) instead of N×Array.find —
+ * the canonical resolver shared by the GroupFanoutHandler class and the
+ * group-fanout-handler glue (which re-exports it).
+ *
+ * @param group BaseGroup device with groupMembers
+ * @param devices Full device list to search
+ */
+export function resolveGroupMembers(group: GoveeDevice, devices: GoveeDevice[]): GoveeDevice[] {
+  if (!group.groupMembers) {
+    return [];
+  }
+  const byKey = new Map<string, GoveeDevice>();
+  for (const d of devices) {
+    byKey.set(sessionKey(d.sku, d.deviceId), d);
+  }
+  const out: GoveeDevice[] = [];
+  for (const m of group.groupMembers) {
+    const d = byKey.get(sessionKey(m.sku, m.deviceId));
+    if (d) {
+      out.push(d);
+    }
+  }
+  return out;
+}
 
 /**
  * Host-Interface für GroupFanoutHandler — die Adapter-Funktionen die der
@@ -95,12 +123,7 @@ export class GroupFanoutHandler {
    * @param devices Full device list to search
    */
   resolveMembers(group: GoveeDevice, devices: GoveeDevice[]): GoveeDevice[] {
-    if (!group.groupMembers) {
-      return [];
-    }
-    return group.groupMembers
-      .map(m => devices.find(d => d.sku === m.sku && d.deviceId === m.deviceId))
-      .filter((d): d is GoveeDevice => d !== undefined);
+    return resolveGroupMembers(group, devices);
   }
 
   /**

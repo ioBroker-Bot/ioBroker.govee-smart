@@ -8,7 +8,7 @@ import type { StateManager } from "../state-manager";
 import { errMessage, hexToRgb, parseSegmentList, resolveStatesValue, type GoveeDevice } from "../types";
 import * as cloudRetryHandler from "./cloud-retry-handler";
 import * as diagnosticsHandler from "./diagnostics-handler";
-import * as groupStateHelpers from "./group-state-helpers";
+import * as dropdownReset from "./dropdown-reset-helpers";
 
 /**
  * Adapter surface required by the state-change router. Includes everything
@@ -293,7 +293,7 @@ export async function onStateChange(
     await adapter.groupFanout!.fanOut(device, stateSuffix, val);
     await adapter.setStateAsync(id, { val, ack: true });
     if (stateSuffix === "scenes.light_scene" || stateSuffix === "music.music_mode") {
-      await groupStateHelpers.resetRelatedDropdowns(
+      await dropdownReset.resetRelatedDropdowns(
         adapter,
         prefix,
         stateSuffix === "scenes.light_scene" ? "lightScene" : "music",
@@ -311,7 +311,7 @@ export async function onStateChange(
   if (stateSuffix === "snapshots.snapshot_local") {
     if (val !== "0" && val !== 0) {
       await adapter.snapshotHandler!.restore(device, val);
-      await groupStateHelpers.resetRelatedDropdowns(adapter, prefix, "snapshotLocal");
+      await dropdownReset.resetRelatedDropdowns(adapter, prefix, "snapshotLocal");
     }
     await adapter.setStateAsync(id, { val, ack: true });
     return;
@@ -364,7 +364,7 @@ export async function onStateChange(
     return;
   }
 
-  const command = groupStateHelpers.stateToCommand(stateSuffix);
+  const command = dropdownReset.stateToCommand(stateSuffix);
 
   if (!command) {
     await handleGenericCapabilityCommand(adapter, device, id, stateSuffix, val);
@@ -398,7 +398,7 @@ export async function onStateChange(
       await sendMusicCommand(adapter, device, prefix, stateSuffix, val);
       await adapter.setStateAsync(id, { val, ack: true });
       if (stateSuffix === "music.music_mode") {
-        await groupStateHelpers.resetRelatedDropdowns(adapter, prefix, "music");
+        await dropdownReset.resetRelatedDropdowns(adapter, prefix, "music");
       }
       return;
     }
@@ -407,9 +407,9 @@ export async function onStateChange(
     await adapter.setStateAsync(id, { val, ack: true });
     // Power-off resets all mode dropdowns (device off → no active mode).
     if (command === "power" && val === false) {
-      await groupStateHelpers.resetModeDropdowns(adapter, prefix, "");
+      await dropdownReset.resetModeDropdowns(adapter, prefix, "");
     } else {
-      await groupStateHelpers.resetRelatedDropdowns(adapter, prefix, command);
+      await dropdownReset.resetRelatedDropdowns(adapter, prefix, command);
     }
   } catch (err) {
     adapter.log.warn(`Command failed for ${device.name}: ${errMessage(err)}`);

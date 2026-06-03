@@ -1,6 +1,7 @@
 import { SEGMENT_COUNT_MAX, SEGMENT_HARD_MAX } from "./device-manager/lookups";
 import { WIZARD_IDLE_TIMEOUT_MS } from "./timing-constants";
 import type { GoveeDevice } from "./types";
+import { readDeviceBaseline } from "./device-baseline";
 
 /**
  * Wizard UI text, keyed by message id and language. The handful of admin
@@ -572,38 +573,14 @@ export class SegmentWizard {
    * @param device Target device
    */
   private async captureBaseline(device: GoveeDevice): Promise<SegmentWizardSession["baseline"]> {
-    const prefix = this.host.devicePrefix(device);
-    const ns = this.host.namespace;
-    // Read all baseline states in parallel — sequentially the wizard-start
-    // delay scaled with segmentCount × 2 round-trips (Redis lookups, ~10 ms
-    // each → 600 ms for a 30-segment strip). Promise.all collapses that to
-    // one round-trip's worth of latency.
-    const currentCount = device.segmentCount ?? 0;
-    const segIds: string[] = [];
-    for (let i = 0; i < currentCount; i++) {
-      segIds.push(`${ns}.${prefix}.segments.${i}.color`, `${ns}.${prefix}.segments.${i}.brightness`);
-    }
-    const [power, brightness, colorRgb, ...segValues] = await Promise.all([
-      this.host.getState(`${ns}.${prefix}.control.power`).then(s => s?.val),
-      this.host.getState(`${ns}.${prefix}.control.brightness`).then(s => s?.val),
-      this.host.getState(`${ns}.${prefix}.control.colorRgb`).then(s => s?.val),
-      ...segIds.map(id => this.host.getState(id).then(s => s?.val)),
-    ]);
-    const segmentColors: SegmentWizardSession["baseline"]["segmentColors"] = [];
-    for (let i = 0; i < currentCount; i++) {
-      const c = segValues[i * 2];
-      const b = segValues[i * 2 + 1];
-      segmentColors.push({
-        idx: i,
-        color: typeof c === "string" ? c : "#ffffff",
-        brightness: typeof b === "number" ? b : 100,
-      });
-    }
+    // Read control + per-segment state in parallel (one round-trip vs
+    // segmentCount × 2 sequential reads). Unlit segments default to white.
+    const base = await readDeviceBaseline(this.host, device, { color: "#ffffff", brightness: 100 });
     return {
-      power: typeof power === "boolean" ? power : undefined,
-      brightness: typeof brightness === "number" ? brightness : undefined,
-      colorRgb: typeof colorRgb === "string" ? colorRgb : undefined,
-      segmentColors,
+      power: base.power,
+      brightness: base.brightness,
+      colorRgb: base.colorRgb,
+      segmentColors: base.segments.map((s, idx) => ({ idx, color: s.color, brightness: s.brightness })),
     };
   }
 

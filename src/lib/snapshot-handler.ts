@@ -1,5 +1,6 @@
 import type { LocalSnapshot, LocalSnapshotStore, SnapshotSegment } from "./local-snapshots";
 import type { GoveeDevice } from "./types";
+import { readDeviceBaseline } from "./device-baseline";
 
 /**
  * Host-Interface — die Adapter-Funktionen die der SnapshotHandler braucht
@@ -46,45 +47,16 @@ export class SnapshotHandler {
    * @param name Snapshot name
    */
   async save(device: GoveeDevice, name: string): Promise<void> {
-    const prefix = this.host.devicePrefix(device);
-    const ns = this.host.namespace;
-
-    // Read device-level state in parallel
-    const [powerState, brightState, colorState, ctState] = await Promise.all([
-      this.host.getState(`${ns}.${prefix}.control.power`),
-      this.host.getState(`${ns}.${prefix}.control.brightness`),
-      this.host.getState(`${ns}.${prefix}.control.colorRgb`),
-      this.host.getState(`${ns}.${prefix}.control.colorTemperature`),
-    ]);
-
-    // Read per-segment states in parallel — sequenziell wären 20×2 reads
-    // ~80 ms; parallel = single round-trip.
-    let segments: SnapshotSegment[] | undefined;
-    const segCount = device.segmentCount ?? 0;
-    if (segCount > 0) {
-      const segReads: Promise<[ioBroker.State | null | undefined, ioBroker.State | null | undefined]>[] = [];
-      for (let i = 0; i < segCount; i++) {
-        segReads.push(
-          Promise.all([
-            this.host.getState(`${ns}.${prefix}.segments.${i}.color`),
-            this.host.getState(`${ns}.${prefix}.segments.${i}.brightness`),
-          ]),
-        );
-      }
-      const segResults = await Promise.all(segReads);
-      segments = segResults.map(([segColor, segBright]) => ({
-        color: typeof segColor?.val === "string" ? segColor.val : "#000000",
-        brightness: typeof segBright?.val === "number" ? segBright.val : 100,
-      }));
-    }
+    // Read control + per-segment state in parallel (single round-trip).
+    const base = await readDeviceBaseline(this.host, device, { color: "#000000", brightness: 100 });
 
     const snapshot: LocalSnapshot = {
       name,
-      power: powerState?.val === true,
-      brightness: typeof brightState?.val === "number" ? brightState.val : 0,
-      colorRgb: typeof colorState?.val === "string" ? colorState.val : "#000000",
-      colorTemperature: typeof ctState?.val === "number" ? ctState.val : 0,
-      segments,
+      power: base.power === true,
+      brightness: base.brightness ?? 0,
+      colorRgb: base.colorRgb ?? "#000000",
+      colorTemperature: base.colorTemperature ?? 0,
+      segments: base.segments.length > 0 ? base.segments : undefined,
       savedAt: Date.now(),
     };
 
