@@ -2,95 +2,7 @@ import { SEGMENT_COUNT_MAX, SEGMENT_HARD_MAX } from "./device-manager/lookups";
 import { WIZARD_IDLE_TIMEOUT_MS } from "./timing-constants";
 import type { GoveeDevice } from "./types";
 import { readDeviceBaseline } from "./device-baseline";
-
-/**
- * Wizard UI text, keyed by message id and language. The handful of admin
- * languages that don't have a dedicated table fall through to English — the
- * wizard is a power-user feature and English is the closest-to-universal
- * admin default.
- */
-type WizardLang = "en" | "de";
-
-const WIZARD_STRINGS: Record<WizardLang, Record<string, string>> = {
-  en: {
-    idle: "No wizard active. Pick an LED strip above and click ▶ Start.",
-    btnYes: "✓ Yes, visible",
-    btnNo: "✗ No, dark",
-    btnDone: "■ Done – end of strip",
-    deviceHeader: "Device",
-    segmentFlashing: "► Segment {idx} is now lit WHITE.",
-    canYouSeeStrip: "Can you see the light on the strip?",
-    canYouSeeShort: "Can you see the light?",
-    seenSoFar: "Marked visible so far: [{list}]",
-    yesNoDoneLine: "→ Yes, visible   or   → No, dark   or   → Done – end of strip",
-    wizardStartedFor: "Wizard started for {name}.",
-    markedVisible: "✓ Segment {idx} marked as visible.",
-    markedDark: "✗ Segment {idx} marked as dark (gap).",
-    errNoWizard: "No wizard active. Please click 'Start' first.",
-    errNoWizardShort: "No wizard active",
-    errUnknownAction: "Unknown action: {action}",
-    errAlreadyActive: "Wizard already active for {name}. Please abort first.",
-    errDeviceNotFound: "Device not found: {key}",
-    errNoSegments: "{name} has no segments — wizard not applicable.",
-    errDeviceGone: "Device disappeared during the wizard",
-    errDeviceGoneShort: "Device disappeared",
-    errAnswerFirst: "Please answer at least once first (Yes visible or No dark).",
-    abortTitle: "Wizard aborted.",
-    abortRestored: "The strip has been restored to its previous state.",
-    abortRestart: "You can restart the wizard at any time.",
-    finishDone: "✓ DONE!",
-    finishCount: "{count} segments detected.",
-    finishGaps: "Gap list: {list} — manual-mode active.",
-    finishNoGaps: "No gaps — manual-mode disabled.",
-    finishTreeRebuilt: "State tree has been rebuilt.",
-    progressSegment: "Segment {idx}",
-    progressCount: "{count} segments",
-    logIdleTimeout: "Segment wizard for {name}: idle timeout (5 min), aborted",
-    logAbortFailed: "Wizard abort after timeout failed: {msg}",
-    logDetected: "Segment wizard for {name}: {count} segments detected{gaps}",
-    logGapsSuffix: ', gaps detected (manual_list="{list}")',
-    logNoGapsSuffix: ", no gaps",
-  },
-  de: {
-    idle: "Kein Assistent aktiv. Wähle oben einen LED-Strip und klicke ▶ Start.",
-    btnYes: "✓ Ja, sichtbar",
-    btnNo: "✗ Nein, dunkel",
-    btnDone: "■ Fertig – Strip zu Ende",
-    deviceHeader: "Gerät",
-    segmentFlashing: "► Segment {idx} leuchtet jetzt WEISS.",
-    canYouSeeStrip: "Siehst du das Licht auf dem Strip?",
-    canYouSeeShort: "Siehst du das Licht?",
-    seenSoFar: "Bisher als sichtbar markiert: [{list}]",
-    yesNoDoneLine: "→ Ja, sichtbar   oder   → Nein, dunkel   oder   → Fertig – Strip zu Ende",
-    wizardStartedFor: "Assistent gestartet für {name}.",
-    markedVisible: "✓ Segment {idx} als sichtbar markiert.",
-    markedDark: "✗ Segment {idx} als dunkel markiert (Lücke).",
-    errNoWizard: "Kein Assistent aktiv. Bitte zuerst 'Start' klicken.",
-    errNoWizardShort: "Kein Assistent aktiv",
-    errUnknownAction: "Unbekannte Aktion: {action}",
-    errAlreadyActive: "Assistent bereits aktiv für {name}. Bitte zuerst abbrechen.",
-    errDeviceNotFound: "Gerät nicht gefunden: {key}",
-    errNoSegments: "{name} hat keine Segmente — Assistent nicht anwendbar.",
-    errDeviceGone: "Gerät während des Assistenten verschwunden",
-    errDeviceGoneShort: "Gerät verschwunden",
-    errAnswerFirst: "Bitte zuerst mindestens eine Antwort geben (Ja sichtbar oder Nein dunkel).",
-    abortTitle: "Assistent abgebrochen.",
-    abortRestored: "Der Strip wurde auf den vorherigen Zustand zurückgesetzt.",
-    abortRestart: "Du kannst den Assistenten jederzeit neu starten.",
-    finishDone: "✓ FERTIG!",
-    finishCount: "{count} Segmente erkannt.",
-    finishGaps: "Lücken-Liste: {list} — Manual-Mode aktiv.",
-    finishNoGaps: "Keine Lücken — Manual-Mode deaktiviert.",
-    finishTreeRebuilt: "State-Tree wurde neu gebaut.",
-    progressSegment: "Segment {idx}",
-    progressCount: "{count} Segmente",
-    logIdleTimeout: "Segment-Assistent für {name}: Idle-Timeout (5 Min), abgebrochen",
-    logAbortFailed: "Abbruch des Assistenten nach Timeout fehlgeschlagen: {msg}",
-    logDetected: "Segment-Assistent für {name}: {count} Segmente erkannt{gaps}",
-    logGapsSuffix: ', Lücken erkannt (manual_list="{list}")',
-    logNoGapsSuffix: ", keine Lücken",
-  },
-};
+import { resolveLabel, type I18nKey } from "./i18n";
 
 /**
  * Interpolate {name} placeholders against a params object.
@@ -190,25 +102,15 @@ export interface WizardHost {
    * DeviceManager and SkuCache.
    */
   applyWizardResult(device: GoveeDevice, result: WizardResult): Promise<void>;
-  /**
-   * Admin-UI language for all user-facing wizard text. Called on every
-   * getStatusText / step response so a live system.config.language change
-   * propagates without an adapter restart.
-   */
-  getLanguage(): string;
 }
 
 // IDLE_TIMEOUT_MS is now sourced from timing-constants (WIZARD_IDLE_TIMEOUT_MS).
 
 /**
- * Resolve the idle-state text in the requested language. Fallbacks to English
- * for any admin language we don't have a dedicated table for — the adapter
- * supports 11 admin languages in the UI, but the wizard prose lives here.
- *
- * @param lang Language code (e.g. "en", "de"); non-matching codes fall back to English
+ * Resolve the wizard idle-state text in the system language (admin/i18n).
  */
-export function wizardIdleText(lang: string): string {
-  return WIZARD_STRINGS[lang === "de" ? "de" : "en"].idle;
+export function wizardIdleText(): string {
+  return resolveLabel("idle");
 }
 
 /**
@@ -256,15 +158,14 @@ export class SegmentWizard {
   }
 
   /**
-   * Look up a localized string, resolving against the host's current language.
+   * Look up a localized wizard string (admin/i18n, resolved in the system
+   * language via adapter-core I18n) and interpolate its `{name}` placeholders.
    *
-   * @param key Lookup key into WIZARD_STRINGS
+   * @param key admin/i18n key
    * @param params Optional placeholder values for `{name}` slots in the template
    */
-  private t(key: string, params?: Record<string, string | number>): string {
-    const lang = this.host.getLanguage() === "de" ? "de" : "en";
-    const template = WIZARD_STRINGS[lang][key] ?? WIZARD_STRINGS.en[key] ?? key;
-    return format(template, params);
+  private t(key: I18nKey, params?: Record<string, string | number>): string {
+    return format(resolveLabel(key), params);
   }
 
   /**

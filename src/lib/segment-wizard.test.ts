@@ -1,9 +1,19 @@
 import { vi } from "vitest";
 
+// Resolve wizard strings against the real en.json so the content assertions
+// below still hold; the wizard's own format() then substitutes {placeholders}.
+const { enJson } = vi.hoisted(() => {
+  const { readFileSync } = require("node:fs");
+  const { join } = require("node:path");
+  return {
+    enJson: JSON.parse(readFileSync(join(__dirname, "../../admin/i18n/en.json"), "utf8")) as Record<string, string>,
+  };
+});
+
 vi.mock("@iobroker/adapter-core", () => ({
   I18n: {
     getTranslatedObject: vi.fn((key: string) => ({ en: key })),
-    translate: vi.fn((key: string) => key),
+    translate: vi.fn((key: string) => enJson[key] ?? key),
   },
 }));
 
@@ -121,12 +131,6 @@ class TestHost implements WizardHost {
     // Mimic the host's runtime side-effect so subsequent logic that
     // reads device.segmentCount (e.g. restoreBaseline) sees the update.
     device.segmentCount = result.segmentCount;
-  }
-
-  public language = "en";
-
-  public getLanguage(): string {
-    return this.language;
   }
 }
 
@@ -567,26 +571,15 @@ describe("SegmentWizard", () => {
   });
 
   describe("localization", () => {
-    it("should render English strings by default", async () => {
+    // Per-language rendering moved to adapter-core I18n (driven by
+    // system.config.language) — the 11-language key + placeholder coverage
+    // lives in i18n.test.ts. Here the I18n mock resolves to en.json, so this
+    // just asserts the wizard wires its keys through I18n + format() correctly.
+    it("renders resolved strings with interpolated placeholders", async () => {
       const r = await wizard.start(key);
       expect(typeof r.message).toBe("string");
       expect(r.message).toContain("Wizard started");
       expect(wizard.getStatusText()).toContain("Can you see");
-    });
-
-    it("should render German strings when language is 'de'", async () => {
-      host.language = "de";
-      const r = await wizard.start(key);
-      expect(typeof r.message).toBe("string");
-      expect(r.message).toContain("gestartet");
-      expect(wizard.getStatusText()).toContain("Siehst du");
-    });
-
-    it("should fall back to English for unknown languages", async () => {
-      host.language = "fr"; // not in WIZARD_STRINGS
-      const r = await wizard.start(key);
-      expect(typeof r.message).toBe("string");
-      expect(r.message).toContain("Wizard started");
     });
   });
 

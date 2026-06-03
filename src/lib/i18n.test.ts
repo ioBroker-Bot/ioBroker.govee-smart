@@ -58,4 +58,22 @@ describe("i18n completeness", () => {
       }
     }
   });
+
+  // Placeholders ({name}, {idx}, %s, …) must be byte-identical across every
+  // language: the wizard's format() / I18n positional substitution keys off the
+  // English token, so a translated brace name (Google Translate turns {name} →
+  // {nombre}) silently breaks interpolation. Guards against a future `npm run
+  // translate` re-mangling them. See message-router.ts + segment-wizard.ts.
+  it("placeholder tokens match en across all languages", () => {
+    const tokens = (s: string): string[] => [...(s.match(/\{[^}]+\}|%s/g) ?? [])].sort();
+    const en = JSON.parse(readFileSync(join(i18nDir, "en.json"), "utf8")) as Record<string, string>;
+    for (const f of files) {
+      const lang = f.replace(".json", "");
+      if (lang === "en") continue;
+      const data = JSON.parse(readFileSync(join(i18nDir, f), "utf8")) as Record<string, string>;
+      for (const key of Object.keys(en)) {
+        expect(tokens(data[key] ?? ""), `${lang}.${key} placeholder drift`).toEqual(tokens(en[key]));
+      }
+    }
+  });
 });

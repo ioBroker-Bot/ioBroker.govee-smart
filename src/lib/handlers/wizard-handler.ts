@@ -12,7 +12,6 @@ import { sessionKey } from "../device-key";
 export interface WizardHandlerAdapter {
   readonly log: ioBroker.Logger;
   readonly namespace: string;
-  readonly adminLanguage: string;
   readonly lanClient: GoveeLanClient | null;
   readonly deviceManager: DeviceManager | null;
   readonly stateManager: StateManager | null;
@@ -78,7 +77,6 @@ export function buildWizardHost(adapter: WizardHandlerAdapter): WizardHost {
     setTimeout: (cb, ms) => adapter.setTimeout(cb, ms),
     clearTimeout: h => adapter.clearTimeout(h as ioBroker.Timeout),
     applyWizardResult: (device, result) => applyWizardResult(adapter, device, result),
-    getLanguage: () => adapter.adminLanguage,
   };
 }
 

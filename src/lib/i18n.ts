@@ -22,10 +22,13 @@ export function tDesc(key: I18nKey): ioBroker.StringOrTranslated {
 }
 
 /**
- * Plain-string label in system language — for `common.states` VALUES.
+ * Plain-string label in system language — for `common.states` VALUES and
+ * user-facing messages (wizard / mqttAuth responses). Optional positional
+ * args fill `%s` placeholders via adapter-core's I18n.translate.
  *
  * @param key I18n key
+ * @param args Positional values substituted into `%s` placeholders, in order
  */
-export function resolveLabel(key: I18nKey): string {
-  return I18n.translate(key);
+export function resolveLabel(key: I18nKey, ...args: (string | number)[]): string {
+  return I18n.translate(key, ...args);
 }

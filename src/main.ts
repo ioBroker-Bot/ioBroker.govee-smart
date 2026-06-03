@@ -28,6 +28,7 @@ import * as wizardHandler from "./lib/handlers/wizard-handler";
 import { RateLimiter } from "./lib/rate-limiter";
 import type { SegmentWizard } from "./lib/segment-wizard";
 import { wizardIdleText } from "./lib/segment-wizard";
+import { resolveLabel } from "./lib/i18n";
 import { SkuCache } from "./lib/sku-cache";
 import { StateManager } from "./lib/state-manager";
 // AdapterConfig is augmented globally in src/lib/adapter-config.d.ts —
@@ -130,9 +131,6 @@ class GoveeAdapter extends utils.Adapter {
   /** Per-device timestamp of the last diagnostics export — throttle gate */
   /** Public for handler modules (state-change-router, diagnostics). */
   public diagnosticsLastRun = new Map<string, number>();
-  /** Cached admin language from system.config — used for wizard UI text */
-  /** Public for handler modules. */
-  public adminLanguage = "en";
   /**
    * Set true at the start of onUnload — async paths (onStateChange,
    * applyCloudCapabilities, retrySceneData, …) check this between awaits
@@ -205,21 +203,8 @@ class GoveeAdapter extends utils.Adapter {
         val: false,
         ack: true,
       });
-      // Load admin language from system.config so wizard prose matches the
-      // user's Admin UI. Falls back to English on any lookup failure. Adapter
-      // logs themselves stay English by ioBroker convention; this language is
-      // used only for the segment wizard's user-facing status text.
-      try {
-        const sysConf = await this.getForeignObjectAsync("system.config");
-        const lang = (sysConf?.common as { language?: string } | undefined)?.language;
-        if (typeof lang === "string" && lang.length > 0) {
-          this.adminLanguage = lang;
-        }
-      } catch (e) {
-        this.log.debug(`system.config language read failed, using default "en": ${errMessage(e)}`);
-      }
       await this.setStateAsync("info.wizardStatus", {
-        val: wizardIdleText(this.adminLanguage),
+        val: wizardIdleText(),
         ack: true,
       });
 
@@ -939,7 +924,7 @@ class GoveeAdapter extends utils.Adapter {
           .filter(d => d.sku !== "BaseGroup" && d.state?.online === true && resolveSegmentCount(d) > 0)
           .map(d => ({
             value: wizardHandler.deviceKeyFor(d),
-            label: `${d.name} (${d.sku}, bisher ${resolveSegmentCount(d)} Segmente)`,
+            label: resolveLabel("segmentWizardDeviceOption", d.name, d.sku, resolveSegmentCount(d)),
           }));
       },
       runWizardStep: (action, deviceKey) => wizardHandler.runWizardStep(this, action, deviceKey),

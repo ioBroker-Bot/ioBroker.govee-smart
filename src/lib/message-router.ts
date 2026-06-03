@@ -1,6 +1,7 @@
 import { errMessage } from "./types";
 import type { GoveeMqttClient } from "./govee-mqtt-client";
 import { VERIFICATION_REQUEST_THROTTLE_MS } from "./timing-constants";
+import { resolveLabel } from "./i18n";
 
 /**
  * Host-Interface für MessageRouter.
@@ -104,7 +105,7 @@ export class MessageRouter {
   private async runMqttAuthAction(action: string): Promise<{ result: string }> {
     const config = this.host.getConfig();
     if (!config.goveeEmail || !config.goveePassword) {
-      return { result: "Email + Passwort in den Adapter-Einstellungen nötig." };
+      return { result: resolveLabel("mqttAuthNeedCredentials") };
     }
     if (action === "test") {
       const probe = this.host.createMqttProbeClient();
@@ -119,34 +120,29 @@ export class MessageRouter {
         );
         probe.disconnect();
         return {
-          result: connected
-            ? "Login erfolgreich — Echtzeit-Status-Updates aktiv."
-            : "Login angenommen, MQTT-Verbindung steht aber noch nicht — Adapter neu starten.",
+          result: connected ? resolveLabel("mqttAuthLoginOk") : resolveLabel("mqttAuthLoginNoMqtt"),
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (/Verification required/i.test(msg)) {
-          return {
-            result:
-              "Govee verlangt 2-Faktor-Bestätigung. Bitte 'Verifizierungs-Code anfordern' klicken, Code aus der E-Mail eintragen und Speichern.",
-          };
+          return { result: resolveLabel("mqttAuthVerifyRequired") };
         }
         if (/Verification code invalid/i.test(msg)) {
-          return { result: "2-Faktor-Code ungültig oder abgelaufen — bitte einen neuen Code anfordern." };
+          return { result: resolveLabel("mqttAuthCodeInvalid") };
         }
         if (/email not registered/i.test(msg)) {
-          return { result: "Diese E-Mail ist bei Govee nicht registriert." };
+          return { result: resolveLabel("mqttAuthEmailNotRegistered") };
         }
         if (/Login failed/i.test(msg)) {
-          return { result: "Passwort wurde von Govee abgelehnt." };
+          return { result: resolveLabel("mqttAuthPasswordRejected") };
         }
         if (/Rate limited/i.test(msg)) {
-          return { result: "Govee meldet Rate-Limit — bitte später erneut versuchen." };
+          return { result: resolveLabel("mqttAuthRateLimited") };
         }
         if (/Account temporarily locked/i.test(msg)) {
-          return { result: "Govee-Account vorübergehend gesperrt — Govee Home App öffnen und Status prüfen." };
+          return { result: resolveLabel("mqttAuthAccountLocked") };
         }
-        return { result: `Login fehlgeschlagen: ${msg}` };
+        return { result: resolveLabel("mqttAuthLoginFailed", msg) };
       }
     }
     if (action === "requestCode") {
@@ -155,18 +151,18 @@ export class MessageRouter {
         const remainingSec = Math.ceil(
           (VERIFICATION_REQUEST_THROTTLE_MS - (now - this.lastVerificationRequestMs)) / 1000,
         );
-        return { result: `Bitte ${remainingSec}s warten — gerade wurde schon ein Code angefordert.` };
+        return { result: resolveLabel("mqttAuthThrottled", remainingSec) };
       }
       this.lastVerificationRequestMs = now;
       const probe = this.host.createMqttProbeClient();
       try {
         await probe.requestVerificationCode();
-        return { result: "Code wurde an deine Govee-E-Mail-Adresse gesendet (Spam-Ordner prüfen)." };
+        return { result: resolveLabel("mqttAuthCodeSent") };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        return { result: `Govee hat den Code-Versand abgelehnt: ${msg}` };
+        return { result: resolveLabel("mqttAuthCodeRejected", msg) };
       }
     }
-    return { result: `Unbekannte Aktion '${action}'.` };
+    return { result: resolveLabel("mqttAuthUnknownAction", action) };
   }
 }

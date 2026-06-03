@@ -1,6 +1,28 @@
 import { MessageRouter, type MessageRouterHost } from "./message-router";
 import type { GoveeMqttClient } from "./govee-mqtt-client";
 
+const { enJson } = vi.hoisted(() => {
+  const { readFileSync } = require("node:fs");
+  const { join } = require("node:path");
+  return {
+    enJson: JSON.parse(readFileSync(join(__dirname, "../../admin/i18n/en.json"), "utf8")) as Record<string, string>,
+  };
+});
+
+// MessageRouter routes mqttAuth result strings through adapter-core I18n; resolve
+// them against the real en.json with positional %s substitution (mirrors
+// I18n.translate) so the content assertions below hold without booting
+// js-controller.
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: vi.fn((key: string) => ({ en: key })),
+    translate: vi.fn((key: string, ...args: (string | number)[]) => {
+      let i = 0;
+      return (enJson[key] ?? key).replace(/%s/g, () => String(args[i++] ?? "%s"));
+    }),
+  },
+}));
+
 const mockLog = {
   silly: () => {},
   debug: () => {},
@@ -133,7 +155,7 @@ describe("MessageRouter", () => {
       await new Promise(r => setTimeout(r, 10));
       expect(responses).toHaveLength(1);
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("erfolgreich");
+      expect(r.result).toContain("Login successful");
     });
 
     it("returns 2FA hint on Verification required error", async () => {
@@ -143,7 +165,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "test" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("2-Faktor");
+      expect(r.result).toContain("two-factor confirmation");
     });
 
     it("returns invalid-code hint on Verification code invalid", async () => {
@@ -153,7 +175,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "test" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("ungültig");
+      expect(r.result).toContain("code invalid");
     });
 
     it("returns email-not-registered on matching error", async () => {
@@ -163,7 +185,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "test" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("nicht registriert");
+      expect(r.result).toContain("not registered");
     });
 
     it("returns rate-limit hint", async () => {
@@ -173,7 +195,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "test" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("Rate-Limit");
+      expect(r.result).toContain("rate limit");
     });
 
     it("returns account-locked hint", async () => {
@@ -183,7 +205,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "test" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("gesperrt");
+      expect(r.result).toContain("temporarily locked");
     });
 
     it("rejects when email or password missing", async () => {
@@ -192,7 +214,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "test" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("Email + Passwort");
+      expect(r.result).toContain("Email + password");
     });
   });
 
@@ -203,7 +225,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "requestCode" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("Code wurde an");
+      expect(r.result).toContain("Code sent");
     });
 
     it("throttles double-click within 30s window", async () => {
@@ -215,7 +237,7 @@ describe("MessageRouter", () => {
       await new Promise(r => setTimeout(r, 10));
       expect(responses).toHaveLength(2);
       const second = responses[1].data as { result: string };
-      expect(second.result).toContain("warten");
+      expect(second.result).toContain("Please wait");
     });
 
     it("surfaces Govee rejection on requestVerificationCode error", async () => {
@@ -225,7 +247,7 @@ describe("MessageRouter", () => {
       router.onMessage(makeMessage("mqttAuth", { action: "requestCode" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("abgelehnt");
+      expect(r.result).toContain("rejected sending the code");
     });
   });
 
@@ -237,13 +259,13 @@ describe("MessageRouter", () => {
       expect(responses).toHaveLength(0);
     });
 
-    it("returns 'Unbekannte Aktion' for unknown mqttAuth action", async () => {
+    it("returns 'Unknown action' for unknown mqttAuth action", async () => {
       const { host, responses } = makeHost({ probe: makeProbe({ connected: true }) });
       const router = new MessageRouter(host);
       router.onMessage(makeMessage("mqttAuth", { action: "weirdAction" }));
       await new Promise(r => setTimeout(r, 10));
       const r = responses[0].data as { result: string };
-      expect(r.result).toContain("Unbekannte Aktion");
+      expect(r.result).toContain("Unknown action");
     });
   });
 });
