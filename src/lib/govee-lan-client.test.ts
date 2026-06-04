@@ -1,4 +1,5 @@
 import {
+  GoveeLanClient,
   buildScenePackets,
   buildGradientPacket,
   buildMusicModePacket,
@@ -8,6 +9,24 @@ import {
   buildSegmentBrightnessPacket,
   applySceneSpeed,
 } from "./govee-lan-client";
+import type { LanDevice, LanStatus } from "./types";
+
+const lanLog = {
+  silly: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  level: "debug",
+} as unknown as ioBroker.Logger;
+
+const lanTimers = {
+  setInterval: () => undefined,
+  clearInterval: () => {},
+  setTimeout: () => undefined,
+  clearTimeout: () => {},
+  delay: () => Promise.resolve(),
+} as never;
 
 describe("buildScenePackets", () => {
   it("should build a single activation packet for scene code only", () => {
@@ -360,5 +379,73 @@ describe("applySceneSpeed", () => {
     const result = applySceneSpeed(param, 5, config); // level 5 > moveIn.length
     const bytes = Array.from(Buffer.from(result, "base64"));
     expect(bytes[7]).toBe(200); // unchanged
+  });
+});
+
+describe("GoveeLanClient — handleMessage (LAN reply parsing)", () => {
+  function makeClient() {
+    const client = new GoveeLanClient(lanLog, lanTimers);
+    const discovered: LanDevice[] = [];
+    const statuses: Array<{ ip: string; status: LanStatus }> = [];
+    (client as any).onDiscovery = (d: LanDevice) => discovered.push(d);
+    (client as any).onStatus = (ip: string, s: LanStatus) => statuses.push({ ip, status: s });
+    const feed = (obj: unknown, ip = "192.168.1.5"): void =>
+      (client as any).handleMessage(Buffer.from(JSON.stringify(obj)), ip);
+    return { client, discovered, statuses, feed };
+  }
+
+  it("parses a scan response into a discovered LanDevice", () => {
+    const { discovered, feed } = makeClient();
+    feed({ msg: { cmd: "scan", data: { ip: "192.168.1.50", device: "AA:BB", sku: "H61BE" } } });
+    expect(discovered).toEqual([{ ip: "192.168.1.50", device: "AA:BB", sku: "H61BE" }]);
+  });
+
+  it("ignores a scan response missing a required field (untrusted wire data)", () => {
+    const { discovered, feed } = makeClient();
+    feed({ msg: { cmd: "scan", data: { ip: "192.168.1.50", device: "AA:BB" } } }); // no sku
+    expect(discovered).toHaveLength(0);
+  });
+
+  it("parses a devStatus response, coercing fields to safe numbers", () => {
+    const { statuses, feed } = makeClient();
+    feed(
+      { msg: { cmd: "devStatus", data: { onOff: 1, brightness: 80, color: { r: 255, g: 0, b: 128 }, colorTemInKelvin: 4000 } } },
+      "10.0.0.1",
+    );
+    expect(statuses).toEqual([
+      { ip: "10.0.0.1", status: { onOff: 1, brightness: 80, color: { r: 255, g: 0, b: 128 }, colorTemInKelvin: 4000 } },
+    ]);
+  });
+
+  it("coerces malformed status fields to defaults instead of throwing", () => {
+    const { statuses, feed } = makeClient();
+    feed({ msg: { cmd: "devStatus", data: { onOff: "on", brightness: null, color: "nope" } } });
+    expect(statuses[0].status).toEqual({ onOff: 0, brightness: 0, color: { r: 0, g: 0, b: 0 }, colorTemInKelvin: 0 });
+  });
+
+  it("drops oversize messages (>8192 bytes) without parsing", () => {
+    const { discovered, statuses, feed } = makeClient();
+    feed({ msg: { cmd: "scan", data: { ip: "1", device: "x", sku: "y", pad: "A".repeat(9000) } } });
+    expect(discovered).toHaveLength(0);
+    expect(statuses).toHaveLength(0);
+  });
+
+  it("ignores invalid JSON and messages without a cmd", () => {
+    const client = new GoveeLanClient(lanLog, lanTimers);
+    let fired = 0;
+    (client as any).onDiscovery = () => fired++;
+    (client as any).onStatus = () => fired++;
+    (client as any).handleMessage(Buffer.from("{ not json"), "1.2.3.4");
+    (client as any).handleMessage(Buffer.from(JSON.stringify({ msg: { data: {} } })), "1.2.3.4");
+    expect(fired).toBe(0);
+  });
+
+  it("evicts the stale IP entry when the same device reappears at a new IP", () => {
+    const { client, feed } = makeClient();
+    feed({ msg: { cmd: "scan", data: { ip: "192.168.1.50", device: "AA:BB", sku: "H61BE" } } });
+    feed({ msg: { cmd: "scan", data: { ip: "192.168.1.99", device: "AA:BB", sku: "H61BE" } } });
+    const seen = (client as any).seenDeviceIps as Set<string>;
+    expect(seen.has("AA:BB:192.168.1.99")).toBe(true);
+    expect(seen.has("AA:BB:192.168.1.50")).toBe(false); // stale entry evicted
   });
 });

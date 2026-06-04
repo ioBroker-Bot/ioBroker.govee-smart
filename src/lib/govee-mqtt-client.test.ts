@@ -563,4 +563,51 @@ describe("GoveeMqttClient", () => {
       expect(fake.calls.length).toBe(1); // no second login — disposed guard held
     });
   });
+
+  describe("handleMessage (status push parsing)", () => {
+    function makeClient() {
+      const client = new GoveeMqttClient("u@example.com", "pw", mockLog, mockTimers);
+      const statuses: unknown[] = [];
+      const packets: Array<{ device: string; topic: string; payload: unknown }> = [];
+      (client as any).onStatus = (s: unknown) => statuses.push(s);
+      (client as any).onPacket = (device: string, topic: string, payload: unknown) =>
+        packets.push({ device, topic, payload });
+      const feed = (obj: unknown, topic = "GA/acct"): void =>
+        (client as any).handleMessage(Buffer.from(JSON.stringify(obj)), topic);
+      return { statuses, packets, feed };
+    }
+
+    it("emits a status update with validated sku/device/state/op", () => {
+      const { statuses, feed } = makeClient();
+      feed({ sku: "H61BE", device: "AA:BB", state: { onOff: 1 }, op: { command: [] } });
+      expect(statuses).toEqual([{ sku: "H61BE", device: "AA:BB", state: { onOff: 1 }, op: { command: [] } }]);
+    });
+
+    it("forwards each op.command hex string to onPacket with the raw envelope", () => {
+      const { packets, feed } = makeClient();
+      const msg = { sku: "H61BE", device: "AA:BB", op: { command: ["aa01", "bb02"] } };
+      feed(msg, "GA/topic");
+      expect(packets).toEqual([
+        { device: "AA:BB", topic: "GA/topic", payload: { hex: "aa01", rawJson: JSON.stringify(msg) } },
+        { device: "AA:BB", topic: "GA/topic", payload: { hex: "bb02", rawJson: JSON.stringify(msg) } },
+      ]);
+    });
+
+    it("forwards a state-only push (no op.command) as one raw-envelope packet", () => {
+      const { packets, feed } = makeClient();
+      const msg = { sku: "H61BE", device: "AA:BB", state: { brightness: 50 } };
+      feed(msg);
+      expect(packets).toEqual([{ device: "AA:BB", topic: "GA/acct", payload: { rawJson: JSON.stringify(msg) } }]);
+    });
+
+    it("ignores messages without sku/device and invalid JSON", () => {
+      const client = new GoveeMqttClient("u@example.com", "pw", mockLog, mockTimers);
+      let fired = 0;
+      (client as any).onStatus = () => fired++;
+      (client as any).onPacket = () => fired++;
+      (client as any).handleMessage(Buffer.from(JSON.stringify({ state: { onOff: 1 } })), "t"); // no sku/device
+      (client as any).handleMessage(Buffer.from("{ bad"), "t"); // invalid JSON
+      expect(fired).toBe(0);
+    });
+  });
 });

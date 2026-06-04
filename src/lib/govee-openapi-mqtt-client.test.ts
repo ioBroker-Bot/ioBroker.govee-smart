@@ -209,4 +209,48 @@ describe("GoveeOpenapiMqttClient", () => {
       expect(mqttMock.clients).toHaveLength(1); // no second connect — disposed guard held
     });
   });
+
+  describe("handleMessage (event parsing)", () => {
+    function makeClient() {
+      const client = new GoveeOpenapiMqttClient("key", mockLog, mockTimers as never);
+      const events: unknown[] = [];
+      const raws: string[] = [];
+      (client as any).onEvent = (e: unknown) => events.push(e);
+      (client as any).onRaw = (r: string) => raws.push(r);
+      const feed = (obj: unknown): void => (client as any).handleMessage(Buffer.from(JSON.stringify(obj)));
+      return { events, raws, feed };
+    }
+
+    it("emits an event with the valid capabilities and forwards raw JSON", () => {
+      const { events, raws, feed } = makeClient();
+      const msg = {
+        sku: "H5179",
+        device: "AA:BB",
+        capabilities: [{ type: "devices.capabilities.property", instance: "sensorTemperature", state: { value: 23 } }],
+      };
+      feed(msg);
+      expect(events).toEqual([{ sku: "H5179", device: "AA:BB", capabilities: msg.capabilities }]);
+      expect(raws).toEqual([JSON.stringify(msg)]);
+    });
+
+    it("drops messages without device info, without/empty/all-malformed capabilities", () => {
+      const { events, feed } = makeClient();
+      feed({ capabilities: [{ type: "x", instance: "y" }] }); // no sku/device
+      feed({ sku: "H5179", device: "AA" }); // no capabilities key
+      feed({ sku: "H5179", device: "AA", capabilities: [] }); // empty
+      feed({ sku: "H5179", device: "AA", capabilities: [{ type: 1 }, null] }); // all malformed
+      expect(events).toHaveLength(0);
+    });
+
+    it("forwards raw JSON even when the body is unparseable, and emits no event", () => {
+      const client = new GoveeOpenapiMqttClient("key", mockLog, mockTimers as never);
+      const raws: string[] = [];
+      let events = 0;
+      (client as any).onRaw = (r: string) => raws.push(r);
+      (client as any).onEvent = () => events++;
+      (client as any).handleMessage(Buffer.from("{ bad json"));
+      expect(raws).toEqual(["{ bad json"]);
+      expect(events).toBe(0);
+    });
+  });
 });
