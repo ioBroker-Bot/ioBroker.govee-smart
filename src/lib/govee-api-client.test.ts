@@ -232,3 +232,130 @@ describe("GoveeApiClient — library walkers (walkCategories)", () => {
     });
   });
 });
+
+describe("GoveeApiClient — fetchDeviceList (sensor device list)", () => {
+  beforeEach(() => mockHttp.mockReset());
+
+  it("returns [] without a bearer token", async () => {
+    expect(await new GoveeApiClient(apiLog).fetchDeviceList()).toEqual([]);
+    expect(mockHttp).not.toHaveBeenCalled();
+  });
+
+  it("parses devices with embedded lastData/settings and skips malformed entries", async () => {
+    mockHttp.mockResolvedValue(
+      httpOk({
+        devices: [
+          {
+            sku: "H5179",
+            device: "AA:BB",
+            deviceName: "Thermo",
+            deviceId: 7,
+            deviceExt: {
+              lastDeviceData: '{"online":true,"tem":2370,"hum":4290}',
+              deviceSettings: '{"uploadRate":10}',
+            },
+          },
+          { sku: "H6160" }, // no `device` → skipped
+          null, // skipped
+        ],
+      }),
+    );
+    const client = new GoveeApiClient(apiLog);
+    client.setBearerToken("tok");
+    const list = await client.fetchDeviceList();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ sku: "H5179", device: "AA:BB", deviceName: "Thermo", deviceId: 7 });
+    expect(list[0].lastData).toMatchObject({ online: true, tem: 2370, hum: 4290 });
+    expect(list[0].settings).toMatchObject({ uploadRate: 10 });
+  });
+
+  it("falls back deviceName to sku when missing and returns [] for a non-array payload", async () => {
+    const client = new GoveeApiClient(apiLog);
+    client.setBearerToken("tok");
+    mockHttp.mockResolvedValue(httpOk({ devices: [{ sku: "H6172", device: "CC:DD" }] }));
+    expect((await client.fetchDeviceList())[0].deviceName).toBe("H6172");
+
+    mockHttp.mockResolvedValue(httpOk({ devices: "broken" }));
+    expect(await client.fetchDeviceList()).toEqual([]);
+  });
+});
+
+describe("GoveeApiClient — fetchSkuFeatures", () => {
+  beforeEach(() => mockHttp.mockReset());
+
+  it("returns null without a bearer token", async () => {
+    expect(await new GoveeApiClient(apiLog).fetchSkuFeatures("H61BE")).toBeNull();
+  });
+
+  it("returns the data object, and null for a null body or a missing data key", async () => {
+    const client = new GoveeApiClient(apiLog);
+    client.setBearerToken("tok");
+    mockHttp.mockResolvedValue(httpOk({ data: { supportScene: true } }));
+    expect(await client.fetchSkuFeatures("H61BE")).toEqual({ supportScene: true });
+    mockHttp.mockResolvedValue(httpOk(null)); // JSON-null body on some unknown SKUs
+    expect(await client.fetchSkuFeatures("H61BE")).toBeNull();
+    mockHttp.mockResolvedValue(httpOk({})); // object without `data`
+    expect(await client.fetchSkuFeatures("H61BE")).toBeNull();
+  });
+});
+
+describe("GoveeApiClient — fetchSnapshots (ptReal BLE cmds)", () => {
+  beforeEach(() => mockHttp.mockReset());
+
+  it("returns [] without a bearer token", async () => {
+    expect(await new GoveeApiClient(apiLog).fetchSnapshots("H61BE", "AA:BB")).toEqual([]);
+  });
+
+  it("parses bleCmd packets and drops nameless / malformed-JSON / empty snapshots", async () => {
+    const client = new GoveeApiClient(apiLog);
+    client.setBearerToken("tok");
+    mockHttp.mockResolvedValue(
+      httpOk({
+        data: {
+          snapshots: [
+            {
+              name: "Movie",
+              cmds: [{ bleCmds: JSON.stringify({ bleCmd: "AA,BB,CC" }) }, { bleCmds: "not json" }],
+            },
+            { name: "", cmds: [{ bleCmds: JSON.stringify({ bleCmd: "XX" }) }] }, // no name → skipped
+            { name: "Empty", cmds: [{ bleCmds: JSON.stringify({ bleCmd: "" }) }] }, // no packets → not pushed
+          ],
+        },
+      }),
+    );
+    expect(await client.fetchSnapshots("H61BE", "AA:BB")).toEqual([{ name: "Movie", bleCmds: [["AA", "BB", "CC"]] }]);
+  });
+});
+
+describe("GoveeApiClient — fetchGroupMembers", () => {
+  beforeEach(() => mockHttp.mockReset());
+
+  it("returns [] without a bearer token", async () => {
+    expect(await new GoveeApiClient(apiLog).fetchGroupMembers()).toEqual([]);
+  });
+
+  it("parses groups, drops those without gId or valid devices, falls back name to ''", async () => {
+    const client = new GoveeApiClient(apiLog);
+    client.setBearerToken("tok");
+    mockHttp.mockResolvedValue(
+      httpOk({
+        data: {
+          components: [
+            {
+              groups: [
+                { gId: 1, name: "Living", devices: [{ sku: "H61BE", device: "AA" }, { sku: "H6160" }] },
+                { gId: 2, devices: [{ sku: "H6172", device: "BB" }] }, // no name → ""
+                { name: "NoId", devices: [{ sku: "H6160", device: "CC" }] }, // no gId → skipped
+                { gId: 3, devices: [{ sku: "H6160" }] }, // no valid device → not pushed
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    expect(await client.fetchGroupMembers()).toEqual([
+      { groupId: 1, name: "Living", devices: [{ sku: "H61BE", deviceId: "AA" }] },
+      { groupId: 2, name: "", devices: [{ sku: "H6172", deviceId: "BB" }] },
+    ]);
+  });
+});
