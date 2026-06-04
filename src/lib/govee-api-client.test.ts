@@ -1,4 +1,25 @@
-import { parseLastData, parseSettings } from "./govee-api-client";
+import { vi } from "vitest";
+import { GoveeApiClient, parseLastData, parseSettings } from "./govee-api-client";
+import { httpsRequest } from "./http-client";
+
+// The scene / music / DIY library walkers call the module-level httpsRequest
+// (no DI), so mock it to drive walkCategories + the per-walker extraction.
+vi.mock("./http-client", () => ({ httpsRequest: vi.fn() }));
+const mockHttp = vi.mocked(httpsRequest);
+
+const apiLog = {
+  silly: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  level: "debug",
+} as unknown as ioBroker.Logger;
+
+/** Wrap a parsed body as the HttpResult envelope the walkers read via `result.value`. */
+function httpOk(data: unknown) {
+  return { value: data, statusCode: 200 } as never;
+}
 
 /**
  * App-API parser tests — parseLastData/parseSettings are pure helpers that
@@ -67,5 +88,147 @@ describe("AppApiClient — deviceSettings parser", () => {
     expect(parseSettings("not json")).toBe(undefined);
     expect(parseSettings(undefined)).toBe(undefined);
     expect(parseSettings("")).toBe(undefined);
+  });
+});
+
+// D4 — the scene/music/DIY walkers share walkCategories. These exercise the
+// refactored branches: multi-variant naming, the no-effects scene-level code,
+// speedInfo carry-through, the defensive guards, the music modeIdx counter and
+// the bearer-token gate. Previously the walkers had zero coverage repo-wide.
+describe("GoveeApiClient — library walkers (walkCategories)", () => {
+  beforeEach(() => mockHttp.mockReset());
+
+  describe("fetchSceneLibrary", () => {
+    it("expands multi-variant scenes into Name-suffix entries", async () => {
+      mockHttp.mockResolvedValue(
+        httpOk({
+          data: {
+            categories: [
+              {
+                scenes: [
+                  {
+                    sceneName: "Aurora",
+                    lightEffects: [
+                      { sceneCode: 10, scenceName: "A", scenceParam: "p1" },
+                      { sceneCode: 11, scenceName: "B", scenceParam: "p2" },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      const scenes = await new GoveeApiClient(apiLog).fetchSceneLibrary("H61BE");
+      expect(scenes).toEqual([
+        { name: "Aurora-A", sceneCode: 10, scenceParam: "p1" },
+        { name: "Aurora-B", sceneCode: 11, scenceParam: "p2" },
+      ]);
+    });
+
+    it("uses the scene-level code when there are no lightEffects", async () => {
+      mockHttp.mockResolvedValue(
+        httpOk({ data: { categories: [{ scenes: [{ sceneName: "Solid", sceneCode: 42, lightEffects: [] }] }] } }),
+      );
+      expect(await new GoveeApiClient(apiLog).fetchSceneLibrary("H61BE")).toEqual([{ name: "Solid", sceneCode: 42 }]);
+    });
+
+    it("carries speedInfo only when supSpeed is true", async () => {
+      mockHttp.mockResolvedValue(
+        httpOk({
+          data: {
+            categories: [
+              {
+                scenes: [
+                  {
+                    sceneName: "Fast",
+                    lightEffects: [{ sceneCode: 5, speedInfo: { supSpeed: true, speedIndex: 2, config: "cfg" } }],
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      const scenes = await new GoveeApiClient(apiLog).fetchSceneLibrary("H61BE");
+      expect(scenes[0].speedInfo).toEqual({ supSpeed: true, speedIndex: 2, config: "cfg" });
+    });
+
+    it("skips non-string sceneNames and codes <= 0 (walkCategories guards)", async () => {
+      mockHttp.mockResolvedValue(
+        httpOk({
+          data: {
+            categories: [
+              null,
+              { scenes: "nope" },
+              {
+                scenes: [
+                  { sceneName: 123, lightEffects: [{ sceneCode: 9 }] },
+                  { sceneName: "", lightEffects: [{ sceneCode: 9 }] },
+                  { sceneName: "Zero", lightEffects: [{ sceneCode: 0 }] },
+                  { sceneName: "Keep", lightEffects: [{ sceneCode: 7 }] },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      expect(await new GoveeApiClient(apiLog).fetchSceneLibrary("H61BE")).toEqual([{ name: "Keep", sceneCode: 7 }]);
+    });
+
+    it("returns [] for a non-array categories payload", async () => {
+      mockHttp.mockResolvedValue(httpOk({ data: { categories: "broken" } }));
+      expect(await new GoveeApiClient(apiLog).fetchSceneLibrary("H61BE")).toEqual([]);
+    });
+  });
+
+  describe("fetchMusicLibrary", () => {
+    it("returns [] without a bearer token (auth-gated)", async () => {
+      const modes = await new GoveeApiClient(apiLog).fetchMusicLibrary("H61BE");
+      expect(modes).toEqual([]);
+      expect(mockHttp).not.toHaveBeenCalled();
+    });
+
+    it("assigns an incrementing mode index per scene and uses lightEffects[0]", async () => {
+      mockHttp.mockResolvedValue(
+        httpOk({
+          data: {
+            categories: [
+              {
+                scenes: [
+                  { sceneName: "Energic", lightEffects: [{ sceneCode: 20, scenceParam: "m1" }] },
+                  { sceneName: "Spectrum", sceneCode: 21, lightEffects: [] },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      const client = new GoveeApiClient(apiLog);
+      client.setBearerToken("tok");
+      expect(await client.fetchMusicLibrary("H61BE")).toEqual([
+        { name: "Energic", musicCode: 20, scenceParam: "m1", mode: 0 },
+        { name: "Spectrum", musicCode: 21, mode: 1 },
+      ]);
+    });
+  });
+
+  describe("fetchDiyLibrary", () => {
+    it("returns [] without a bearer token (auth-gated)", async () => {
+      expect(await new GoveeApiClient(apiLog).fetchDiyLibrary("H61BE")).toEqual([]);
+    });
+
+    it("parses diy codes from lightEffects[0]", async () => {
+      mockHttp.mockResolvedValue(
+        httpOk({
+          data: {
+            categories: [{ scenes: [{ sceneName: "MyDIY", lightEffects: [{ sceneCode: 30, scenceParam: "d1" }] }] }],
+          },
+        }),
+      );
+      const client = new GoveeApiClient(apiLog);
+      client.setBearerToken("tok");
+      expect(await client.fetchDiyLibrary("H61BE")).toEqual([{ name: "MyDIY", diyCode: 30, scenceParam: "d1" }]);
+    });
   });
 });
