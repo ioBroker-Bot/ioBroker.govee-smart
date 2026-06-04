@@ -58,6 +58,40 @@ export interface HttpResult<T> {
 export type HttpsRequestFn = <T>(options: HttpRequestOptions) => Promise<HttpResult<T>>;
 
 /**
+ * Interpret an already-2xx response body into the {@link HttpResult} envelope.
+ * Empty/whitespace → fallback `"empty"`; a short `NNN <text>` HTTP-status-line
+ * body (Govee returns these for some SKU/bearer combos, e.g. the literal
+ * `"403 Forbbiden"` — their typo) → fallback `"plain-text-status"`; otherwise
+ * the parsed JSON. Throws on invalid JSON with a body-prefixed message (the
+ * caller rejects the promise with it). Extracted as a pure function so the
+ * Issue-#13 fallback logic is unit-testable without a live socket.
+ *
+ * @param raw The raw response body string
+ * @param statusCode The (already-validated 2xx) HTTP status code
+ */
+export function interpretOkBody<T>(raw: string, statusCode: number): HttpResult<T> {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return { value: null, statusCode, fallback: "empty" };
+  }
+  // Conservative `^<3-digit-status> <non-whitespace>` plus a 100-char length
+  // cap catches the plain-text status line without swallowing JSON literals
+  // that happen to start with a number (`123.45` lacks the trailing space+text).
+  if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
+    return { value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed };
+  }
+  try {
+    return { value: JSON.parse(raw) as T, statusCode };
+  } catch (parseErr) {
+    // 100-char body prefix so "returned HTML / non-JSON 200" is diagnosable
+    // without debug log; the cap keeps echoed request data out of warn logs.
+    const snippet = raw.length > 100 ? `${raw.slice(0, 100)}…` : raw;
+    const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
+    throw new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} — body starts with: ${snippet}`);
+  }
+}
+
+/**
  * Perform an HTTPS request and parse the JSON response. Resolves with an
  * {@link HttpResult} envelope (`value` + `statusCode` + optional `fallback`/
  * `bodySnippet`) for 2xx/3xx, rejects with {@link HttpError} for 4xx/5xx.
@@ -122,42 +156,13 @@ export function httpsRequest<T>(options: HttpRequestOptions): Promise<HttpResult
           return;
         }
 
-        // Empty/whitespace-only 2xx body is legitimate for several Govee
-        // undocumented endpoints — `/appsku/v1/music-effect-libraries`,
-        // `diy-light-effect-libraries`, and `sku-supported-feature` all
-        // return a bare 200 with no body for SKUs they don't recognise.
-        // Resolve as `null` so the caller can treat it as "no data" via the
-        // existing optional-chaining guards instead of seeing an
-        // `Invalid JSON` stack trace in the log (Issue #13).
-        const trimmed = raw.trim();
-        if (trimmed.length === 0) {
-          resolve({ value: null, statusCode, fallback: "empty" });
-          return;
-        }
-
-        // Govee also returns HTTP 200 with a plain-text *HTTP-status-line*
-        // body for SKU/Bearer combos without permission — e.g. the literal
-        // string `"403 Forbbiden"` (their typo). The conservative regex
-        // `^<3-digit-status> <non-whitespace>` plus a 100-char length cap
-        // catches these without swallowing JSON literals that happen to
-        // start with a number (`123.45` lacks the trailing whitespace+text).
-        // Issue #13 follow-up (tukey42, H61A8 — 2026-05-12). v2.8.3 carries
-        // the body snippet through HttpResult so callers can debug-log it.
-        if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
-          resolve({ value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed });
-          return;
-        }
-
+        // Empty / plain-text-status / JSON interpretation lives in the pure,
+        // unit-tested interpretOkBody() (the Issue #13 fallbacks). It throws on
+        // invalid JSON, which we surface as a rejected promise.
         try {
-          resolve({ value: JSON.parse(raw) as T, statusCode });
+          resolve(interpretOkBody<T>(raw, statusCode));
         } catch (parseErr) {
-          // Include a 100-char prefix of the body so a "this endpoint
-          // returned HTML / a non-JSON 200" can be diagnosed without
-          // enabling debug log. Body cap is intentional — Govee may echo
-          // request data and we don't want full payloads in warn logs.
-          const snippet = raw.length > 100 ? `${raw.slice(0, 100)}…` : raw;
-          const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
-          reject(new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} — body starts with: ${snippet}`));
+          reject(parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
         }
       });
     });

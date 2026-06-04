@@ -1,5 +1,5 @@
 import * as http from "node:http";
-import { httpsRequest, HttpError } from "./http-client";
+import { HttpError, httpsRequest, interpretOkBody } from "./http-client";
 
 /**
  * Local HTTP stub server — `http`, not `https`, so the tests don't need a
@@ -130,23 +130,12 @@ function httpRequestPlain<T>(options: {
           reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
           return;
         }
-        // Mirror http-client.ts: empty/whitespace + plain-text status-line bodies
-        // resolve as null in the HttpResult envelope (Pattern #56 + extension).
-        const trimmed = raw.trim();
-        if (trimmed.length === 0) {
-          resolve({ value: null, statusCode, fallback: "empty" });
-          return;
-        }
-        if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
-          resolve({ value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed });
-          return;
-        }
+        // Use the REAL interpretOkBody so this shim can't drift from production
+        // (the whole point of the shim is to test the exact same logic).
         try {
-          resolve({ value: JSON.parse(raw) as T, statusCode });
+          resolve(interpretOkBody<T>(raw, statusCode));
         } catch (parseErr) {
-          const snippet = raw.length > 100 ? `${raw.slice(0, 100)}…` : raw;
-          const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
-          reject(new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} — body starts with: ${snippet}`));
+          reject(parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
         }
       });
     });
@@ -196,6 +185,46 @@ describe("HttpError", () => {
     const e = new HttpError("x", 400);
     expect(e.name).toBe("HttpError");
     expect(e instanceof Error).toBe(true);
+  });
+});
+
+describe("interpretOkBody (pure envelope parser — the real production fn)", () => {
+  it("resolves parsed JSON for a normal body", () => {
+    expect(interpretOkBody<{ a: number }>('{"a":1}', 200)).toEqual({ value: { a: 1 }, statusCode: 200 });
+  });
+
+  it("flags empty / whitespace-only bodies as fallback 'empty'", () => {
+    expect(interpretOkBody("", 200)).toEqual({ value: null, statusCode: 200, fallback: "empty" });
+    expect(interpretOkBody("  \n\t ", 204)).toEqual({ value: null, statusCode: 204, fallback: "empty" });
+  });
+
+  it("flags short 'NNN <text>' status-line bodies as plain-text-status with the snippet", () => {
+    expect(interpretOkBody("403 Forbbiden", 200)).toEqual({
+      value: null,
+      statusCode: 200,
+      fallback: "plain-text-status",
+      bodySnippet: "403 Forbbiden",
+    });
+  });
+
+  it("does NOT treat a bare number literal as a status line", () => {
+    expect(interpretOkBody<number>("123.45", 200)).toEqual({ value: 123.45, statusCode: 200 });
+  });
+
+  it("does NOT treat a long digit-leading body as a status line (length cap)", () => {
+    expect(() => interpretOkBody(`500 Server Error ${"x".repeat(120)}`, 200)).toThrow(/Invalid JSON/);
+  });
+
+  it("throws an Invalid-JSON error with a body prefix, capping the snippet at 100 chars", () => {
+    expect(() => interpretOkBody("<html>oops</html>", 200)).toThrow(/body starts with: <html>oops<\/html>/);
+    try {
+      interpretOkBody("@".repeat(250), 200);
+      throw new Error("expected throw");
+    } catch (e) {
+      const msg = (e as Error).message;
+      expect(msg).toContain(`${"@".repeat(100)}…`); // snippet capped at 100 chars + ellipsis
+      expect(msg).not.toContain("@".repeat(101)); // the full 250-char body is NOT echoed into the log
+    }
   });
 });
 
