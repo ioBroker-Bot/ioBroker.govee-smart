@@ -15,6 +15,7 @@ import {
   SEGMENT_HARD_MAX,
 } from "./device-manager";
 import type { AppDeviceEntry } from "./govee-api-client";
+import { HttpError } from "./http-client";
 import { _resetDeviceRegistry, initDeviceRegistry } from "./device-registry";
 import type { CloudCapability, DeviceState, GoveeDevice, LanDevice, MqttStatusUpdate } from "./types";
 
@@ -2764,5 +2765,40 @@ describe("DeviceManager — loadDeviceScenes snapshot resolution (Issue #13)", (
     ).toBe(1);
     expect(device.snapshotBleCmds?.[0]?.[0]?.[0]).toBe("FRESH_PACKET_1");
     expect(device.snapshotBleCmds?.[1]?.[0]?.[0]).toBe("FRESH_PACKET_2");
+  });
+});
+
+describe("DeviceManager — internal logic helpers", () => {
+  it("removeDevice deletes the device and returns its deviceId, or null if absent", () => {
+    const dm = new DeviceManager(mockLog, mockTimers);
+    const device = createTestDevice({ sku: "H61BE", deviceId: "AA:BB:CC:DD" });
+    const key = (dm as any).deviceKey("H61BE", "AA:BB:CC:DD");
+    (dm as any).devices.set(key, device);
+    expect(dm.removeDevice("H61BE", "AA:BB:CC:DD")).toBe("AA:BB:CC:DD");
+    expect((dm as any).devices.has(key)).toBe(false);
+    expect(dm.removeDevice("H61BE", "AA:BB:CC:DD")).toBeNull(); // already gone
+  });
+
+  it("extractStatus pulls the HTTP status from known error shapes, else undefined", () => {
+    const dm = new DeviceManager(mockLog, mockTimers);
+    const ex = (e: unknown): number | undefined => (dm as any).extractStatus(e);
+    expect(ex(new HttpError("rate", 429))).toBe(429);
+    expect(ex({ statusCode: 503 })).toBe(503);
+    expect(ex({ status: 401 })).toBe(401);
+    expect(ex(new Error("network"))).toBeUndefined();
+    expect(ex("string error")).toBeUndefined();
+    expect(ex(null)).toBeUndefined();
+  });
+
+  it("getErrorCategorySnapshot mirrors the per-source error trackers", () => {
+    const dm = new DeviceManager(mockLog, mockTimers);
+    expect(dm.getErrorCategorySnapshot()).toEqual({ deviceManager: null, appApi: null, groupMembers: null });
+    (dm as any).lastErrorCategory = "TIMEOUT";
+    (dm as any).lastAppApiErrorCategory = "RATE_LIMIT";
+    expect(dm.getErrorCategorySnapshot()).toEqual({
+      deviceManager: "TIMEOUT",
+      appApi: "RATE_LIMIT",
+      groupMembers: null,
+    });
   });
 });
