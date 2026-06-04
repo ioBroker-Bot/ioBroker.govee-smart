@@ -177,19 +177,6 @@ class DeviceRegistry {
     var _a;
     return (_a = this.getEntry(sku)) == null ? void 0 : _a.status;
   }
-  /**
-   * Govee-app display name for a SKU, or undefined if unknown.
-   *
-   * @param sku Govee SKU (case-insensitive)
-   */
-  getName(sku) {
-    var _a;
-    return (_a = this.getEntry(sku)) == null ? void 0 : _a.name;
-  }
-  /** All SKUs known to the registry (regardless of status). */
-  getKnownSkus() {
-    return [...this.entries.keys()];
-  }
 }
 let singleton;
 function initDeviceRegistry(config = {}) {

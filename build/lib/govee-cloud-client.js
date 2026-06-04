@@ -29,6 +29,11 @@ function nextRequestId(prefix) {
   requestIdCounter = (requestIdCounter + 1) % 1e6;
   return `${prefix}_${Date.now()}_${requestIdCounter}`;
 }
+function mapSceneOptions(opts) {
+  return (Array.isArray(opts) ? opts : []).filter(
+    (o) => !!o && typeof o.name === "string" && typeof o.value === "object"
+  ).map((o) => ({ name: o.name, value: o.value }));
+}
 class GoveeCloudClient {
   apiKey;
   log;
@@ -46,14 +51,14 @@ class GoveeCloudClient {
    */
   onResponse = null;
   /**
-   * Letzte Fehler-Kategorie für getFailureReason() — gesetzt bei jedem
-   * HTTP-Fehler im request-Pfad.
+   * Last error category for getFailureReason() — set on every HTTP error in
+   * the request path.
    */
   lastErrorCategory = null;
   /**
    * @param apiKey Govee API key
    * @param log ioBroker logger
-   * @param httpsRequestImpl optional DI für Tests — Default ist die echte httpsRequest
+   * @param httpsRequestImpl optional DI for tests — default is the real httpsRequest
    */
   constructor(apiKey, log, httpsRequestImpl = import_http_client.httpsRequest) {
     this.apiKey = apiKey;
@@ -61,10 +66,10 @@ class GoveeCloudClient {
     this.httpsRequestImpl = httpsRequestImpl;
   }
   /**
-   * Short user-facing reason for "Cloud not connected", or null wenn der
-   * Client noch keinen Fehler gesehen hat. Analog zu mqtt-client —
-   * `logDeviceSummary` nutzt das damit der Adapter klare Diagnose-Texte
-   * statt „see earlier errors" loggen kann.
+   * Short user-facing reason for "Cloud not connected", or null when the
+   * client has not seen an error yet. Like the mqtt-client — `logDeviceSummary`
+   * uses it so the adapter can log clear diagnostic text instead of
+   * "see earlier errors".
    */
   getFailureReason() {
     switch (this.lastErrorCategory) {
@@ -186,12 +191,7 @@ class GoveeCloudClient {
       }
       const opts = Array.isArray((_c = cap.parameters) == null ? void 0 : _c.options) ? cap.parameters.options : [];
       this.log.debug(`Scenes endpoint: instance=${cap.instance}, options=${opts.length}`);
-      const mapped = opts.filter(
-        (o) => !!o && typeof o.name === "string" && typeof o.value === "object"
-      ).map((o) => ({
-        name: o.name,
-        value: o.value
-      }));
+      const mapped = mapSceneOptions(opts);
       if (cap.instance === "lightScene") {
         lightScenes.push(...mapped);
       } else if (cap.instance === "diyScene") {
@@ -223,11 +223,7 @@ class GoveeCloudClient {
       }
       const opts = Array.isArray((_c = cap.parameters) == null ? void 0 : _c.options) ? cap.parameters.options : [];
       this.log.debug(`DIY-Scenes endpoint: instance=${cap.instance}, options=${opts.length}`);
-      scenes.push(
-        ...opts.filter(
-          (o) => !!o && typeof o.name === "string" && typeof o.value === "object"
-        ).map((o) => ({ name: o.name, value: o.value }))
-      );
+      scenes.push(...mapSceneOptions(opts));
     }
     return scenes;
   }

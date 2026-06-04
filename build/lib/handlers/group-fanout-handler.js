@@ -19,27 +19,11 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var group_fanout_handler_exports = {};
 __export(group_fanout_handler_exports, {
   buildGroupFanoutHost: () => buildGroupFanoutHost,
-  resolveGroupMembers: () => resolveGroupMembers,
+  resolveGroupMembers: () => import_group_fanout.resolveGroupMembers,
   updateGroupReachability: () => updateGroupReachability
 });
 module.exports = __toCommonJS(group_fanout_handler_exports);
-function resolveGroupMembers(group, devices) {
-  if (!group.groupMembers) {
-    return [];
-  }
-  const byKey = /* @__PURE__ */ new Map();
-  for (const d of devices) {
-    byKey.set(`${d.sku}:${d.deviceId}`, d);
-  }
-  const out = [];
-  for (const m of group.groupMembers) {
-    const d = byKey.get(`${m.sku}:${m.deviceId}`);
-    if (d) {
-      out.push(d);
-    }
-  }
-  return out;
-}
+var import_group_fanout = require("../group-fanout");
 function updateGroupReachability(adapter) {
   if (!adapter.deviceManager || !adapter.stateManager) {
     return;
@@ -49,7 +33,7 @@ function updateGroupReachability(adapter) {
     if (group.sku !== "BaseGroup" || !group.groupMembers) {
       continue;
     }
-    const memberDevices = resolveGroupMembers(group, devices);
+    const memberDevices = (0, import_group_fanout.resolveGroupMembers)(group, devices);
     adapter.stateManager.updateGroupMembersUnreachable(group, memberDevices).catch(() => {
     });
   }

@@ -26,6 +26,7 @@ __export(connection_state_exports, {
 });
 module.exports = __toCommonJS(connection_state_exports);
 var import_http_client = require("../http-client");
+var import_device_key = require("../device-key");
 var import_types = require("../types");
 var import_govee_constants = require("../govee-constants");
 function updateConnectionState(adapter) {
@@ -101,7 +102,7 @@ async function reapStaleDevices(adapter) {
   await adapter.stateManager.cleanupDevices(currentDevices);
   const liveDeviceIds = new Set(currentDevices.map((d) => d.deviceId));
   adapter.deviceManager.getDiagnostics().pruneOrphans(liveDeviceIds);
-  const liveKeys = new Set(currentDevices.map((d) => `${d.sku}:${d.deviceId}`));
+  const liveKeys = new Set(currentDevices.map((d) => (0, import_device_key.sessionKey)(d.sku, d.deviceId)));
   for (const key of adapter.diagnosticsLastRun.keys()) {
     if (!liveKeys.has(key)) {
       adapter.diagnosticsLastRun.delete(key);

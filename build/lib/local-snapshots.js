@@ -22,6 +22,7 @@ __export(local_snapshots_exports, {
 });
 module.exports = __toCommonJS(local_snapshots_exports);
 var import_types = require("./types");
+var import_device_key = require("./device-key");
 class LocalSnapshotStore {
   adapter;
   log;
@@ -164,10 +165,7 @@ class LocalSnapshotStore {
    * @param deviceId Device identifier
    */
   deviceKey(sku, deviceId) {
-    const safeSku = typeof sku === "string" ? sku : "";
-    const safeId = typeof deviceId === "string" ? deviceId : "";
-    const shortId = safeId.replace(/:/g, "").toLowerCase().slice(-4);
-    return `${safeSku.toLowerCase()}_${shortId}`;
+    return (0, import_device_key.treeKey)(sku, deviceId);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

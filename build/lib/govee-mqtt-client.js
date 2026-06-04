@@ -37,6 +37,7 @@ var mqtt = __toESM(require("mqtt"));
 var import_http_client = require("./http-client");
 var import_govee_constants = require("./govee-constants");
 var import_timing_constants = require("./timing-constants");
+var import_reconnecting_mqtt_client = require("./reconnecting-mqtt-client");
 var import_types = require("./types");
 const LOGIN_URL = "https://app2.govee.com/account/rest/account/v2/login";
 const IOT_KEY_URL = "https://app2.govee.com/app/v1/account/iot/key";
@@ -60,14 +61,11 @@ o/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU
 5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy
 rqXRfboQnoZsG4q5WTP468SQvvG5
 -----END CERTIFICATE-----`;
-class GoveeMqttClient {
+class GoveeMqttClient extends import_reconnecting_mqtt_client.ReconnectingMqttClient {
   email;
   password;
-  log;
-  timers;
   httpsRequestImpl;
   mqttConnectImpl;
-  client = null;
   accountTopic = "";
   _bearerToken = "";
   accountId = "";
@@ -78,13 +76,12 @@ class GoveeMqttClient {
    * socket instead of refusing a new connection while the old one lingers.
    */
   sessionUuid = crypto.randomUUID();
-  reconnectTimer = void 0;
-  reconnectAttempts = 0;
   authFailCount = 0;
-  lastErrorCategory = null;
   onStatus = null;
   onConnection = null;
   onToken = null;
+  /** Channel label used in reconnect log lines. */
+  channelLabel = "MQTT";
   /**
    * Diagnostics hook — called for each parsed message with the device id,
    * source topic and either an op.command hex string (BLE bytes) or the
@@ -94,11 +91,6 @@ class GoveeMqttClient {
    * old shape only fired on op.command BLE strings.
    */
   onPacket = null;
-  /**
-   * Set true in disconnect(); refreshBearerSilently bails as first step
-   *  if true, so timers that fire after dispose are no-ops.
-   */
-  disposed = false;
   /** Account-derived client ID (UUIDv5(email)) — stable per account, distinct per user. */
   clientId;
   /** Optional 2FA code — set once after a 454, sent in the next login body, then cleared. */
@@ -107,19 +99,35 @@ class GoveeMqttClient {
   onVerificationConsumed = null;
   /** Fired on 454 (pending) or 455 (failed) so the adapter can surface the actionable warning + auto-clear the code on failed. */
   onVerificationFailed = null;
+  /** Persisted credentials from a previous run; null until setPersistedCredentials() is called. */
+  persisted = null;
+  /** Hook fired after a successful login so the adapter can persist the new credentials. */
+  onCredentialsRefresh = null;
+  /** Pre-scheduled timer for proactive token refresh (5 min before expiry). */
+  refreshTimer = void 0;
+  /**
+   * True between calling mqtt.connect() with persisted creds and the first
+   * `connect` event. If `close` fires while this is still true, the cached
+   * cert/token are invalid — wipe them so the next attempt does a fresh login.
+   */
+  persistedAttemptInFlight = false;
+  /**
+   * Last time `requestVerificationCode` actually issued a request — guards
+   * against Govee marking the account as suspicious from rapid-fire user clicks.
+   */
+  lastVerificationRequestMs = 0;
   /**
    * @param email Govee account email
    * @param password Govee account password
    * @param log ioBroker logger
    * @param timers Timer adapter
-   * @param httpsRequestImpl optional DI für Tests — Default ist die echte httpsRequest
-   * @param mqttConnectImpl optional DI für Tests — Default ist die echte mqtt.connect
+   * @param httpsRequestImpl optional DI for tests — default is the real httpsRequest
+   * @param mqttConnectImpl optional DI for tests — default is the real mqtt.connect
    */
   constructor(email, password, log, timers, httpsRequestImpl = import_http_client.httpsRequest, mqttConnectImpl = mqtt.connect) {
+    super(log, timers);
     this.email = email;
     this.password = password;
-    this.log = log;
-    this.timers = timers;
     this.httpsRequestImpl = httpsRequestImpl;
     this.mqttConnectImpl = mqttConnectImpl;
     this.clientId = (0, import_govee_constants.deriveGoveeClientId)(email);
@@ -184,18 +192,6 @@ class GoveeMqttClient {
         return null;
     }
   }
-  /** Persisted credentials from a previous run; null until setPersistedCredentials() is called. */
-  persisted = null;
-  /** Hook fired after a successful login so the adapter can persist the new credentials. */
-  onCredentialsRefresh = null;
-  /** Pre-scheduled timer for proactive token refresh (5 min before expiry). */
-  refreshTimer = void 0;
-  /**
-   * True between calling mqtt.connect() with persisted creds and the first
-   * `connect` event. If `close` fires while this is still true, the cached
-   * cert/token are invalid — wipe them so the next attempt does a fresh login.
-   */
-  persistedAttemptInFlight = false;
   /**
    * Hand the client persisted credentials from a previous successful login.
    * If the bearer token is not yet expired, the next connect() will skip the
@@ -356,28 +352,25 @@ class GoveeMqttClient {
       this.scheduleReconnect();
     }
   }
-  /** Whether MQTT is currently connected */
-  get connected() {
-    var _a, _b;
-    return (_b = (_a = this.client) == null ? void 0 : _a.connected) != null ? _b : false;
+  /** Stop reconnecting after repeated auth failures (check email/password). */
+  reconnectExhausted() {
+    return this.authFailCount >= import_timing_constants.MQTT_MAX_AUTH_FAILURES;
   }
-  /** Disconnect and cleanup */
-  disconnect() {
-    this.disposed = true;
-    if (this.reconnectTimer) {
-      this.timers.clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = void 0;
+  /** Re-enter the full connect()/login flow when a backoff timer fires. */
+  reconnect() {
+    if (this.onStatus && this.onConnection) {
+      void this.connect(this.onStatus, this.onConnection);
     }
+  }
+  /**
+   * Clear the proactive-refresh timer on disconnect — the base disconnect()
+   * calls this hook. Otherwise the adapter stop would leave it armed and
+   * refreshBearerSilently() would fire login calls against a torn-down adapter.
+   */
+  disposeExtras() {
     if (this.refreshTimer) {
       this.timers.clearTimeout(this.refreshTimer);
       this.refreshTimer = void 0;
-    }
-    if (this.client) {
-      this.client.removeAllListeners();
-      this.client.on("error", () => {
-      });
-      this.client.end(true);
-      this.client = null;
     }
   }
   /**
@@ -422,32 +415,6 @@ class GoveeMqttClient {
    */
   setPacketHook(cb) {
     this.onPacket = cb;
-  }
-  /** Schedule reconnect with exponential backoff */
-  scheduleReconnect() {
-    if (this.disposed) {
-      return;
-    }
-    if (this.reconnectTimer) {
-      return;
-    }
-    if (this.authFailCount >= import_timing_constants.MQTT_MAX_AUTH_FAILURES) {
-      return;
-    }
-    this.reconnectAttempts++;
-    const base = Math.min(5e3 * Math.pow(2, this.reconnectAttempts - 1), 3e5);
-    const jitter = Math.random() * Math.min(base, 3e4);
-    const delay = Math.round(base + jitter);
-    this.log.debug(`MQTT: Reconnecting in ${delay / 1e3}s (attempt ${this.reconnectAttempts})`);
-    this.reconnectTimer = this.timers.setTimeout(() => {
-      this.reconnectTimer = void 0;
-      if (this.disposed) {
-        return;
-      }
-      if (this.onStatus && this.onConnection) {
-        void this.connect(this.onStatus, this.onConnection);
-      }
-    }, delay);
   }
   /**
    * Reuse path: if a persisted bundle exists and is not expired yet, try
@@ -506,7 +473,7 @@ class GoveeMqttClient {
       return;
     }
     this.client.on("connect", () => {
-      var _a, _b, _c;
+      var _a, _b;
       const wasCached = this.persistedAttemptInFlight;
       this.persistedAttemptInFlight = false;
       this.reconnectAttempts = 0;
@@ -520,19 +487,18 @@ class GoveeMqttClient {
       } else {
         this.log.debug(`MQTT connected: broker=${broker} clientId=${clientId} authMode=${authMode}`);
       }
-      (_c = this.client) == null ? void 0 : _c.subscribe(this.accountTopic, { qos: 0 }, (err) => {
-        var _a2, _b2;
-        if (err) {
-          this.log.warn(`MQTT subscribe failed: ${err.message} \u2014 forcing reconnect`);
-          try {
-            (_a2 = this.client) == null ? void 0 : _a2.end(true);
-          } catch {
-          }
-        } else {
+      this.subscribeOrForceClose(
+        this.accountTopic,
+        () => {
+          var _a2;
           this.log.debug(`MQTT subscribed to account topic: topic=${this.accountTopic} qos=0`);
-          (_b2 = this.onConnection) == null ? void 0 : _b2.call(this, true);
-        }
-      });
+          (_a2 = this.onConnection) == null ? void 0 : _a2.call(this, true);
+        },
+        // Subscribe-fail is rare (AWS-IoT policy mismatch, account flagged) but
+        // leaves the TCP connection alive — the base forces a close so the
+        // close-handler → scheduleReconnect path runs instead of a silent death.
+        (msg) => this.log.warn(`MQTT subscribe failed: ${msg} \u2014 forcing reconnect`)
+      );
     });
     this.client.on("message", (topic, payload) => {
       this.handleMessage(payload, topic);
@@ -663,11 +629,6 @@ class GoveeMqttClient {
     }
     return result.value;
   }
-  /**
-   * Last time `requestVerificationCode` actually issued a request — guards against
-   * Govee marking the account as suspicious from rapid-fire user clicks.
-   */
-  lastVerificationRequestMs = 0;
   /**
    * Trigger Govee's verification-code email. Govee sends a one-time code
    * to the account email; the user pastes it into Settings.

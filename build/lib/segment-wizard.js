@@ -22,96 +22,18 @@ __export(segment_wizard_exports, {
   wizardIdleText: () => wizardIdleText
 });
 module.exports = __toCommonJS(segment_wizard_exports);
-var import_device_manager = require("./device-manager");
+var import_lookups = require("./device-manager/lookups");
 var import_timing_constants = require("./timing-constants");
-const WIZARD_STRINGS = {
-  en: {
-    idle: "No wizard active. Pick an LED strip above and click \u25B6 Start.",
-    btnYes: "\u2713 Yes, visible",
-    btnNo: "\u2717 No, dark",
-    btnDone: "\u25A0 Done \u2013 end of strip",
-    deviceHeader: "Device",
-    segmentFlashing: "\u25BA Segment {idx} is now lit WHITE.",
-    canYouSeeStrip: "Can you see the light on the strip?",
-    canYouSeeShort: "Can you see the light?",
-    seenSoFar: "Marked visible so far: [{list}]",
-    yesNoDoneLine: "\u2192 Yes, visible   or   \u2192 No, dark   or   \u2192 Done \u2013 end of strip",
-    wizardStartedFor: "Wizard started for {name}.",
-    markedVisible: "\u2713 Segment {idx} marked as visible.",
-    markedDark: "\u2717 Segment {idx} marked as dark (gap).",
-    errNoWizard: "No wizard active. Please click 'Start' first.",
-    errNoWizardShort: "No wizard active",
-    errUnknownAction: "Unknown action: {action}",
-    errAlreadyActive: "Wizard already active for {name}. Please abort first.",
-    errDeviceNotFound: "Device not found: {key}",
-    errNoSegments: "{name} has no segments \u2014 wizard not applicable.",
-    errDeviceGone: "Device disappeared during the wizard",
-    errDeviceGoneShort: "Device disappeared",
-    errAnswerFirst: "Please answer at least once first (Yes visible or No dark).",
-    abortTitle: "Wizard aborted.",
-    abortRestored: "The strip has been restored to its previous state.",
-    abortRestart: "You can restart the wizard at any time.",
-    finishDone: "\u2713 DONE!",
-    finishCount: "{count} segments detected.",
-    finishGaps: "Gap list: {list} \u2014 manual-mode active.",
-    finishNoGaps: "No gaps \u2014 manual-mode disabled.",
-    finishTreeRebuilt: "State tree has been rebuilt.",
-    progressSegment: "Segment {idx}",
-    progressCount: "{count} segments",
-    logIdleTimeout: "Segment wizard for {name}: idle timeout (5 min), aborted",
-    logAbortFailed: "Wizard abort after timeout failed: {msg}",
-    logDetected: "Segment wizard for {name}: {count} segments detected{gaps}",
-    logGapsSuffix: ', gaps detected (manual_list="{list}")',
-    logNoGapsSuffix: ", no gaps"
-  },
-  de: {
-    idle: "Kein Assistent aktiv. W\xE4hle oben einen LED-Strip und klicke \u25B6 Start.",
-    btnYes: "\u2713 Ja, sichtbar",
-    btnNo: "\u2717 Nein, dunkel",
-    btnDone: "\u25A0 Fertig \u2013 Strip zu Ende",
-    deviceHeader: "Ger\xE4t",
-    segmentFlashing: "\u25BA Segment {idx} leuchtet jetzt WEISS.",
-    canYouSeeStrip: "Siehst du das Licht auf dem Strip?",
-    canYouSeeShort: "Siehst du das Licht?",
-    seenSoFar: "Bisher als sichtbar markiert: [{list}]",
-    yesNoDoneLine: "\u2192 Ja, sichtbar   oder   \u2192 Nein, dunkel   oder   \u2192 Fertig \u2013 Strip zu Ende",
-    wizardStartedFor: "Assistent gestartet f\xFCr {name}.",
-    markedVisible: "\u2713 Segment {idx} als sichtbar markiert.",
-    markedDark: "\u2717 Segment {idx} als dunkel markiert (L\xFCcke).",
-    errNoWizard: "Kein Assistent aktiv. Bitte zuerst 'Start' klicken.",
-    errNoWizardShort: "Kein Assistent aktiv",
-    errUnknownAction: "Unbekannte Aktion: {action}",
-    errAlreadyActive: "Assistent bereits aktiv f\xFCr {name}. Bitte zuerst abbrechen.",
-    errDeviceNotFound: "Ger\xE4t nicht gefunden: {key}",
-    errNoSegments: "{name} hat keine Segmente \u2014 Assistent nicht anwendbar.",
-    errDeviceGone: "Ger\xE4t w\xE4hrend des Assistenten verschwunden",
-    errDeviceGoneShort: "Ger\xE4t verschwunden",
-    errAnswerFirst: "Bitte zuerst mindestens eine Antwort geben (Ja sichtbar oder Nein dunkel).",
-    abortTitle: "Assistent abgebrochen.",
-    abortRestored: "Der Strip wurde auf den vorherigen Zustand zur\xFCckgesetzt.",
-    abortRestart: "Du kannst den Assistenten jederzeit neu starten.",
-    finishDone: "\u2713 FERTIG!",
-    finishCount: "{count} Segmente erkannt.",
-    finishGaps: "L\xFCcken-Liste: {list} \u2014 Manual-Mode aktiv.",
-    finishNoGaps: "Keine L\xFCcken \u2014 Manual-Mode deaktiviert.",
-    finishTreeRebuilt: "State-Tree wurde neu gebaut.",
-    progressSegment: "Segment {idx}",
-    progressCount: "{count} Segmente",
-    logIdleTimeout: "Segment-Assistent f\xFCr {name}: Idle-Timeout (5 Min), abgebrochen",
-    logAbortFailed: "Abbruch des Assistenten nach Timeout fehlgeschlagen: {msg}",
-    logDetected: "Segment-Assistent f\xFCr {name}: {count} Segmente erkannt{gaps}",
-    logGapsSuffix: ', L\xFCcken erkannt (manual_list="{list}")',
-    logNoGapsSuffix: ", keine L\xFCcken"
-  }
-};
+var import_device_baseline = require("./device-baseline");
+var import_i18n = require("./i18n");
 function format(template, params) {
   if (!params) {
     return template;
   }
   return template.replace(/\{(\w+)\}/g, (m, key) => key in params ? String(params[key]) : m);
 }
-function wizardIdleText(lang) {
-  return WIZARD_STRINGS[lang === "de" ? "de" : "en"].idle;
+function wizardIdleText() {
+  return (0, import_i18n.resolveLabel)("idle");
 }
 function hasSegmentCapability(device) {
   const caps = Array.isArray(device.capabilities) ? device.capabilities : [];
@@ -137,16 +59,14 @@ class SegmentWizard {
     return this.session ? { ...this.session, visible: [...this.session.visible] } : null;
   }
   /**
-   * Look up a localized string, resolving against the host's current language.
+   * Look up a localized wizard string (admin/i18n, resolved in the system
+   * language via adapter-core I18n) and interpolate its `{name}` placeholders.
    *
-   * @param key Lookup key into WIZARD_STRINGS
+   * @param key admin/i18n key
    * @param params Optional placeholder values for `{name}` slots in the template
    */
   t(key, params) {
-    var _a, _b;
-    const lang = this.host.getLanguage() === "de" ? "de" : "en";
-    const template = (_b = (_a = WIZARD_STRINGS[lang][key]) != null ? _a : WIZARD_STRINGS.en[key]) != null ? _b : key;
-    return format(template, params);
+    return format((0, import_i18n.resolveLabel)(key), params);
   }
   /**
    * Human-readable status string for the admin UI (rendered via textSendTo).
@@ -170,10 +90,10 @@ ${this.t("seenSoFar", { list: visibleStr })}`;
   /**
    * Clear any pending idle-timer. Called from onUnload.
    *
-   * Wenn ein Wizard noch läuft beim Adapter-Stop: Strip bleibt im
-   * weiß-flash-Zustand. UX trade-off — onUnload muss synchron sein,
-   * restoreBaseline kann hier nicht awaiten. User-Hinweis schon im
-   * start-Log.
+   * If a wizard is still running on adapter stop the strip stays in its
+   * white-flash state. UX trade-off — onUnload must be synchronous, so
+   * restoreBaseline can't be awaited here. The user is already hinted at this
+   * in the start log.
    */
   dispose() {
     var _a, _b;
@@ -248,7 +168,7 @@ ${this.t("seenSoFar", { list: visibleStr })}`;
       sku: device.sku,
       name: device.name,
       current: 0,
-      total: import_device_manager.SEGMENT_HARD_MAX + 1,
+      total: import_lookups.SEGMENT_COUNT_MAX,
       visible: [],
       startedAt: Date.now(),
       baseline
@@ -283,7 +203,7 @@ ${this.t("yesNoDoneLine")}`,
     const answeredIdx = session.current;
     session.current += 1;
     this.scheduleIdleTimeout();
-    if (session.current > import_device_manager.SEGMENT_HARD_MAX) {
+    if (session.current > import_lookups.SEGMENT_HARD_MAX) {
       return this.finish();
     }
     const device = this.host.findDevice(session.deviceKey);
@@ -307,7 +227,7 @@ ${this.t("yesNoDoneLine")}`,
     };
   }
   /**
-   * User ends the session — "Strip zu Ende, keine weiteren Segmente".
+   * User ends the session — "end of strip, no further segments".
    * The currently-flashed segment was NOT answered, so it doesn't count.
    */
   async done() {
@@ -422,35 +342,12 @@ ${this.t("finishTreeRebuilt")}`,
    * @param device Target device
    */
   async captureBaseline(device) {
-    var _a;
-    const prefix = this.host.devicePrefix(device);
-    const ns = this.host.namespace;
-    const currentCount = (_a = device.segmentCount) != null ? _a : 0;
-    const segIds = [];
-    for (let i = 0; i < currentCount; i++) {
-      segIds.push(`${ns}.${prefix}.segments.${i}.color`, `${ns}.${prefix}.segments.${i}.brightness`);
-    }
-    const [power, brightness, colorRgb, ...segValues] = await Promise.all([
-      this.host.getState(`${ns}.${prefix}.control.power`).then((s) => s == null ? void 0 : s.val),
-      this.host.getState(`${ns}.${prefix}.control.brightness`).then((s) => s == null ? void 0 : s.val),
-      this.host.getState(`${ns}.${prefix}.control.colorRgb`).then((s) => s == null ? void 0 : s.val),
-      ...segIds.map((id) => this.host.getState(id).then((s) => s == null ? void 0 : s.val))
-    ]);
-    const segmentColors = [];
-    for (let i = 0; i < currentCount; i++) {
-      const c = segValues[i * 2];
-      const b = segValues[i * 2 + 1];
-      segmentColors.push({
-        idx: i,
-        color: typeof c === "string" ? c : "#ffffff",
-        brightness: typeof b === "number" ? b : 100
-      });
-    }
+    const base = await (0, import_device_baseline.readDeviceBaseline)(this.host, device, { color: "#ffffff", brightness: 100 });
     return {
-      power: typeof power === "boolean" ? power : void 0,
-      brightness: typeof brightness === "number" ? brightness : void 0,
-      colorRgb: typeof colorRgb === "string" ? colorRgb : void 0,
-      segmentColors
+      power: base.power,
+      brightness: base.brightness,
+      colorRgb: base.colorRgb,
+      segmentColors: base.segments.map((s, idx) => ({ idx, color: s.color, brightness: s.brightness }))
     };
   }
   /**
@@ -465,7 +362,7 @@ ${this.t("finishTreeRebuilt")}`,
     if (atomic) {
       return;
     }
-    const total = import_device_manager.SEGMENT_HARD_MAX + 1;
+    const total = import_lookups.SEGMENT_COUNT_MAX;
     const others = Array.from({ length: total }, (_, i) => i).filter((i) => i !== idx);
     if (others.length > 0) {
       await this.host.sendCommand(device, "segmentBatch", {

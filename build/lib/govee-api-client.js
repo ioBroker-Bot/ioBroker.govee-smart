@@ -64,7 +64,7 @@ class GoveeApiClient {
   }
   /**
    * Auth headers for the bearer-token-protected sensor endpoints.
-   * Caller-pflichten Guard: hasBearerToken() prüfen bevor Aufruf.
+   * Caller-side guard: check hasBearerToken() before calling.
    */
   authHeaders() {
     if (!this.bearerToken) {
@@ -77,6 +77,35 @@ class GoveeApiClient {
       clientType: import_govee_constants.GOVEE_CLIENT_TYPE,
       "User-Agent": import_govee_constants.GOVEE_USER_AGENT
     };
+  }
+  /**
+   * Log a non-JSON fallback (empty / plain-text-status body) for an App-API
+   * endpoint on debug — shared by every fetch method so the "why is this null?"
+   * trace reads the same everywhere.
+   *
+   * @param endpoint Endpoint label for the log line (e.g. "/devices/snapshots sku=H61BE")
+   * @param result HttpResult envelope from httpsRequest
+   */
+  logFallback(endpoint, result) {
+    if (result.fallback) {
+      this.log.debug(
+        `App API ${endpoint}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
+      );
+    }
+  }
+  /**
+   * Guard for bearer-token endpoints: returns true when a token is present,
+   * otherwise logs a uniform "no bearer token" skip line and returns false.
+   * Callers do `if (!this.requireBearer(endpoint)) return [];` (or `null`).
+   *
+   * @param endpoint Endpoint label for the skip log line
+   */
+  requireBearer(endpoint) {
+    if (this.bearerToken) {
+      return true;
+    }
+    this.log.debug(`App API skip ${endpoint}: no bearer token`);
+    return false;
   }
   /**
    * Fetch the per-account device list from the undocumented sensor
@@ -93,8 +122,7 @@ class GoveeApiClient {
    * @returns Parsed entries; never throws on a single malformed entry.
    */
   async fetchDeviceList() {
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /device/rest/devices/v1/list: no bearer token`);
+    if (!this.requireBearer(`/device/rest/devices/v1/list`)) {
       return [];
     }
     this.log.debug(`App API POST /device/rest/devices/v1/list bearer=yes`);
@@ -104,11 +132,7 @@ class GoveeApiClient {
       headers: this.authHeaders(),
       body: {}
     });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /device/rest/devices/v1/list: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/device/rest/devices/v1/list`, result);
     const resp = result.value;
     const out = [];
     const list = Array.isArray(resp == null ? void 0 : resp.devices) ? resp.devices : [];
@@ -134,13 +158,35 @@ class GoveeApiClient {
     return out;
   }
   /**
+   * Iterate every valid scene across all categories of an app-library response.
+   * Shared by the scene / music / DIY library walkers — invokes `perScene` for
+   * each scene whose `sceneName` is a non-empty string; the per-walker effect
+   * extraction stays in the callback. Defensive against missing / non-array
+   * categories and scenes.
+   *
+   * @param categories The `data.categories` array from the library response
+   * @param perScene Callback invoked with each scene that has a string sceneName
+   */
+  walkCategories(categories, perScene) {
+    const cats = Array.isArray(categories) ? categories : [];
+    for (const cat of cats) {
+      const scenes = Array.isArray(cat == null ? void 0 : cat.scenes) ? cat.scenes : [];
+      for (const s of scenes) {
+        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
+          continue;
+        }
+        perScene(s);
+      }
+    }
+  }
+  /**
    * Fetch scene library for a specific SKU from undocumented API.
    * Public endpoint — no authentication required, only AppVersion header.
    *
    * @param sku Product model (e.g. "H61BE")
    */
   async fetchSceneLibrary(sku) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a;
     this.log.debug(`App API GET /light-effect-libraries sku=${sku} bearer=no (public endpoint)`);
     const url = `https://app2.govee.com/appsku/v1/light-effect-libraries?sku=${encodeURIComponent(sku)}`;
     const result = await (0, import_http_client.httpsRequest)({
@@ -151,49 +197,39 @@ class GoveeApiClient {
         "User-Agent": import_govee_constants.GOVEE_USER_AGENT
       }
     });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /light-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/light-effect-libraries sku=${sku}`, result);
     const resp = result.value;
     const scenes = [];
-    const categories = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories) ? resp.data.categories : [];
-    for (const cat of categories) {
-      const catScenes = Array.isArray(cat == null ? void 0 : cat.scenes) ? cat.scenes : [];
-      for (const s of catScenes) {
-        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
-          continue;
+    this.walkCategories((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories, (s) => {
+      var _a2, _b, _c, _d, _e;
+      const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
+      if (effects.length === 0) {
+        const code = (_a2 = s.sceneCode) != null ? _a2 : 0;
+        if (code > 0) {
+          scenes.push({ name: s.sceneName, sceneCode: code });
         }
-        const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
-        if (effects.length === 0) {
-          const code = (_b = s.sceneCode) != null ? _b : 0;
-          if (code > 0) {
-            scenes.push({ name: s.sceneName, sceneCode: code });
-          }
-          continue;
-        }
-        const multiVariant = effects.length > 1;
-        for (const effect of effects) {
-          const code = (_d = (_c = effect.sceneCode) != null ? _c : s.sceneCode) != null ? _d : 0;
-          if (code <= 0) {
-            continue;
-          }
-          const name = multiVariant && effect.scenceName ? `${s.sceneName}-${effect.scenceName}` : s.sceneName;
-          const si = effect.speedInfo;
-          scenes.push({
-            name,
-            sceneCode: code,
-            scenceParam: effect.scenceParam || void 0,
-            speedInfo: (si == null ? void 0 : si.supSpeed) ? {
-              supSpeed: true,
-              speedIndex: (_e = si.speedIndex) != null ? _e : 0,
-              config: (_f = si.config) != null ? _f : ""
-            } : void 0
-          });
-        }
+        return;
       }
-    }
+      const multiVariant = effects.length > 1;
+      for (const effect of effects) {
+        const code = (_c = (_b = effect.sceneCode) != null ? _b : s.sceneCode) != null ? _c : 0;
+        if (code <= 0) {
+          continue;
+        }
+        const name = multiVariant && effect.scenceName ? `${s.sceneName}-${effect.scenceName}` : s.sceneName;
+        const si = effect.speedInfo;
+        scenes.push({
+          name,
+          sceneCode: code,
+          scenceParam: effect.scenceParam || void 0,
+          speedInfo: (si == null ? void 0 : si.supSpeed) ? {
+            supSpeed: true,
+            speedIndex: (_d = si.speedIndex) != null ? _d : 0,
+            config: (_e = si.config) != null ? _e : ""
+          } : void 0
+        });
+      }
+    });
     return scenes;
   }
   /**
@@ -203,43 +239,32 @@ class GoveeApiClient {
    * @param sku Product model (e.g. "H61BE")
    */
   async fetchMusicLibrary(sku) {
-    var _a, _b, _c;
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /music-effect-libraries sku=${sku}: no bearer token`);
+    var _a;
+    if (!this.requireBearer(`/music-effect-libraries sku=${sku}`)) {
       return [];
     }
     this.log.debug(`App API GET /music-effect-libraries sku=${sku} bearer=yes`);
     const url = `https://app2.govee.com/appsku/v1/music-effect-libraries?sku=${encodeURIComponent(sku)}`;
     const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /music-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/music-effect-libraries sku=${sku}`, result);
     const resp = result.value;
     const modes = [];
     let modeIdx = 0;
-    const musicCats = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories) ? resp.data.categories : [];
-    for (const cat of musicCats) {
-      const catScenes = Array.isArray(cat == null ? void 0 : cat.scenes) ? cat.scenes : [];
-      for (const s of catScenes) {
-        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
-          continue;
-        }
-        const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
-        const effect = effects[0];
-        const code = (_c = (_b = effect == null ? void 0 : effect.sceneCode) != null ? _b : s.sceneCode) != null ? _c : 0;
-        if (code > 0) {
-          modes.push({
-            name: s.sceneName,
-            musicCode: code,
-            scenceParam: (effect == null ? void 0 : effect.scenceParam) || void 0,
-            mode: modeIdx
-          });
-        }
-        modeIdx++;
+    this.walkCategories((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories, (s) => {
+      var _a2, _b;
+      const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
+      const effect = effects[0];
+      const code = (_b = (_a2 = effect == null ? void 0 : effect.sceneCode) != null ? _a2 : s.sceneCode) != null ? _b : 0;
+      if (code > 0) {
+        modes.push({
+          name: s.sceneName,
+          musicCode: code,
+          scenceParam: (effect == null ? void 0 : effect.scenceParam) || void 0,
+          mode: modeIdx
+        });
       }
-    }
+      modeIdx++;
+    });
     return modes;
   }
   /**
@@ -249,40 +274,29 @@ class GoveeApiClient {
    * @param sku Product model (e.g. "H61BE")
    */
   async fetchDiyLibrary(sku) {
-    var _a, _b, _c;
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /diy-light-effect-libraries sku=${sku}: no bearer token`);
+    var _a;
+    if (!this.requireBearer(`/diy-light-effect-libraries sku=${sku}`)) {
       return [];
     }
     this.log.debug(`App API GET /diy-light-effect-libraries sku=${sku} bearer=yes`);
     const url = `https://app2.govee.com/appsku/v1/diy-light-effect-libraries?sku=${encodeURIComponent(sku)}`;
     const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /diy-light-effect-libraries sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/diy-light-effect-libraries sku=${sku}`, result);
     const resp = result.value;
     const diys = [];
-    const diyCats = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories) ? resp.data.categories : [];
-    for (const cat of diyCats) {
-      const catScenes = Array.isArray(cat == null ? void 0 : cat.scenes) ? cat.scenes : [];
-      for (const s of catScenes) {
-        if (!s || typeof s.sceneName !== "string" || !s.sceneName) {
-          continue;
-        }
-        const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
-        const effect = effects[0];
-        const code = (_c = (_b = effect == null ? void 0 : effect.sceneCode) != null ? _b : s.sceneCode) != null ? _c : 0;
-        if (code > 0) {
-          diys.push({
-            name: s.sceneName,
-            diyCode: code,
-            scenceParam: (effect == null ? void 0 : effect.scenceParam) || void 0
-          });
-        }
+    this.walkCategories((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.categories, (s) => {
+      var _a2, _b;
+      const effects = Array.isArray(s.lightEffects) ? s.lightEffects : [];
+      const effect = effects[0];
+      const code = (_b = (_a2 = effect == null ? void 0 : effect.sceneCode) != null ? _a2 : s.sceneCode) != null ? _b : 0;
+      if (code > 0) {
+        diys.push({
+          name: s.sceneName,
+          diyCode: code,
+          scenceParam: (effect == null ? void 0 : effect.scenceParam) || void 0
+        });
       }
-    }
+    });
     return diys;
   }
   /**
@@ -293,18 +307,13 @@ class GoveeApiClient {
    */
   async fetchSkuFeatures(sku) {
     var _a;
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /sku-supported-feature sku=${sku}: no bearer token`);
+    if (!this.requireBearer(`/sku-supported-feature sku=${sku}`)) {
       return null;
     }
     this.log.debug(`App API GET /sku-supported-feature sku=${sku} bearer=yes`);
     const url = `https://app2.govee.com/appsku/v1/sku-supported-feature?sku=${encodeURIComponent(sku)}`;
     const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /sku-supported-feature sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/sku-supported-feature sku=${sku}`, result);
     const resp = result.value;
     if (!resp || typeof resp !== "object") {
       return null;
@@ -320,18 +329,13 @@ class GoveeApiClient {
    */
   async fetchSnapshots(sku, deviceId) {
     var _a;
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /devices/snapshots sku=${sku}: no bearer token`);
+    if (!this.requireBearer(`/devices/snapshots sku=${sku}`)) {
       return [];
     }
     this.log.debug(`App API GET /devices/snapshots sku=${sku} device=${deviceId} bearer=yes`);
     const url = `https://app2.govee.com/bff-app/v1/devices/snapshots?sku=${encodeURIComponent(sku)}&device=${encodeURIComponent(deviceId)}&snapshotId=-1`;
     const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /devices/snapshots sku=${sku}: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/devices/snapshots sku=${sku}`, result);
     const resp = result.value;
     const results = [];
     const snaps = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.snapshots) ? resp.data.snapshots : [];
@@ -365,18 +369,13 @@ class GoveeApiClient {
    */
   async fetchGroupMembers() {
     var _a;
-    if (!this.bearerToken) {
-      this.log.debug(`App API skip /exec-plat/home: no bearer token`);
+    if (!this.requireBearer(`/exec-plat/home`)) {
       return [];
     }
     this.log.debug(`App API GET /exec-plat/home bearer=yes`);
     const url = "https://app2.govee.com/bff-app/v1/exec-plat/home";
     const result = await (0, import_http_client.httpsRequest)({ method: "GET", url, headers: this.authHeaders() });
-    if (result.fallback) {
-      this.log.debug(
-        `App API /exec-plat/home: ${result.fallback} (status=${result.statusCode}${result.bodySnippet ? `, body=${JSON.stringify(result.bodySnippet)}` : ""}) \u2014 treated as no data`
-      );
-    }
+    this.logFallback(`/exec-plat/home`, result);
     const resp = result.value;
     const groups = [];
     const components = Array.isArray((_a = resp == null ? void 0 : resp.data) == null ? void 0 : _a.components) ? resp.data.components : [];

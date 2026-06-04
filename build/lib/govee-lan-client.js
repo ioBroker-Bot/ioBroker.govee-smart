@@ -40,6 +40,9 @@ __export(govee_lan_client_exports, {
 });
 module.exports = __toCommonJS(govee_lan_client_exports);
 var dgram = __toESM(require("node:dgram"));
+var import_types = require("./types");
+var import_timing_constants = require("./timing-constants");
+var import_lookups = require("./device-manager/lookups");
 const MULTICAST_ADDR = "239.255.255.250";
 const SCAN_PORT = 4001;
 const LISTEN_PORT = 4002;
@@ -48,9 +51,9 @@ class GoveeLanClient {
   scanSocket = null;
   listenSocket = null;
   /**
-   * Persistent send-socket — vorher wurde pro Command ein neuer dgram-
-   *  Socket angelegt, gesendet, geschlossen. Beim Adapter-Stop mid-send
-   *  konnte der Callback in einen halb-zerlegten Adapter feuern.
+   * Persistent send-socket — previously a new dgram socket was created, used to
+   * send, and closed per command. On adapter stop mid-send the callback could
+   * fire into a half-torn-down adapter.
    */
   sendSocket = null;
   scanTimer = void 0;
@@ -83,7 +86,7 @@ class GoveeLanClient {
    * unrelated polling.
    */
   lastCommandSentMs = /* @__PURE__ */ new Map();
-  /** Multicast-Membership-Adresse — gemerkt für dropMembership in stop(). */
+  /** Multicast membership address — remembered for dropMembership in stop(). */
   multicastBind;
   /**
    * @param log ioBroker logger
@@ -301,7 +304,7 @@ class GoveeLanClient {
    */
   setColor(ip, r, g, b) {
     this.sendCommand(ip, "colorwc", {
-      color: { r: clampByte(r), g: clampByte(g), b: clampByte(b) },
+      color: { r: (0, import_types.clampByte)(r), g: (0, import_types.clampByte)(g), b: (0, import_types.clampByte)(b) },
       colorTemInKelvin: 0
     });
   }
@@ -444,13 +447,13 @@ class GoveeLanClient {
    * @param idx Target segment index (0-based) to flash white
    */
   flashSingleSegment(ip, idx) {
-    if (idx < 0 || idx >= 56) {
+    if (idx < 0 || idx >= import_lookups.SEGMENT_COUNT_MAX) {
       return;
     }
-    const MAX_SEGMENTS = 56;
+    const MAX_SEGMENTS = import_lookups.SEGMENT_COUNT_MAX;
     const others = Array.from({ length: MAX_SEGMENTS }, (_, i) => i).filter((i) => i !== idx);
     this.setColor(ip, 255, 255, 255);
-    const delayMs = 150;
+    const delayMs = import_timing_constants.FORCE_COLOR_MODE_SETTLE_MS;
     const handle = this.timers.setTimeout(() => {
       if (handle !== void 0) {
         this.pendingFlashTimers.delete(handle);
@@ -597,12 +600,6 @@ class GoveeLanClient {
     (_b = this.onStatus) == null ? void 0 : _b.call(this, sourceIp, status);
   }
 }
-function clampByte(v) {
-  if (typeof v !== "number" || !Number.isFinite(v)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(255, Math.round(v)));
-}
 function clampByte0_100(v) {
   if (typeof v !== "number" || !Number.isFinite(v)) {
     return 0;
@@ -714,12 +711,19 @@ function buildSegmentColorPacket(r, g, b, segments) {
     0,
     0,
     0,
-    ...buildSegmentBitmask(segments, 7)
+    ...buildSegmentBitmask(segments, import_lookups.SEGMENT_COLOR_BITMASK_BYTES)
   ];
   return Buffer.from(finishPacket(data)).toString("base64");
 }
 function buildSegmentBrightnessPacket(brightness, segments) {
-  const data = [51, 5, 21, 2, Math.max(0, Math.min(100, brightness)), ...buildSegmentBitmask(segments, 14)];
+  const data = [
+    51,
+    5,
+    21,
+    2,
+    Math.max(0, Math.min(100, brightness)),
+    ...buildSegmentBitmask(segments, import_lookups.SEGMENT_BRIGHTNESS_BITMASK_BYTES)
+  ];
   return Buffer.from(finishPacket(data)).toString("base64");
 }
 function applySceneSpeed(scenceParam, speedLevel, speedConfig) {

@@ -29,11 +29,28 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var http_client_exports = {};
 __export(http_client_exports, {
   HttpError: () => HttpError,
-  httpsRequest: () => httpsRequest
+  httpsRequest: () => httpsRequest,
+  interpretOkBody: () => interpretOkBody
 });
 module.exports = __toCommonJS(http_client_exports);
 var https = __toESM(require("node:https"));
 const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 4 });
+function interpretOkBody(raw, statusCode) {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return { value: null, statusCode, fallback: "empty" };
+  }
+  if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
+    return { value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed };
+  }
+  try {
+    return { value: JSON.parse(raw), statusCode };
+  } catch (parseErr) {
+    const snippet = raw.length > 100 ? `${raw.slice(0, 100)}\u2026` : raw;
+    const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
+    throw new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} \u2014 body starts with: ${snippet}`);
+  }
+}
 function httpsRequest(options) {
   return new Promise((resolve, reject) => {
     var _a;
@@ -76,21 +93,10 @@ function httpsRequest(options) {
           reject(new HttpError(`HTTP ${statusCode}`, statusCode, res.headers, raw));
           return;
         }
-        const trimmed = raw.trim();
-        if (trimmed.length === 0) {
-          resolve({ value: null, statusCode, fallback: "empty" });
-          return;
-        }
-        if (trimmed.length < 100 && /^\d{3}\s+\S/.test(trimmed)) {
-          resolve({ value: null, statusCode, fallback: "plain-text-status", bodySnippet: trimmed });
-          return;
-        }
         try {
-          resolve({ value: JSON.parse(raw), statusCode });
+          resolve(interpretOkBody(raw, statusCode));
         } catch (parseErr) {
-          const snippet = raw.length > 100 ? `${raw.slice(0, 100)}\u2026` : raw;
-          const detail = parseErr instanceof Error ? parseErr.message : String(parseErr);
-          reject(new Error(`Invalid JSON in HTTP ${statusCode} response: ${detail} \u2014 body starts with: ${snippet}`));
+          reject(parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
         }
       });
     });
@@ -128,9 +134,8 @@ class HttpError extends Error {
   /** Response headers */
   headers;
   /**
-   * Raw response body — NICHT in `message` damit Tokens/API-Keys nicht
-   * via warn-Log geleakt werden. Nur für gezieltes debug-Logging beim
-   * Caller verfügbar.
+   * Raw response body — NOT in `message` so tokens / API keys aren't leaked
+   * via the warn log. Available only for targeted debug logging at the caller.
    */
   responseBody;
   /**
@@ -150,6 +155,7 @@ class HttpError extends Error {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   HttpError,
-  httpsRequest
+  httpsRequest,
+  interpretOkBody
 });
 //# sourceMappingURL=http-client.js.map

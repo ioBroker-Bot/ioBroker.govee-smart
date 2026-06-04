@@ -40,7 +40,7 @@ var import_govee_constants = require("../govee-constants");
 var import_types = require("../types");
 var connectionState = __toESM(require("./connection-state"));
 var groupFanoutHandler = __toESM(require("./group-fanout-handler"));
-var groupStateHelpers = __toESM(require("./group-state-helpers"));
+var dropdownReset = __toESM(require("./dropdown-reset-helpers"));
 function onDeviceStateUpdate(adapter, device, state) {
   if (adapter.stateManager) {
     adapter.stateManager.updateDeviceState(device, state).catch(() => {
@@ -56,7 +56,7 @@ function onDeviceStateUpdate(adapter, device, state) {
   const powerOff = state.power === false || state.power === 0;
   if (powerOff && adapter.stateManager) {
     const prefix = adapter.stateManager.devicePrefix(device);
-    groupStateHelpers.resetModeDropdowns(adapter, prefix, "").catch(() => void 0);
+    dropdownReset.resetModeDropdowns(adapter, prefix, "").catch(() => void 0);
   }
 }
 function trackStateCreation(adapter, p) {

@@ -1,4 +1,9 @@
 # Older Changes
+## 2.13.0 (2026-05-21)
+
+- Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API
+- Lights without local API now fall back to cloud control instead of failing silently
+
 ## 2.12.2 (2026-05-20)
 
 - Verified against Node.js 24. Internal cleanup.

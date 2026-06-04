@@ -18,6 +18,9 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var lookups_exports = {};
 __export(lookups_exports, {
+  SEGMENT_BRIGHTNESS_BITMASK_BYTES: () => SEGMENT_BRIGHTNESS_BITMASK_BYTES,
+  SEGMENT_COLOR_BITMASK_BYTES: () => SEGMENT_COLOR_BITMASK_BYTES,
+  SEGMENT_COUNT_MAX: () => SEGMENT_COUNT_MAX,
   SEGMENT_HARD_MAX: () => SEGMENT_HARD_MAX,
   deviceKey: () => deviceKey,
   findDeviceBySkuAndId: () => findDeviceBySkuAndId,
@@ -27,6 +30,7 @@ __export(lookups_exports, {
 });
 module.exports = __toCommonJS(lookups_exports);
 var import_types = require("../types");
+var import_device_key = require("../device-key");
 function parseMqttSegmentData(commands) {
   if (!Array.isArray(commands)) {
     return [];
@@ -119,8 +123,11 @@ function resolveSegmentCount(device) {
   return Number.isFinite(min) ? min : 0;
 }
 const SEGMENT_HARD_MAX = 55;
+const SEGMENT_COUNT_MAX = SEGMENT_HARD_MAX + 1;
+const SEGMENT_COLOR_BITMASK_BYTES = 7;
+const SEGMENT_BRIGHTNESS_BITMASK_BYTES = 14;
 function deviceKey(sku, deviceId) {
-  return `${sku}_${(0, import_types.normalizeDeviceId)(deviceId)}`;
+  return (0, import_device_key.mapKey)(sku, deviceId);
 }
 function findDeviceBySkuAndId(devices, sku, deviceId) {
   const direct = devices.get(deviceKey(sku, deviceId));
@@ -137,6 +144,9 @@ function findDeviceBySkuAndId(devices, sku, deviceId) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  SEGMENT_BRIGHTNESS_BITMASK_BYTES,
+  SEGMENT_COLOR_BITMASK_BYTES,
+  SEGMENT_COUNT_MAX,
   SEGMENT_HARD_MAX,
   deviceKey,
   findDeviceBySkuAndId,

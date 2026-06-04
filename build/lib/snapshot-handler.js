@@ -21,9 +21,10 @@ __export(snapshot_handler_exports, {
   SnapshotHandler: () => SnapshotHandler
 });
 module.exports = __toCommonJS(snapshot_handler_exports);
+var import_device_baseline = require("./device-baseline");
 class SnapshotHandler {
   /**
-   * @param host Adapter dependencies via Host-Interface (testbar via Mocks)
+   * @param host Adapter dependencies via the host interface (testable with mocks)
    */
   constructor(host) {
     this.host = host;
@@ -35,40 +36,15 @@ class SnapshotHandler {
    * @param name Snapshot name
    */
   async save(device, name) {
-    var _a;
-    const prefix = this.host.devicePrefix(device);
-    const ns = this.host.namespace;
-    const [powerState, brightState, colorState, ctState] = await Promise.all([
-      this.host.getState(`${ns}.${prefix}.control.power`),
-      this.host.getState(`${ns}.${prefix}.control.brightness`),
-      this.host.getState(`${ns}.${prefix}.control.colorRgb`),
-      this.host.getState(`${ns}.${prefix}.control.colorTemperature`)
-    ]);
-    let segments;
-    const segCount = (_a = device.segmentCount) != null ? _a : 0;
-    if (segCount > 0) {
-      const segReads = [];
-      for (let i = 0; i < segCount; i++) {
-        segReads.push(
-          Promise.all([
-            this.host.getState(`${ns}.${prefix}.segments.${i}.color`),
-            this.host.getState(`${ns}.${prefix}.segments.${i}.brightness`)
-          ])
-        );
-      }
-      const segResults = await Promise.all(segReads);
-      segments = segResults.map(([segColor, segBright]) => ({
-        color: typeof (segColor == null ? void 0 : segColor.val) === "string" ? segColor.val : "#000000",
-        brightness: typeof (segBright == null ? void 0 : segBright.val) === "number" ? segBright.val : 100
-      }));
-    }
+    var _a, _b, _c;
+    const base = await (0, import_device_baseline.readDeviceBaseline)(this.host, device, { color: "#000000", brightness: 100 });
     const snapshot = {
       name,
-      power: (powerState == null ? void 0 : powerState.val) === true,
-      brightness: typeof (brightState == null ? void 0 : brightState.val) === "number" ? brightState.val : 0,
-      colorRgb: typeof (colorState == null ? void 0 : colorState.val) === "string" ? colorState.val : "#000000",
-      colorTemperature: typeof (ctState == null ? void 0 : ctState.val) === "number" ? ctState.val : 0,
-      segments,
+      power: base.power === true,
+      brightness: (_a = base.brightness) != null ? _a : 0,
+      colorRgb: (_b = base.colorRgb) != null ? _b : "#000000",
+      colorTemperature: (_c = base.colorTemperature) != null ? _c : 0,
+      segments: base.segments.length > 0 ? base.segments : void 0,
       savedAt: Date.now()
     };
     await this.host.store.saveSnapshot(device.sku, device.deviceId, snapshot);

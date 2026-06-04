@@ -91,6 +91,11 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 2.14.0 (2026-06-04)
+
+- The segment-detection wizard and the Cloud login test now show their messages in all admin languages instead of falling back to English or German.
+- For LAN-only lights, brightness, color and state are now recorded only when they actually change, keeping their history cleaner.
+
 ### 2.13.4 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.
@@ -107,11 +112,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)
 - Added H607C Floor Lamp 2 to the device catalog
-
-### 2.13.0 (2026-05-21)
-
-- Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API
-- Lights without local API now fall back to cloud control instead of failing silently
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

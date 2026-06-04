@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.13.4",
+    "version": "2.14.0",
     "news": {
+      "2.14.0": {
+        "en": "Wizard and Cloud login-test messages now appear in all admin languages. LAN-only lights record brightness, color and state only when they actually change, keeping their history cleaner.",
+        "de": "Wizard- und Cloud-Login-Test-Meldungen erscheinen jetzt in allen Admin-Sprachen. LAN-only-Lampen speichern Helligkeit, Farbe und Status nur bei echter Änderung — sauberere History.",
+        "ru": "Сообщения мастера и проверки входа в облако теперь на всех языках админки. Лампы только-LAN сохраняют яркость, цвет и состояние только при реальном изменении — чище история.",
+        "pt": "Mensagens do assistente e do teste de login na nuvem agora em todos os idiomas do admin. Luzes apenas-LAN guardam brilho, cor e estado só quando mudam de facto — histórico mais limpo.",
+        "nl": "Wizard- en cloud-login-testmeldingen verschijnen nu in alle admin-talen. LAN-only lampen leggen helderheid, kleur en status alleen bij echte wijziging vast — schonere historie.",
+        "fr": "Messages de l'assistant et du test cloud dans toutes les langues de l'admin. Les lampes LAN seul enregistrent luminosité, couleur et état seulement en cas de changement — historique plus propre.",
+        "it": "Messaggi della procedura guidata e del test cloud ora in tutte le lingue dell'admin. Le luci solo-LAN salvano luminosità, colore e stato solo quando cambiano davvero — cronologia più pulita.",
+        "es": "Mensajes del asistente y de la prueba de login en la nube ahora en todos los idiomas del admin. Las luces solo-LAN guardan brillo, color y estado solo cuando cambian — historial más limpio.",
+        "pl": "Komunikaty kreatora i testu logowania do chmury teraz we wszystkich językach panelu admina. Lampy tylko-LAN zapisują jasność, kolor i stan tylko przy realnej zmianie — czystsza historia.",
+        "uk": "Повідомлення майстра та тесту входу в хмару тепер усіма мовами адмінки. Лампи лише-LAN зберігають яскравість, колір і стан лише при реальній зміні — чистіша історія.",
+        "zh-cn": "向导和云登录测试的消息现在以所有管理界面语言显示。仅局域网的灯具仅在亮度、颜色和状态实际变化时才保存，使历史记录更整洁。"
+      },
       "2.13.4": {
         "en": "Changelog rewritten in user-centric style across all versions.",
         "de": "Changelog in benutzerfreundlichem Stil über alle Versionen umgeschrieben.",
@@ -80,19 +93,6 @@
         "pl": "Zweryfikowano z Node.js 24. Wewnętrzne porządki.",
         "uk": "Перевірено з Node.js 24. Внутрішнє очищення.",
         "zh-cn": "已验证 Node.js 24 兼容性。内部清理。"
-      },
-      "2.12.1": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine für den Benutzer sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Нет видимых пользователю изменений.",
-        "pt": "Limpeza interna. Sem alterações visíveis ao utilizador.",
-        "nl": "Interne opschoning. Geen zichtbare wijzigingen voor de gebruiker.",
-        "fr": "Nettoyage interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile all'utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє очищення. Без видимих змін для користувача.",
-        "zh-cn": "内部清理。无用户可见的更改。"
       }
     },
     "titleLang": {

@@ -16,8 +16,8 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-var group_state_helpers_exports = {};
-__export(group_state_helpers_exports, {
+var dropdown_reset_helpers_exports = {};
+__export(dropdown_reset_helpers_exports, {
   COMMAND_DROPDOWN: () => COMMAND_DROPDOWN,
   MODE_DROPDOWNS: () => MODE_DROPDOWNS,
   STATE_TO_COMMAND: () => STATE_TO_COMMAND,
@@ -25,7 +25,7 @@ __export(group_state_helpers_exports, {
   resetRelatedDropdowns: () => resetRelatedDropdowns,
   stateToCommand: () => stateToCommand
 });
-module.exports = __toCommonJS(group_state_helpers_exports);
+module.exports = __toCommonJS(dropdown_reset_helpers_exports);
 const STATE_TO_COMMAND = {
   "control.power": "power",
   "control.brightness": "brightness",
@@ -100,4 +100,4 @@ async function resetModeDropdowns(adapter, prefix, keep) {
   resetRelatedDropdowns,
   stateToCommand
 });
-//# sourceMappingURL=group-state-helpers.js.map
+//# sourceMappingURL=dropdown-reset-helpers.js.map

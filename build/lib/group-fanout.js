@@ -18,25 +18,44 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var group_fanout_exports = {};
 __export(group_fanout_exports, {
-  GroupFanoutHandler: () => GroupFanoutHandler
+  GroupFanoutHandler: () => GroupFanoutHandler,
+  resolveGroupMembers: () => resolveGroupMembers
 });
 module.exports = __toCommonJS(group_fanout_exports);
 var import_types = require("./types");
+var import_device_key = require("./device-key");
+function resolveGroupMembers(group, devices) {
+  if (!group.groupMembers) {
+    return [];
+  }
+  const byKey = /* @__PURE__ */ new Map();
+  for (const d of devices) {
+    byKey.set((0, import_device_key.sessionKey)(d.sku, d.deviceId), d);
+  }
+  const out = [];
+  for (const m of group.groupMembers) {
+    const d = byKey.get((0, import_device_key.sessionKey)(m.sku, m.deviceId));
+    if (d) {
+      out.push(d);
+    }
+  }
+  return out;
+}
 class GroupFanoutHandler {
   /**
-   * @param host Adapter dependencies via Host-Interface
+   * @param host Adapter dependencies via the host interface
    */
   constructor(host) {
     this.host = host;
   }
   /**
    * Fan out a group command to all online member devices.
-   * Basic controls (power/brightness/color) gehen direkt durch.
-   * Scenes/music werden Name-basiert gemappt.
+   * Basic controls (power/brightness/color) pass straight through.
+   * Scenes/music are mapped by name.
    *
-   * @param group BaseGroup-Device
-   * @param stateSuffix State-Suffix (z.B. "control.power" oder "scenes.light_scene")
-   * @param value Command-Value
+   * @param group BaseGroup device
+   * @param stateSuffix State suffix (e.g. "control.power" or "scenes.light_scene")
+   * @param value Command value
    */
   async fanOut(group, stateSuffix, value) {
     if (!group.groupMembers) {
@@ -76,10 +95,7 @@ class GroupFanoutHandler {
    * @param devices Full device list to search
    */
   resolveMembers(group, devices) {
-    if (!group.groupMembers) {
-      return [];
-    }
-    return group.groupMembers.map((m) => devices.find((d) => d.sku === m.sku && d.deviceId === m.deviceId)).filter((d) => d !== void 0);
+    return resolveGroupMembers(group, devices);
   }
   /**
    * Fan out a scene command: match group scene name → member scene index.
@@ -131,6 +147,7 @@ class GroupFanoutHandler {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  GroupFanoutHandler
+  GroupFanoutHandler,
+  resolveGroupMembers
 });
 //# sourceMappingURL=group-fanout.js.map

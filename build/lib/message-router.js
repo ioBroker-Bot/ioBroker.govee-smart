@@ -23,9 +23,10 @@ __export(message_router_exports, {
 module.exports = __toCommonJS(message_router_exports);
 var import_types = require("./types");
 var import_timing_constants = require("./timing-constants");
+var import_i18n = require("./i18n");
 class MessageRouter {
   /**
-   * @param host Adapter dependencies via Host-Interface
+   * @param host Adapter dependencies via the host interface
    */
   constructor(host) {
     this.host = host;
@@ -33,11 +34,10 @@ class MessageRouter {
   /** Last time `requestCode` was triggered — guards against double-click email spam. */
   lastVerificationRequestMs = 0;
   /**
-   * Sync entry-point — registered as `this.on("message", ...)`. Wraps
-   * the async handler in a catch so unhandled rejections können den
-   * Adapter nicht crashen.
+   * Sync entry-point — registered as `this.on("message", ...)`. Wraps the
+   * async handler in a catch so unhandled rejections can't crash the adapter.
    *
-   * @param obj Inkommende ioBroker-Message
+   * @param obj Incoming ioBroker message
    */
   onMessage(obj) {
     if (!(obj == null ? void 0 : obj.command)) {
@@ -49,9 +49,9 @@ class MessageRouter {
     });
   }
   /**
-   * Async handler — dispatcht zu den 3 Sub-Handlern.
+   * Async handler — dispatches to the 3 sub-handlers.
    *
-   * @param obj Inkommende ioBroker-Message
+   * @param obj Incoming ioBroker message
    */
   async handleMessage(obj) {
     var _a, _b, _c, _d, _e;
@@ -83,18 +83,18 @@ class MessageRouter {
    * Handle the `mqttAuth` onMessage commands.
    *
    * Two actions:
-   *   - `test`        — try a one-shot login mit der aktuellen Settings-Combo
-   *                     und liefere ein einzelnes user-readable Ergebnis.
-   *   - `requestCode` — POST an /verification, Govee mailt fresh code.
-   *                     30s in-memory throttle gegen double-click email-spam.
+   *   - `test`        — try a one-shot login with the current settings combo
+   *                     and return a single user-readable result.
+   *   - `requestCode` — POST to /verification, Govee mails a fresh code.
+   *                     30s in-memory throttle against double-click email spam.
    *
-   * @param action Action-Name aus dem jsonConfig sendTo-Button
+   * @param action Action name from the jsonConfig sendTo button
    */
   async runMqttAuthAction(action) {
     var _a;
     const config = this.host.getConfig();
     if (!config.goveeEmail || !config.goveePassword) {
-      return { result: "Email + Passwort in den Adapter-Einstellungen n\xF6tig." };
+      return { result: (0, import_i18n.resolveLabel)("mqttAuthNeedCredentials") };
     }
     if (action === "test") {
       const probe = this.host.createMqttProbeClient();
@@ -110,31 +110,29 @@ class MessageRouter {
         );
         probe.disconnect();
         return {
-          result: connected ? "Login erfolgreich \u2014 Echtzeit-Status-Updates aktiv." : "Login angenommen, MQTT-Verbindung steht aber noch nicht \u2014 Adapter neu starten."
+          result: connected ? (0, import_i18n.resolveLabel)("mqttAuthLoginOk") : (0, import_i18n.resolveLabel)("mqttAuthLoginNoMqtt")
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (/Verification required/i.test(msg)) {
-          return {
-            result: "Govee verlangt 2-Faktor-Best\xE4tigung. Bitte 'Verifizierungs-Code anfordern' klicken, Code aus der E-Mail eintragen und Speichern."
-          };
+          return { result: (0, import_i18n.resolveLabel)("mqttAuthVerifyRequired") };
         }
         if (/Verification code invalid/i.test(msg)) {
-          return { result: "2-Faktor-Code ung\xFCltig oder abgelaufen \u2014 bitte einen neuen Code anfordern." };
+          return { result: (0, import_i18n.resolveLabel)("mqttAuthCodeInvalid") };
         }
         if (/email not registered/i.test(msg)) {
-          return { result: "Diese E-Mail ist bei Govee nicht registriert." };
+          return { result: (0, import_i18n.resolveLabel)("mqttAuthEmailNotRegistered") };
         }
         if (/Login failed/i.test(msg)) {
-          return { result: "Passwort wurde von Govee abgelehnt." };
+          return { result: (0, import_i18n.resolveLabel)("mqttAuthPasswordRejected") };
         }
         if (/Rate limited/i.test(msg)) {
-          return { result: "Govee meldet Rate-Limit \u2014 bitte sp\xE4ter erneut versuchen." };
+          return { result: (0, import_i18n.resolveLabel)("mqttAuthRateLimited") };
         }
         if (/Account temporarily locked/i.test(msg)) {
-          return { result: "Govee-Account vor\xFCbergehend gesperrt \u2014 Govee Home App \xF6ffnen und Status pr\xFCfen." };
+          return { result: (0, import_i18n.resolveLabel)("mqttAuthAccountLocked") };
         }
-        return { result: `Login fehlgeschlagen: ${msg}` };
+        return { result: (0, import_i18n.resolveLabel)("mqttAuthLoginFailed", msg) };
       }
     }
     if (action === "requestCode") {
@@ -143,19 +141,19 @@ class MessageRouter {
         const remainingSec = Math.ceil(
           (import_timing_constants.VERIFICATION_REQUEST_THROTTLE_MS - (now - this.lastVerificationRequestMs)) / 1e3
         );
-        return { result: `Bitte ${remainingSec}s warten \u2014 gerade wurde schon ein Code angefordert.` };
+        return { result: (0, import_i18n.resolveLabel)("mqttAuthThrottled", remainingSec) };
       }
       this.lastVerificationRequestMs = now;
       const probe = this.host.createMqttProbeClient();
       try {
         await probe.requestVerificationCode();
-        return { result: "Code wurde an deine Govee-E-Mail-Adresse gesendet (Spam-Ordner pr\xFCfen)." };
+        return { result: (0, import_i18n.resolveLabel)("mqttAuthCodeSent") };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        return { result: `Govee hat den Code-Versand abgelehnt: ${msg}` };
+        return { result: (0, import_i18n.resolveLabel)("mqttAuthCodeRejected", msg) };
       }
     }
-    return { result: `Unbekannte Aktion '${action}'.` };
+    return { result: (0, import_i18n.resolveLabel)("mqttAuthUnknownAction", action) };
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

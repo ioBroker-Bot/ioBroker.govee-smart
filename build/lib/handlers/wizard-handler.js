@@ -27,8 +27,9 @@ __export(wizard_handler_exports, {
 module.exports = __toCommonJS(wizard_handler_exports);
 var import_segment_wizard = require("../segment-wizard");
 var import_types = require("../types");
+var import_device_key = require("../device-key");
 function deviceKeyFor(device) {
-  return `${device.sku}:${device.deviceId}`;
+  return (0, import_device_key.sessionKey)(device.sku, device.deviceId);
 }
 function findDeviceByKey(adapter, key) {
   var _a, _b;
@@ -68,8 +69,7 @@ function buildWizardHost(adapter) {
     },
     setTimeout: (cb, ms) => adapter.setTimeout(cb, ms),
     clearTimeout: (h) => adapter.clearTimeout(h),
-    applyWizardResult: (device, result) => applyWizardResult(adapter, device, result),
-    getLanguage: () => adapter.adminLanguage
+    applyWizardResult: (device, result) => applyWizardResult(adapter, device, result)
   };
 }
 async function applyWizardResult(adapter, device, result) {

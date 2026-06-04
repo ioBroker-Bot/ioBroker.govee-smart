@@ -41,7 +41,7 @@ var import_govee_constants = require("../govee-constants");
 var import_types = require("../types");
 var cloudRetryHandler = __toESM(require("./cloud-retry-handler"));
 var diagnosticsHandler = __toESM(require("./diagnostics-handler"));
-var groupStateHelpers = __toESM(require("./group-state-helpers"));
+var dropdownReset = __toESM(require("./dropdown-reset-helpers"));
 function findDeviceForState(adapter, localId) {
   if (!adapter.deviceManager || !adapter.stateManager) {
     return void 0;
@@ -188,7 +188,7 @@ async function onStateChange(adapter, id, state) {
     await adapter.groupFanout.fanOut(device, stateSuffix, val);
     await adapter.setStateAsync(id, { val, ack: true });
     if (stateSuffix === "scenes.light_scene" || stateSuffix === "music.music_mode") {
-      await groupStateHelpers.resetRelatedDropdowns(
+      await dropdownReset.resetRelatedDropdowns(
         adapter,
         prefix,
         stateSuffix === "scenes.light_scene" ? "lightScene" : "music"
@@ -204,7 +204,7 @@ async function onStateChange(adapter, id, state) {
   if (stateSuffix === "snapshots.snapshot_local") {
     if (val !== "0" && val !== 0) {
       await adapter.snapshotHandler.restore(device, val);
-      await groupStateHelpers.resetRelatedDropdowns(adapter, prefix, "snapshotLocal");
+      await dropdownReset.resetRelatedDropdowns(adapter, prefix, "snapshotLocal");
     }
     await adapter.setStateAsync(id, { val, ack: true });
     return;
@@ -246,7 +246,7 @@ async function onStateChange(adapter, id, state) {
     }
     return;
   }
-  const command = groupStateHelpers.stateToCommand(stateSuffix);
+  const command = dropdownReset.stateToCommand(stateSuffix);
   if (!command) {
     await handleGenericCapabilityCommand(adapter, device, id, stateSuffix, val);
     return;
@@ -273,16 +273,16 @@ async function onStateChange(adapter, id, state) {
       await sendMusicCommand(adapter, device, prefix, stateSuffix, val);
       await adapter.setStateAsync(id, { val, ack: true });
       if (stateSuffix === "music.music_mode") {
-        await groupStateHelpers.resetRelatedDropdowns(adapter, prefix, "music");
+        await dropdownReset.resetRelatedDropdowns(adapter, prefix, "music");
       }
       return;
     }
     await adapter.deviceManager.sendCommand(device, command, val);
     await adapter.setStateAsync(id, { val, ack: true });
     if (command === "power" && val === false) {
-      await groupStateHelpers.resetModeDropdowns(adapter, prefix, "");
+      await dropdownReset.resetModeDropdowns(adapter, prefix, "");
     } else {
-      await groupStateHelpers.resetRelatedDropdowns(adapter, prefix, command);
+      await dropdownReset.resetRelatedDropdowns(adapter, prefix, command);
     }
   } catch (err) {
     adapter.log.warn(`Command failed for ${device.name}: ${(0, import_types.errMessage)(err)}`);

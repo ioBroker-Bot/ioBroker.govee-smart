@@ -25,7 +25,7 @@ var import_types = require("./types");
 var import_govee_lan_client = require("./govee-lan-client");
 var import_device_registry = require("./device-registry");
 var import_govee_constants = require("./govee-constants");
-const FORCE_COLOR_MODE_SETTLE_MS = 150;
+var import_timing_constants = require("./timing-constants");
 class CommandRouter {
   log;
   timers;
@@ -115,7 +115,7 @@ class CommandRouter {
     const current = typeof device.state.colorRgb === "string" ? device.state.colorRgb : null;
     const { r, g, b } = current ? (0, import_types.hexToRgb)(current) : { r: 255, g: 255, b: 255 };
     this.lanClient.setColor(device.lanIp, r, g, b);
-    await this.timers.delay(FORCE_COLOR_MODE_SETTLE_MS);
+    await this.timers.delay(import_timing_constants.FORCE_COLOR_MODE_SETTLE_MS);
   }
   /**
    * Look up the quirk-driven transport override for a (device, command) pair.
@@ -289,10 +289,6 @@ class CommandRouter {
    * @param decision Routing decision from resolveTransport
    */
   async dispatchSegmentColor(device, command, value, decision) {
-    if (decision.kind === "skip") {
-      this.handleSkip(device, command, decision.reason);
-      return;
-    }
     const segIdx = parseInt(command.split(":")[1], 10);
     if (isNaN(segIdx) || segIdx < 0) {
       return;
@@ -318,10 +314,6 @@ class CommandRouter {
    */
   async dispatchSegmentBatch(device, value, decision) {
     var _a;
-    if (decision.kind === "skip") {
-      this.handleSkip(device, "segmentBatch", decision.reason);
-      return;
-    }
     const parsed = typeof value === "string" ? this.parseSegmentBatch(device, value) : this.coerceParsedBatch(value);
     if (!parsed) {
       return;
@@ -353,10 +345,6 @@ class CommandRouter {
    * @param decision Routing decision from resolveTransport
    */
   async dispatchSegmentBrightness(device, command, value, decision) {
-    if (decision.kind === "skip") {
-      this.handleSkip(device, command, decision.reason);
-      return;
-    }
     const segIdx = parseInt(command.split(":")[1], 10);
     if (isNaN(segIdx) || segIdx < 0) {
       return;

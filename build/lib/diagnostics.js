@@ -29,6 +29,12 @@ const MAX_RESPONSE_ENDPOINTS = 24;
 const MAX_RESPONSES_PER_ENDPOINT = 6;
 const MAX_LAN_SENDS = 30;
 const MAX_BODY_BYTES = 65536;
+function pushBounded(arr, entry, max) {
+  arr.push(entry);
+  if (arr.length > max) {
+    arr.splice(0, arr.length - max);
+  }
+}
 class DiagnosticsCollector {
   buffers = /* @__PURE__ */ new Map();
   runtimeStateProvider = null;
@@ -92,11 +98,7 @@ class DiagnosticsCollector {
     if (typeof msg !== "string") {
       return;
     }
-    const b = this.get(deviceId);
-    b.logs.push({ ts: (/* @__PURE__ */ new Date()).toISOString(), level, msg });
-    if (b.logs.length > MAX_LOGS) {
-      b.logs.splice(0, b.logs.length - MAX_LOGS);
-    }
+    pushBounded(this.get(deviceId).logs, { ts: (/* @__PURE__ */ new Date()).toISOString(), level, msg }, MAX_LOGS);
   }
   /**
    * Append an MQTT packet for a device. Bounded to MAX_PACKETS most-recent.
@@ -131,11 +133,7 @@ class DiagnosticsCollector {
     } else {
       return;
     }
-    const b = this.get(deviceId);
-    b.packets.push(entry);
-    if (b.packets.length > MAX_PACKETS) {
-      b.packets.splice(0, b.packets.length - MAX_PACKETS);
-    }
+    pushBounded(this.get(deviceId).packets, entry, MAX_PACKETS);
   }
   /**
    * Record an outgoing LAN UDP datagram (per-device). Captures the data the
@@ -166,11 +164,7 @@ class DiagnosticsCollector {
     if (typeof error === "string" && error) {
       entry.error = error;
     }
-    const b = this.get(deviceId);
-    b.lanSends.push(entry);
-    if (b.lanSends.length > MAX_LAN_SENDS) {
-      b.lanSends.splice(0, b.lanSends.length - MAX_LAN_SENDS);
-    }
+    pushBounded(this.get(deviceId).lanSends, entry, MAX_LAN_SENDS);
   }
   /**
    * Record a successful API call for a Cloud/App-API endpoint. Appends
@@ -258,10 +252,7 @@ class DiagnosticsCollector {
   appendResponse(b, entry) {
     var _a;
     const list = (_a = b.responses.get(entry.endpoint)) != null ? _a : [];
-    list.push(entry);
-    if (list.length > MAX_RESPONSES_PER_ENDPOINT) {
-      list.splice(0, list.length - MAX_RESPONSES_PER_ENDPOINT);
-    }
+    pushBounded(list, entry, MAX_RESPONSES_PER_ENDPOINT);
     b.responses.set(entry.endpoint, list);
     if (b.responses.size > MAX_RESPONSE_ENDPOINTS) {
       const first = b.responses.keys().next().value;
@@ -280,13 +271,12 @@ class DiagnosticsCollector {
     this.buffers.delete(deviceId);
   }
   /**
-   * Drop buffers für alle Devices die NICHT in der live-Liste sind.
+   * Drop buffers for all devices that are NOT in the live list.
    *
-   * Aufgerufen aus dem Adapter-cleanup-Pfad (reapStaleDevices) damit
-   * Logs/Packets/Responses für längst entfernte Govee-App-Devices
-   * nicht endlos im Speicher bleiben.
+   * Called from the adapter cleanup path (reapStaleDevices) so logs / packets /
+   * responses for long-removed Govee-app devices don't stay in memory forever.
    *
-   * @param liveDeviceIds Set der aktuell aktiven device-Ids
+   * @param liveDeviceIds Set of the currently active device ids
    */
   pruneOrphans(liveDeviceIds) {
     for (const id of this.buffers.keys()) {

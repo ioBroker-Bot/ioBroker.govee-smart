@@ -22,7 +22,7 @@ __export(cloud_retry_exports, {
 });
 module.exports = __toCommonJS(cloud_retry_exports);
 var import_types = require("./types");
-const TRANSIENT_RETRY_MS = 5 * 6e4;
+var import_timing_constants = require("./timing-constants");
 class CloudRetryLoop {
   /** @param host Host interface wired up to the adapter. */
   constructor(host) {
@@ -90,7 +90,7 @@ class CloudRetryLoop {
         return;
       case "transient":
       default:
-        this.schedule(TRANSIENT_RETRY_MS);
+        this.schedule(import_timing_constants.TRANSIENT_RETRY_MS);
         return;
     }
   }

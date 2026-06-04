@@ -228,15 +228,15 @@ class DeviceManager {
     return Array.from(this.devices.values());
   }
   /**
-   * Entfernt ein Gerät aus dem internen Tracking. Aufgerufen wenn ein Gerät
-   * aus dem Govee-Account entfernt wurde — die jsonl-Objects räumt
-   * `cleanupDevices` (state-manager) ab; hier nur die in-memory-Maps.
+   * Remove a device from internal tracking. Called when a device was removed
+   * from the Govee account — the jsonl objects are cleaned up by
+   * `cleanupDevices` (state-manager); here only the in-memory maps.
    *
-   * Returnt die deviceId des gedroppten Geräts (zur Diagnostics-Cleanup),
-   * oder null wenn nichts zu entfernen war.
+   * Returns the deviceId of the dropped device (for diagnostics cleanup), or
+   * null if there was nothing to remove.
    *
-   * @param sku Govee-SKU
-   * @param deviceId Device-ID (mit/ohne Doppelpunkte)
+   * @param sku Govee SKU
+   * @param deviceId Device ID (with/without colons)
    */
   removeDevice(sku, deviceId) {
     const key = this.deviceKey(sku, deviceId);
@@ -348,9 +348,7 @@ class DeviceManager {
     }
     try {
       const rawCloudDevices = await this.cloudClient.getDevices();
-      const cloudDevices = Array.isArray(rawCloudDevices) ? rawCloudDevices.filter(
-        (cd) => cd && typeof cd.sku === "string" && typeof cd.device === "string" && Array.isArray(cd.capabilities) && cd.capabilities.length > 0
-      ) : [];
+      const cloudDevices = (0, import_mapping.filterCloudDevicesWithCapabilities)(rawCloudDevices);
       if (Array.isArray(rawCloudDevices) && rawCloudDevices.length !== cloudDevices.length) {
         this.log.info(
           `Cloud: received ${rawCloudDevices.length} devices raw, ${cloudDevices.length} after filter (skipped stale entries without capabilities)`
@@ -457,9 +455,7 @@ class DeviceManager {
     this.diagnostics.addLog(target.deviceId, "info", `User-triggered refresh-cloud-data for ${target.sku}`);
     try {
       const rawCloudDevices = await this.cloudClient.getDevices();
-      const cloudDevices = Array.isArray(rawCloudDevices) ? rawCloudDevices.filter(
-        (cd2) => cd2 && typeof cd2.sku === "string" && typeof cd2.device === "string" && Array.isArray(cd2.capabilities) && cd2.capabilities.length > 0
-      ) : [];
+      const cloudDevices = (0, import_mapping.filterCloudDevicesWithCapabilities)(rawCloudDevices);
       this.mergeCloudDevices(cloudDevices);
     } catch (e) {
       this.log.debug(`refreshSceneDataForDevice: getDevices failed: ${(0, import_types.errMessage)(e)}`);
@@ -806,9 +802,9 @@ class DeviceManager {
   /**
    * Apply LAN-discovery data (IP, reachability, freshness) to an existing
    * device. Marks it online and fires `onDeviceUpdate` if it was offline —
-   * Discovery-Antwort beweist dass das Gerät am Netz ist; ohne diesen Pfad
-   * bleibt info.online für gecachte Lichter forever false (MQTT pusht nur
-   * bei Zustandswechseln, main.ts skipped devStatus-Poll wenn MQTT up).
+   * a discovery reply proves the device is on the network; without this path
+   * info.online stays forever false for cached lights (MQTT only pushes on
+   * state changes, main.ts skips the devStatus poll when MQTT is up).
    *
    * @param matched The existing device to update
    * @param lanDevice Discovery frame
@@ -887,12 +883,6 @@ class DeviceManager {
    * @param sku Govee SKU
    * @param displayName Device name as shown in Govee Home
    */
-  /**
-   * Public for sub-module helpers (cloud-merge).
-   *
-   * @param sku Product SKU
-   * @param displayName Display name from Cloud
-   */
   maybeNudgeSeedSku(sku, displayName) {
     const upper = (typeof sku === "string" ? sku : "").toUpperCase();
     if (!upper || this.nudgedSeedSkus.has(upper)) {
@@ -944,9 +934,9 @@ class DeviceManager {
   }
   /**
    * Translate an MQTT status payload into a `DeviceState` patch. API-Boundary
-   * defense: Govee schickt gelegentlich brightness/onOff/color als String —
-   * `coerceFiniteNumber` returnt null bei Drift, das Feld bleibt unverändert
-   * statt mit kaputtem Wert geschrieben zu werden.
+   * defense: Govee occasionally sends brightness/onOff/color as a string —
+   * `coerceFiniteNumber` returns null on drift, leaving the field unchanged
+   * instead of writing it with a broken value.
    *
    * MQTT-push proves the device talked to the Govee broker — but the broker
    * can replay last-will/retained messages. For Lights, info.online comes
@@ -1121,28 +1111,6 @@ class DeviceManager {
     return (0, import_lookups.deviceKey)(sku, deviceId);
   }
   /**
-   * Log error with dedup — only warn on category change, debug on repeat.
-   * v2.10.1: stack-trace stays on debug-level only. warn carries err.message
-   * (clean one-liner) so admin-logs don't drown in Node-internal frames.
-   *
-   * @param context Error context description
-   * @param err Error to log
-   */
-  logDedup(context, err) {
-    const category = (0, import_types.classifyError)(err);
-    const cleanMsg = err instanceof Error ? err.message : String(err);
-    const headline = `${context}: ${cleanMsg}`;
-    if (category !== this.lastErrorCategory) {
-      this.lastErrorCategory = category;
-      this.log.warn(headline);
-      if (err instanceof Error && err.stack) {
-        this.log.debug(`${context} stack: ${err.stack}`);
-      }
-    } else {
-      this.log.debug(`${headline} (repeated)`);
-    }
-  }
-  /**
    * Persist a device's current runtime state to the SKU cache. Safe no-op
    * when no cache is configured.
    *
@@ -1248,12 +1216,8 @@ class DeviceManager {
   /**
    * Whether at least one device in the registry would consume App-API
    * readings (sensors, appliances). Used to skip the App-API poll on
-   * Lights-only installations.
-   */
-  /**
-   * True wenn mindestens ein Device App-API-Werte konsumiert (Sensoren,
-   * Appliances). Adapter-checkAllReady wartet darauf damit „ready" erst
-   * geloggt wird wenn Sensor-Werte tatsächlich da sind.
+   * Lights-only installations, and as a checkAllReady gate so "ready" is
+   * only logged once sensor values can actually arrive.
    */
   hasDeviceNeedingAppApi() {
     for (const dev of this.devices.values()) {

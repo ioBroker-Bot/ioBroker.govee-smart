@@ -293,7 +293,7 @@ function mapMode(cap) {
     if (!opt || typeof opt.name !== "string") {
       continue;
     }
-    const val = typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value);
+    const val = safeStringify(opt.value);
     states[val] = opt.name;
   }
   return [
@@ -365,7 +365,7 @@ function mapWorkMode(cap) {
     const modeStates = {};
     for (const opt of modeField.options) {
       if (opt && typeof opt.name === "string") {
-        modeStates[typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value)] = opt.name;
+        modeStates[safeStringify(opt.value)] = opt.name;
       }
     }
     states.push({
@@ -386,7 +386,7 @@ function mapWorkMode(cap) {
       const valStates = {};
       for (const opt of valueField.options) {
         if (opt && typeof opt.name === "string") {
-          valStates[typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value)] = opt.name;
+          valStates[safeStringify(opt.value)] = opt.name;
         }
       }
       states.push({
@@ -510,7 +510,7 @@ function mapMusicSetting(cap) {
       if (!opt || typeof opt.name !== "string") {
         continue;
       }
-      modeStates[typeof opt.value === "object" ? JSON.stringify(opt.value) : String(opt.value)] = opt.name;
+      modeStates[safeStringify(opt.value)] = opt.name;
     }
     states.push({
       id: "music_mode",
@@ -736,6 +736,49 @@ function buildLanStateDefs(device, log) {
   applyQuirksToStates(device.sku, stateDefs, log);
   return stateDefs;
 }
+function buildDiagStateDefs(tierDef) {
+  return [
+    {
+      id: "export",
+      name: (0, import_i18n.tName)("exportDiagnostics"),
+      type: "boolean",
+      role: "button",
+      write: true,
+      def: false,
+      capabilityType: "local",
+      capabilityInstance: "diagnosticsExport",
+      channel: "diag"
+    },
+    {
+      id: "result",
+      name: (0, import_i18n.tName)("diagnosticsJson"),
+      type: "string",
+      role: "json",
+      write: false,
+      def: "",
+      capabilityType: "local",
+      capabilityInstance: "diagnosticsResult",
+      channel: "diag"
+    },
+    {
+      id: "tier",
+      name: (0, import_i18n.tName)("deviceTier"),
+      type: "string",
+      role: "text",
+      write: false,
+      def: tierDef,
+      states: {
+        verified: (0, import_i18n.resolveLabel)("deviceTierVerified"),
+        reported: (0, import_i18n.resolveLabel)("deviceTierReported"),
+        seed: (0, import_i18n.resolveLabel)("deviceTierSeed"),
+        unknown: (0, import_i18n.resolveLabel)("deviceTierUnknown")
+      },
+      capabilityType: "local",
+      capabilityInstance: "diagnosticsTier",
+      channel: "diag"
+    }
+  ];
+}
 function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
   if (device.sku === "BaseGroup") {
     return buildGroupStateDefs(memberDevices || []);
@@ -856,45 +899,7 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
       channel: "snapshots"
     });
   }
-  stateDefs.push({
-    id: "export",
-    name: (0, import_i18n.tName)("exportDiagnostics"),
-    type: "boolean",
-    role: "button",
-    write: true,
-    def: false,
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsExport",
-    channel: "diag"
-  });
-  stateDefs.push({
-    id: "result",
-    name: (0, import_i18n.tName)("diagnosticsJson"),
-    type: "string",
-    role: "json",
-    write: false,
-    def: "",
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsResult",
-    channel: "diag"
-  });
-  stateDefs.push({
-    id: "tier",
-    name: (0, import_i18n.tName)("deviceTier"),
-    type: "string",
-    role: "text",
-    write: false,
-    def: "unknown",
-    states: {
-      verified: (0, import_i18n.resolveLabel)("deviceTierVerified"),
-      reported: (0, import_i18n.resolveLabel)("deviceTierReported"),
-      seed: (0, import_i18n.resolveLabel)("deviceTierSeed"),
-      unknown: (0, import_i18n.resolveLabel)("deviceTierUnknown")
-    },
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsTier",
-    channel: "diag"
-  });
+  stateDefs.push(...buildDiagStateDefs("unknown"));
   return stateDefs;
 }
 function memberHasControlState(member, stateId) {
@@ -968,45 +973,7 @@ function buildGroupStateDefs(members) {
       });
     }
   }
-  stateDefs.push({
-    id: "export",
-    name: (0, import_i18n.tName)("exportDiagnostics"),
-    type: "boolean",
-    role: "button",
-    write: true,
-    def: false,
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsExport",
-    channel: "diag"
-  });
-  stateDefs.push({
-    id: "result",
-    name: (0, import_i18n.tName)("diagnosticsJson"),
-    type: "string",
-    role: "json",
-    write: false,
-    def: "",
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsResult",
-    channel: "diag"
-  });
-  stateDefs.push({
-    id: "tier",
-    name: (0, import_i18n.tName)("deviceTier"),
-    type: "string",
-    role: "text",
-    write: false,
-    def: "verified",
-    states: {
-      verified: (0, import_i18n.resolveLabel)("deviceTierVerified"),
-      reported: (0, import_i18n.resolveLabel)("deviceTierReported"),
-      seed: (0, import_i18n.resolveLabel)("deviceTierSeed"),
-      unknown: (0, import_i18n.resolveLabel)("deviceTierUnknown")
-    },
-    capabilityType: "local",
-    capabilityInstance: "diagnosticsTier",
-    channel: "diag"
-  });
+  stateDefs.push(...buildDiagStateDefs("verified"));
   return stateDefs;
 }
 // Annotate the CommonJS export names for ESM import in node:

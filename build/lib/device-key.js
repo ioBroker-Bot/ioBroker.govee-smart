@@ -16,27 +16,31 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-var i18n_exports = {};
-__export(i18n_exports, {
-  resolveLabel: () => resolveLabel,
-  tDesc: () => tDesc,
-  tName: () => tName
+var device_key_exports = {};
+__export(device_key_exports, {
+  mapKey: () => mapKey,
+  sessionKey: () => sessionKey,
+  treeKey: () => treeKey
 });
-module.exports = __toCommonJS(i18n_exports);
-var import_adapter_core = require("@iobroker/adapter-core");
-function tName(key) {
-  return import_adapter_core.I18n.getTranslatedObject(key);
+module.exports = __toCommonJS(device_key_exports);
+var import_types = require("./types");
+function sanitizeId(str) {
+  return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
 }
-function tDesc(key) {
-  return import_adapter_core.I18n.getTranslatedObject(key);
+function mapKey(sku, deviceId) {
+  return `${sku}_${(0, import_types.normalizeDeviceId)(deviceId)}`;
 }
-function resolveLabel(key, ...args) {
-  return import_adapter_core.I18n.translate(key, ...args);
+function treeKey(sku, deviceId) {
+  const shortId = (0, import_types.normalizeDeviceId)(deviceId).slice(-4);
+  return sanitizeId(`${sku}_${shortId}`);
+}
+function sessionKey(sku, deviceId) {
+  return `${sku}:${deviceId}`;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  resolveLabel,
-  tDesc,
-  tName
+  mapKey,
+  sessionKey,
+  treeKey
 });
-//# sourceMappingURL=i18n.js.map
+//# sourceMappingURL=device-key.js.map

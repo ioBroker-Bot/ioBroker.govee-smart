@@ -19,6 +19,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var types_exports = {};
 __export(types_exports, {
   buildUniqueLabelMap: () => buildUniqueLabelMap,
+  clampByte: () => clampByte,
   classifyError: () => classifyError,
   coerceBool: () => coerceBool,
   coerceFiniteNumber: () => coerceFiniteNumber,
@@ -257,6 +258,7 @@ function resolveStatesValue(input, statesMap) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   buildUniqueLabelMap,
+  clampByte,
   classifyError,
   coerceBool,
   coerceFiniteNumber,

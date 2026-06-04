@@ -26,10 +26,7 @@ var import_device_icons = require("./device-icons");
 var import_device_manager = require("./device-manager");
 var import_govee_constants = require("./govee-constants");
 var import_i18n = require("./i18n");
-var import_types = require("./types");
-function sanitize(str) {
-  return str.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-}
+var import_device_key = require("./device-key");
 const MANAGED_CHANNELS = ["control", "scenes", "music", "snapshots", "sensor", "events"];
 const CHANNEL_NAMES = {
   control: "Controls",
@@ -121,14 +118,6 @@ class StateManager {
     this.adapter = adapter;
   }
   /**
-   * Idempotent state-delete: prüft erst ob das Object existiert. Wenn nicht,
-   * no-op (verhindert „has no existing object"-WARN den `delStateAsync`
-   * sonst intern triggert wenn das Object weg ist).
-   *
-   * Pattern: Caller will ein State löschen (z.B. weil der Zustand „cleaned"
-   * geworden ist), aber weiß nicht ob das Object jemals da war. delObject
-   * + delState ist nur dann sicher wenn das Object EXISTIERT.
-   *
    * Force-replace `common.states` on a persisted state object if any existing
    * value is non-string (= translation object from older releases).
    *
@@ -288,9 +277,9 @@ class StateManager {
       this.adapter.log.debug(`Migrating device ${device.sku}: ${oldPrefix} \u2192 ${newPrefix}`);
       await this.adapter.delObjectAsync(oldPrefix, { recursive: true });
       const oldChannelKey = `${oldPrefix}.`;
-      for (const mapKey of this.stateChannelMap.keys()) {
-        if (mapKey.startsWith(oldChannelKey)) {
-          this.stateChannelMap.delete(mapKey);
+      for (const mapKey2 of this.stateChannelMap.keys()) {
+        if (mapKey2.startsWith(oldChannelKey)) {
+          this.stateChannelMap.delete(mapKey2);
         }
       }
     }
@@ -361,10 +350,7 @@ class StateManager {
       });
       await this.syncInfoOnline(device);
     } else {
-      const memberIds = ((_b = device.groupMembers) != null ? _b : []).map((m) => {
-        const shortId = (0, import_types.normalizeDeviceId)(m.deviceId).slice(-4);
-        return sanitize(`${m.sku}_${shortId}`);
-      }).join(", ");
+      const memberIds = ((_b = device.groupMembers) != null ? _b : []).map((m) => (0, import_device_key.treeKey)(m.sku, m.deviceId)).join(", ");
       await this.ensureState(`${prefix}.info.members`, "Members", "string", "text", false);
       await this.adapter.setStateAsync(`${prefix}.info.members`, {
         val: memberIds,
@@ -700,7 +686,7 @@ class StateManager {
     const prefix = this.devicePrefix(device);
     const writes = [];
     const set = (id, val) => {
-      writes.push(this.adapter.setStateAsync(id, { val, ack: true }).catch(() => void 0));
+      writes.push(this.adapter.setStateChangedAsync(id, { val, ack: true }).catch(() => void 0));
     };
     if (state.online !== void 0 && device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
       set(`${prefix}.info.online`, state.online);
@@ -763,15 +749,14 @@ class StateManager {
   /**
    * Update info.membersUnreachable for a group.
    *
-   * Pflegt den state IMMER (existing) und schreibt eine comma-separated
-   * Liste der unreachable members oder einen leeren String wenn alle
-   * online sind. Vorher haben wir bei „alle reachable" das Object
-   * gelöscht — das produzierte aber js-controller-WARN „State
-   * 'X.membersUnreachable' has no existing object" alle ~2 Minuten,
-   * weil parallele updateGroupReachability-Aufrufe (LAN+MQTT-Status-
-   * Updates feuern fast gleichzeitig) eine race condition zwischen
-   * setStateAsync (Object existiert) und safeDeleteState (Object weg)
-   * triggern können. State immer existent zu halten umgeht das komplett.
+   * Always keeps the state (existing) and writes a comma-separated list of the
+   * unreachable members, or an empty string when all are online. Previously we
+   * deleted the object on "all reachable" — but that produced a js-controller
+   * WARN "State 'X.membersUnreachable' has no existing object" every ~2 minutes,
+   * because parallel updateGroupReachability calls (LAN+MQTT status updates fire
+   * almost simultaneously) could trigger a race condition between setStateAsync
+   * (object exists) and safeDeleteState (object gone). Always keeping the state
+   * present avoids that entirely.
    *
    * @param group BaseGroup device
    * @param memberDevices Resolved member devices
@@ -779,10 +764,7 @@ class StateManager {
   async updateGroupMembersUnreachable(group, memberDevices) {
     const prefix = this.devicePrefix(group);
     const stateId = `${prefix}.info.membersUnreachable`;
-    const unreachable = memberDevices.filter((m) => !m.state.online).map((m) => {
-      const shortId = (0, import_types.normalizeDeviceId)(m.deviceId).slice(-4);
-      return sanitize(`${m.sku}_${shortId}`);
-    });
+    const unreachable = memberDevices.filter((m) => !m.state.online).map((m) => (0, import_device_key.treeKey)(m.sku, m.deviceId));
     await this.ensureState(stateId, "Unreachable Members", "string", "text", false);
     await this.adapter.setStateAsync(stateId, {
       val: unreachable.join(", "),
@@ -918,9 +900,8 @@ class StateManager {
    * @param device Govee device
    */
   devicePrefix(device) {
-    const shortId = (0, import_types.normalizeDeviceId)(device.deviceId).slice(-4);
     const folder = device.sku === "BaseGroup" ? "groups" : "devices";
-    return `${folder}.${sanitize(`${device.sku}_${shortId}`)}`;
+    return `${folder}.${(0, import_device_key.treeKey)(device.sku, device.deviceId)}`;
   }
   /**
    * Drop prefix + stateChannel entries for a device that was removed.
@@ -953,7 +934,7 @@ class StateManager {
    * @param device Govee device
    */
   deviceKey(device) {
-    return `${device.sku}_${(0, import_types.normalizeDeviceId)(device.deviceId)}`;
+    return (0, import_device_key.mapKey)(device.sku, device.deviceId);
   }
   /**
    * Create a state if it doesn't exist. Cached after the first successful

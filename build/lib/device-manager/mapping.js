@@ -19,7 +19,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var mapping_exports = {};
 __export(mapping_exports, {
   buildCapabilitiesFromAppEntry: () => buildCapabilitiesFromAppEntry,
-  cloudDeviceToGoveeDevice: () => cloudDeviceToGoveeDevice
+  cloudDeviceToGoveeDevice: () => cloudDeviceToGoveeDevice,
+  filterCloudDevicesWithCapabilities: () => filterCloudDevicesWithCapabilities
 });
 module.exports = __toCommonJS(mapping_exports);
 var import_govee_constants = require("../govee-constants");
@@ -40,6 +41,11 @@ function cloudDeviceToGoveeDevice(cd) {
     state: { online: true },
     channels: { lan: false, mqtt: false, cloud: true }
   };
+}
+function filterCloudDevicesWithCapabilities(raw) {
+  return Array.isArray(raw) ? raw.filter(
+    (cd) => cd && typeof cd.sku === "string" && typeof cd.device === "string" && Array.isArray(cd.capabilities) && cd.capabilities.length > 0
+  ) : [];
 }
 function buildCapabilitiesFromAppEntry(entry) {
   const caps = [];
@@ -86,6 +92,7 @@ function buildCapabilitiesFromAppEntry(entry) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   buildCapabilitiesFromAppEntry,
-  cloudDeviceToGoveeDevice
+  cloudDeviceToGoveeDevice,
+  filterCloudDevicesWithCapabilities
 });
 //# sourceMappingURL=mapping.js.map

@@ -34,6 +34,7 @@ module.exports = __toCommonJS(sku_cache_exports);
 var fs = __toESM(require("node:fs"));
 var path = __toESM(require("node:path"));
 var import_types = require("./types");
+var import_device_key = require("./device-key");
 class SkuCache {
   cacheDir;
   log;
@@ -54,7 +55,7 @@ class SkuCache {
       this.log.warn(`Cache directory not writable (${this.cacheDir}): ${(0, import_types.errMessage)(e)}`);
     }
   }
-  /** False wenn Cache-Dir nicht zugreifbar ist — save/load skipt dann. */
+  /** False when the cache dir is not accessible — save/load then skip. */
   dataAvailable = false;
   /**
    * Save device data to cache.
@@ -162,32 +163,22 @@ class SkuCache {
     const nowMs = Date.now();
     let pruned = 0;
     const prunedDetails = [];
-    try {
-      if (!fs.existsSync(this.cacheDir)) {
-        return 0;
-      }
-      for (const file of fs.readdirSync(this.cacheDir)) {
-        if (!file.endsWith(".json")) {
-          continue;
+    this.forEachCacheFile((full) => {
+      try {
+        const raw = fs.readFileSync(full, "utf-8");
+        const data = JSON.parse(raw);
+        if (typeof data.lastSeenOnNetwork !== "number") {
+          return;
         }
-        const full = path.join(this.cacheDir, file);
-        try {
-          const raw = fs.readFileSync(full, "utf-8");
-          const data = JSON.parse(raw);
-          if (typeof data.lastSeenOnNetwork !== "number") {
-            continue;
-          }
-          if (data.lastSeenOnNetwork < cutoff) {
-            const ageDays = Math.round((nowMs - data.lastSeenOnNetwork) / 864e5);
-            fs.unlinkSync(full);
-            pruned++;
-            prunedDetails.push(`${data.sku} ${data.deviceId} (${ageDays}d)`);
-          }
-        } catch {
+        if (data.lastSeenOnNetwork < cutoff) {
+          const ageDays = Math.round((nowMs - data.lastSeenOnNetwork) / 864e5);
+          fs.unlinkSync(full);
+          pruned++;
+          prunedDetails.push(`${data.sku} ${data.deviceId} (${ageDays}d)`);
         }
+      } catch {
       }
-    } catch {
-    }
+    });
     if (pruned > 0) {
       this.log.info(
         `Cache: pruned ${pruned} stale entries (not seen for ${maxAgeDays}+ days): ${prunedDetails.join(", ")}`
@@ -198,17 +189,33 @@ class SkuCache {
   /** Delete all cached files. */
   clear() {
     try {
-      if (!fs.existsSync(this.cacheDir)) {
-        return;
-      }
-      for (const file of fs.readdirSync(this.cacheDir)) {
-        if (file.endsWith(".json")) {
-          fs.unlinkSync(path.join(this.cacheDir, file));
-        }
-      }
+      this.forEachCacheFile((full) => fs.unlinkSync(full));
       this.log.debug("Cache cleared");
     } catch (e) {
       this.log.debug(`Cache clear failed: ${(0, import_types.errMessage)(e)}`);
+    }
+  }
+  /**
+   * Iterate the `*.json` files in the cache dir, calling `cb` with each file's
+   * absolute path. A missing or vanished dir is swallowed (cb not called).
+   * Centralises the existsSync + readdir + json-filter shared by prune/clear.
+   *
+   * @param cb Callback invoked with each cache file's absolute path
+   */
+  forEachCacheFile(cb) {
+    let files;
+    try {
+      if (!fs.existsSync(this.cacheDir)) {
+        return;
+      }
+      files = fs.readdirSync(this.cacheDir);
+    } catch {
+      return;
+    }
+    for (const file of files) {
+      if (file.endsWith(".json")) {
+        cb(path.join(this.cacheDir, file));
+      }
     }
   }
   /**
@@ -218,10 +225,7 @@ class SkuCache {
    * @param deviceId Device identifier
    */
   cacheFile(sku, deviceId) {
-    const safeSku = typeof sku === "string" ? sku : "";
-    const safeId = typeof deviceId === "string" ? deviceId : "";
-    const shortId = safeId.replace(/:/g, "").toLowerCase().slice(-4);
-    return path.join(this.cacheDir, `${safeSku.toLowerCase()}_${shortId}.json`);
+    return path.join(this.cacheDir, `${(0, import_device_key.treeKey)(sku, deviceId)}.json`);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

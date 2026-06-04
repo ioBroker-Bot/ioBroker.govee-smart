@@ -21,12 +21,14 @@ __export(diagnostics_handler_exports, {
   handleDiagnosticsExport: () => handleDiagnosticsExport
 });
 module.exports = __toCommonJS(diagnostics_handler_exports);
+var import_timing_constants = require("../timing-constants");
+var import_device_key = require("../device-key");
 async function handleDiagnosticsExport(adapter, deviceManager, lastRun, device, prefix, triggerStateId) {
   var _a, _b;
-  const deviceKey = `${device.sku}:${device.deviceId}`;
+  const deviceKey = (0, import_device_key.sessionKey)(device.sku, device.deviceId);
   const now = Date.now();
   const last = (_a = lastRun.get(deviceKey)) != null ? _a : 0;
-  if (now - last < 2e3) {
+  if (now - last < import_timing_constants.DIAGNOSTICS_EXPORT_THROTTLE_MS) {
     adapter.log.debug(`Diagnostics export throttled for ${device.name} \u2014 last run ${now - last}ms ago`);
     await adapter.setStateAsync(triggerStateId, { val: false, ack: true });
     return;

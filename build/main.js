@@ -43,12 +43,13 @@ var cloudStateLoader = __toESM(require("./lib/handlers/cloud-state-loader"));
 var connectionState = __toESM(require("./lib/handlers/connection-state"));
 var deviceEvents = __toESM(require("./lib/handlers/device-events"));
 var groupFanoutHandler = __toESM(require("./lib/handlers/group-fanout-handler"));
-var groupStateHelpers = __toESM(require("./lib/handlers/group-state-helpers"));
+var dropdownReset = __toESM(require("./lib/handlers/dropdown-reset-helpers"));
 var snapshotHandlerGlue = __toESM(require("./lib/handlers/snapshot-handler-glue"));
 var stateChangeRouter = __toESM(require("./lib/handlers/state-change-router"));
 var wizardHandler = __toESM(require("./lib/handlers/wizard-handler"));
 var import_rate_limiter = require("./lib/rate-limiter");
 var import_segment_wizard = require("./lib/segment-wizard");
+var import_i18n = require("./lib/i18n");
 var import_sku_cache = require("./lib/sku-cache");
 var import_state_manager = require("./lib/state-manager");
 var import_types = require("./lib/types");
@@ -70,23 +71,23 @@ class GoveeAdapter extends utils.Adapter {
   /** Repeating timer for the App-API poll (sensor-state pull). */
   appApiPollTimer;
   /**
-   * One-shot timer for the FIRST app-api poll (5s nach start) — Handle
-   *  damit onUnload das wegräumen kann bevor es ins Leere feuert.
+   * One-shot timer for the FIRST app-api poll (5s after start) — kept as a
+   * handle so onUnload can clear it before it fires into the void.
    */
   appApiInitialTimer;
-  /** One-shot timer for cloud-init 60s safety timeout — gleiches Pattern. */
+  /** One-shot timer for cloud-init 60s safety timeout — same pattern. */
   /** Public for handler modules. */
   cloudInitTimer;
   /**
-   * Letzter info.connection-Wert — Cache damit nicht jeder device-update
-   *  einen unnötigen setStateAsync macht (H4).
+   * Last info.connection value — cached so not every device update issues an
+   * unnecessary setStateAsync (H4).
    */
   /** Public for handler modules (connection-state). */
   lastConnectionState = null;
-  // === Lifecycle-Flags (Adapter-Boot-Sequenz) ===
-  // checkAllReady() prüft alle 5 Voraussetzungen gleichzeitig — sie laufen
-  // parallel ab, kein lineares STATE_MACHINE-Pattern weil Channels
-  // unabhängig connecten.
+  // === Lifecycle flags (adapter boot sequence) ===
+  // checkAllReady() checks all 5 preconditions at once — they run in parallel,
+  // not a linear STATE_MACHINE pattern, because the channels connect
+  // independently.
   /** LAN-Scan-Initial-Wait abgeschlossen — public for connection-state handler. */
   lanScanDone = false;
   /** State-Tree-Erstellung fertig — public for connection-state + device-events handlers. */
@@ -97,10 +98,10 @@ class GoveeAdapter extends utils.Adapter {
   appApiInitialPollDone = false;
   /** Mehrfach-Ready-Log-Guard — public for connection-state handler. */
   readyLogged = false;
-  /** Cloud war mindestens einmal connected — für „restored"-Log nach Down. */
+  /** Cloud was connected at least once — for the "restored" log after a down. */
   /** Public for handler modules. */
   cloudWasConnected = false;
-  /** Tägliches Interval für App-Version-Drift-Check gegen App-Store. */
+  /** Daily interval for the app-version-drift check against the app store. */
   appVersionCheckTimer;
   /**
    * 20 s Timer that re-evaluates `info.online` for every device via
@@ -134,11 +135,6 @@ class GoveeAdapter extends utils.Adapter {
   /** Per-device timestamp of the last diagnostics export — throttle gate */
   /** Public for handler modules (state-change-router, diagnostics). */
   diagnosticsLastRun = /* @__PURE__ */ new Map();
-  /** Cached admin language from system.config — used for wizard UI text */
-  /** Public for handler modules. */
-  adminLanguage = "en";
-  /** Last time `requestCode` was triggered via onMessage — guards against double-click email spam. */
-  lastVerificationRequestMs = 0;
   /**
    * Set true at the start of onUnload — async paths (onStateChange,
    * applyCloudCapabilities, retrySceneData, …) check this between awaits
@@ -170,7 +166,7 @@ class GoveeAdapter extends utils.Adapter {
   }
   /** Adapter started — initialize all channels */
   async onReady() {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d;
     try {
       await import_adapter_core.I18n.init(path.join(this.adapterDir, "admin"), this);
       const config = this.config;
@@ -194,17 +190,8 @@ class GoveeAdapter extends utils.Adapter {
         val: false,
         ack: true
       });
-      try {
-        const sysConf = await this.getForeignObjectAsync("system.config");
-        const lang = (_a = sysConf == null ? void 0 : sysConf.common) == null ? void 0 : _a.language;
-        if (typeof lang === "string" && lang.length > 0) {
-          this.adminLanguage = lang;
-        }
-      } catch (e) {
-        this.log.debug(`system.config language read failed, using default "en": ${(0, import_types.errMessage)(e)}`);
-      }
       await this.setStateAsync("info.wizardStatus", {
-        val: (0, import_segment_wizard.wizardIdleText)(this.adminLanguage),
+        val: (0, import_segment_wizard.wizardIdleText)(),
         ack: true
       });
       this.stateManager = new import_state_manager.StateManager(this);
@@ -233,13 +220,13 @@ class GoveeAdapter extends utils.Adapter {
         return (_b2 = (_a2 = this.localSnapshots) == null ? void 0 : _a2.getSnapshots(sku, deviceId)) != null ? _b2 : [];
       });
       diag.setRuntimeStateProvider(() => {
-        var _a2, _b2, _c2, _d2, _e2, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+        var _a2, _b2, _c2, _d2, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
         const errorCats = (_a2 = this.deviceManager) == null ? void 0 : _a2.getErrorCategorySnapshot();
         return {
           deviceManagerLastErrorCategory: (_b2 = errorCats == null ? void 0 : errorCats.deviceManager) != null ? _b2 : null,
           appApiLastErrorCategory: (_c2 = errorCats == null ? void 0 : errorCats.appApi) != null ? _c2 : null,
           groupMembersLastErrorCategory: (_d2 = errorCats == null ? void 0 : errorCats.groupMembers) != null ? _d2 : null,
-          cloudFailureReason: (_f = (_e2 = this.cloudClient) == null ? void 0 : _e2.getFailureReason()) != null ? _f : null,
+          cloudFailureReason: (_f = (_e = this.cloudClient) == null ? void 0 : _e.getFailureReason()) != null ? _f : null,
           mqttFailureReason: (_h = (_g = this.mqttClient) == null ? void 0 : _g.getFailureReason()) != null ? _h : null,
           rateLimiter: (_j = (_i = this.rateLimiter) == null ? void 0 : _i.getUsageSnapshot()) != null ? _j : null,
           wizardSession: (_l = (_k = this.segmentWizard) == null ? void 0 : _k.getSessionSnapshot()) != null ? _l : null,
@@ -354,20 +341,20 @@ class GoveeAdapter extends utils.Adapter {
         (sourceIp, status) => {
           this.deviceManager.handleLanStatus(sourceIp, status);
         },
-        3e4,
+        import_timing_constants.LAN_SCAN_INTERVAL_MS,
         config.networkInterface || ""
       );
       this.lanScanTimer = this.setTimeout(() => {
         this.lanScanDone = true;
         connectionState.checkAllReady(this);
-      }, 3e3);
+      }, import_timing_constants.LAN_SCAN_INITIAL_WAIT_MS);
       if (config.goveeEmail && config.goveePassword) {
         this.mqttClient = new import_govee_mqtt_client.GoveeMqttClient(config.goveeEmail, config.goveePassword, this.log, this);
         this.mqttClient.setPacketHook((deviceId, topic, payload) => {
           var _a2;
           (_a2 = this.deviceManager) == null ? void 0 : _a2.getDiagnostics().addMqttPacket(deviceId, topic, payload);
         });
-        this.mqttClient.setVerificationCode((_b = config.mqttVerificationCode) != null ? _b : "");
+        this.mqttClient.setVerificationCode((_a = config.mqttVerificationCode) != null ? _a : "");
         this.mqttClient.setOnVerificationConsumed(() => {
           cloudCreds.clearVerificationCodeSetting(this).catch((e) => {
             this.log.warn(`Could not clear mqttVerificationCode: ${(0, import_types.errMessage)(e)}`);
@@ -472,7 +459,7 @@ class GoveeAdapter extends utils.Adapter {
             ack: true
           }).catch(() => {
           });
-          (_c = this.stateManager) == null ? void 0 : _c.updateGroupsOnline(result.ok).catch(() => {
+          (_b = this.stateManager) == null ? void 0 : _b.updateGroupsOnline(result.ok).catch(() => {
           });
           if (result.ok) {
             await cloudStateLoader.loadCloudStates(this);
@@ -488,7 +475,7 @@ class GoveeAdapter extends utils.Adapter {
             ack: true
           }).catch(() => {
           });
-          (_d = this.stateManager) == null ? void 0 : _d.updateGroupsOnline(true).catch(() => {
+          (_c = this.stateManager) == null ? void 0 : _c.updateGroupsOnline(true).catch(() => {
           });
         }
         await this.deviceManager.loadGroupMembers();
@@ -517,7 +504,7 @@ class GoveeAdapter extends utils.Adapter {
       await this.subscribeStatesAsync("groups.*");
       this.cleanupTimer = this.setTimeout(() => {
         connectionState.reapStaleDevices(this).catch((e) => this.log.debug(`Device cleanup failed: ${(0, import_types.errMessage)(e)}`));
-      }, 3e4);
+      }, import_timing_constants.STALE_DEVICE_CLEANUP_DELAY_MS);
       this.onlineSyncTimer = this.setInterval(() => {
         if (this.unloading || !this.stateManager || !this.deviceManager) {
           return;
@@ -534,23 +521,17 @@ class GoveeAdapter extends utils.Adapter {
             groupFanoutHandler.updateGroupReachability(this);
           }
         })();
-      }, 2e4);
-      this.appVersionCheckTimer = this.setInterval(
-        () => {
-          connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
-        },
-        24 * 60 * 60 * 1e3
-      );
-      this.appVersionInitialTimer = this.setTimeout(
-        () => {
-          this.appVersionInitialTimer = void 0;
-          if (this.unloading) {
-            return;
-          }
-          connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
-        },
-        2 * 60 * 1e3
-      );
+      }, import_timing_constants.ONLINE_SYNC_INTERVAL_MS);
+      this.appVersionCheckTimer = this.setInterval(() => {
+        connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
+      }, import_timing_constants.APP_VERSION_CHECK_INTERVAL_MS);
+      this.appVersionInitialTimer = this.setTimeout(() => {
+        this.appVersionInitialTimer = void 0;
+        if (this.unloading) {
+          return;
+        }
+        connectionState.checkAppVersionDrift(this).catch((e) => this.log.debug(`App version check error: ${(0, import_types.errMessage)(e)}`));
+      }, import_timing_constants.APP_VERSION_INITIAL_DELAY_MS);
       connectionState.updateConnectionState(this);
       connectionState.checkAllReady(this);
       this.readyTimer = this.setTimeout(() => {
@@ -558,9 +539,9 @@ class GoveeAdapter extends utils.Adapter {
           this.readyLogged = true;
           connectionState.logDeviceSummary(this);
         }
-      }, 6e4);
+      }, import_timing_constants.READY_SAFETY_TIMEOUT_MS);
     } catch (error) {
-      this.log.error(`onReady failed: ${error instanceof Error ? (_e = error.stack) != null ? _e : error.message : String(error)}`);
+      this.log.error(`onReady failed: ${error instanceof Error ? (_d = error.stack) != null ? _d : error.message : String(error)}`);
     }
   }
   /**
@@ -706,21 +687,6 @@ class GoveeAdapter extends utils.Adapter {
     return stateChangeRouter.sendMusicCommand(this, device, prefix, changedSuffix, newValue);
   }
   /**
-   * Called by device-manager when a device state changes
-   *
-   * @param device Updated device
-   * @param state Changed state values
-   */
-  /**
-   * Rebuild state definitions for one device and feed them into StateManager.
-   * Used both from the full-list callback and from targeted refreshes
-   * (e.g. after a local snapshot was added or removed — no reason to rebuild
-   * the entire tree for every device then).
-   *
-   * @param device Target device
-   * @param allDevices Full device list (needed to resolve group members)
-   */
-  /**
    * Public delegate for snapshot-glue + state-change-router modules — a
    * Cloud-data event (new snapshot in app, refresh-button, etc.) needs a
    * full Cloud-phase rebuild for the affected device.
@@ -731,36 +697,21 @@ class GoveeAdapter extends utils.Adapter {
   fireCloudDataReady(device, allDevices) {
     deviceEvents.onCloudDataReady(this, device, allDevices);
   }
-  /**
-   * Called by device-manager when the device list changes
-   *
-   * @param devices Current list of all devices
-   */
   /** Public delegate — connection-state handler exports the real implementation. */
   reapStaleDevices() {
     return connectionState.reapStaleDevices(this);
   }
   /**
-   * Find device for a state ID
-   *
-   * @param localId Local state ID without namespace prefix
-   */
-  /**
-   * Map state suffix to command name.
-   *
-   * Simple suffixes live in a lookup table, segment indices need regex
-   * extraction because they're dynamic. The three music states all route
-   * to the same "music" command — the handler reads sibling values.
+   * Map a state suffix to a command name — public delegate for handler modules,
+   * stateless lookup in lib/handlers/dropdown-reset-helpers. Simple suffixes live
+   * in a lookup table; segment indices need regex extraction because they're
+   * dynamic. The three music states all route to the same "music" command —
+   * the handler reads sibling values.
    *
    * @param suffix State ID suffix (e.g. "power", "brightness")
    */
-  /**
-   * Public delegate for handler modules — stateless lookup, lives in lib/handlers/group-state-helpers.
-   *
-   * @param suffix State suffix
-   */
   stateToCommand(suffix) {
-    return groupStateHelpers.stateToCommand(suffix);
+    return dropdownReset.stateToCommand(suffix);
   }
   /** Public delegate for cloud-retry-handler's CloudRetryHandlerAdapter interface. */
   loadCloudStates() {
@@ -776,21 +727,15 @@ class GoveeAdapter extends utils.Adapter {
     return cloudStateLoader.applyCloudCapabilities(this, device, caps);
   }
   /**
-   * Central entry point for manual-segment updates. Sets the device flags,
-   * rebuilds the segment tree (which writes manual_mode + manual_list with
-   * ack=true), and persists to cache. Both the user state-change handler
-   * and the wizard route their final decisions here.
+   * Central entry point for manual-segment updates (public for the wizard +
+   * state-change-router). Sets the device flags, rebuilds the segment tree
+   * (which writes manual_mode + manual_list with ack=true), and persists to
+   * cache. Both the user state-change handler and the wizard route their final
+   * decisions here.
    *
    * @param device Target device
    * @param mode    Whether manual mode should be active
    * @param indices Physical indices when mode=true, ignored otherwise
-   */
-  /**
-   * Public for handler modules (wizard, state-change-router).
-   *
-   * @param device Target device
-   * @param mode Manual mode flag
-   * @param indices Physical segment indices
    */
   async applyManualSegments(device, mode, indices) {
     var _a;
@@ -803,11 +748,6 @@ class GoveeAdapter extends utils.Adapter {
     (_a = this.deviceManager) == null ? void 0 : _a.persistDeviceToCache(device);
   }
   // ───────── Segment-Detection-Wizard ─────────
-  /**
-   * Handle incoming sendTo messages (from jsonConfig).
-   *
-   * @param obj ioBroker message object
-   */
   /** Construct host object for MessageRouter. */
   buildMessageRouterHost() {
     return {
@@ -833,21 +773,14 @@ class GoveeAdapter extends utils.Adapter {
           return d.sku !== "BaseGroup" && ((_a2 = d.state) == null ? void 0 : _a2.online) === true && (0, import_device_manager.resolveSegmentCount)(d) > 0;
         }).map((d) => ({
           value: wizardHandler.deviceKeyFor(d),
-          label: `${d.name} (${d.sku}, bisher ${(0, import_device_manager.resolveSegmentCount)(d)} Segmente)`
+          label: (0, import_i18n.resolveLabel)("segmentWizardDeviceOption", d.name, d.sku, (0, import_device_manager.resolveSegmentCount)(d))
         }));
       },
       runWizardStep: (action, deviceKey) => wizardHandler.runWizardStep(this, action, deviceKey)
     };
   }
   /**
-   * Helper: clear `mqttVerificationCode` in adapter native after a successful
-   * login or a 455-fail.
-   *
-   * Idempotent: liest erst den aktuellen Wert, schreibt nur wenn dirty.
-   * Verhindert den Adapter-Restart der durch jeden
-   * `extendForeignObjectAsync(system.adapter.X, native:...)`-Call ausgelöst
-   * wird (Memory v2.1.3-Bug). Vorher gab es nach jedem 2FA-Login einen
-   * unnötigen Restart.
+   * Send a sendTo response back to the caller, if the message expects one.
    *
    * @param obj ioBroker message object
    * @param data Response data payload
@@ -857,8 +790,6 @@ class GoveeAdapter extends utils.Adapter {
       this.sendTo(obj.from, obj.command, data, obj.callback);
     }
   }
-  /** Construct host object for SnapshotHandler — adapter dependencies injected. */
-  /** Dropdowns whose value is a mode-selection — reset to "---" (0) when the mode stops. */
 }
 if (require.main !== module) {
   module.exports = (options) => new GoveeAdapter(options);
