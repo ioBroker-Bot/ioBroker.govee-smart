@@ -1,5 +1,22 @@
 import type { GoveeDevice } from "../types";
-import { cachedToGoveeDevice, goveeDeviceToCached } from "./cache";
+import type { CachedDeviceData, SkuCache } from "../sku-cache";
+import {
+  type DeviceCacheAdapter,
+  cachedToGoveeDevice,
+  goveeDeviceToCached,
+  persistDeviceToCache,
+  populateScenesFromLibrary,
+  saveDevicesToCache,
+} from "./cache";
+
+const glueLog = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  silly: () => {},
+  level: "debug",
+} as ioBroker.Logger;
 
 /**
  * Tests for the cache <-> device round-trip. These are architecture-invariant
@@ -134,6 +151,52 @@ describe("cache.cachedToGoveeDevice / goveeDeviceToCached", () => {
       expect(cached.manualMode).toBe(undefined);
       expect(cached.manualSegments).toBe(undefined);
       expect(cached.sceneSpeed).toBe(undefined);
+    });
+  });
+
+  describe("adapter glue functions", () => {
+    function makeAdapter(devices: GoveeDevice[] = []): { adapter: DeviceCacheAdapter; saved: CachedDeviceData[] } {
+      const saved: CachedDeviceData[] = [];
+      const skuCache = { save: (d: CachedDeviceData) => saved.push(d) } as unknown as SkuCache;
+      const map = new Map<string, GoveeDevice>();
+      devices.forEach((d, i) => map.set(`k${i}`, d));
+      return { adapter: { log: glueLog, skuCache, devices: map }, saved };
+    }
+
+    it("populateScenesFromLibrary fills scenes from the library when Cloud scenes are missing", () => {
+      const d = makeFullDevice();
+      d.scenes = [];
+      populateScenesFromLibrary(makeAdapter().adapter, d);
+      expect(d.scenes).toEqual([{ name: "Aurora", value: {} }]);
+    });
+
+    it("populateScenesFromLibrary is a no-op when Cloud scenes already exist", () => {
+      const d = makeFullDevice(); // already carries a scene
+      const before = d.scenes;
+      populateScenesFromLibrary(makeAdapter().adapter, d);
+      expect(d.scenes).toBe(before);
+    });
+
+    it("persistDeviceToCache saves through the SKU cache", () => {
+      const { adapter, saved } = makeAdapter();
+      persistDeviceToCache(adapter, makeFullDevice());
+      expect(saved).toHaveLength(1);
+      expect(saved[0].sku).toBe("H6172");
+    });
+
+    it("persistDeviceToCache is a safe no-op without a cache", () => {
+      const adapter: DeviceCacheAdapter = { log: glueLog, skuCache: null, devices: new Map() };
+      expect(() => persistDeviceToCache(adapter, makeFullDevice())).not.toThrow();
+    });
+
+    it("saveDevicesToCache skips lights whose scenes were not yet checked", () => {
+      const unchecked = makeFullDevice();
+      unchecked.scenesChecked = false;
+      const checked = makeFullDevice();
+      checked.scenesChecked = true;
+      const { adapter, saved } = makeAdapter([unchecked, checked]);
+      saveDevicesToCache(adapter);
+      expect(saved).toHaveLength(1); // only the checked light is persisted
     });
   });
 });
