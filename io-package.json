@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.14.0",
+    "version": "2.14.1",
     "news": {
+      "2.14.1": {
+        "en": "Corrected the ioBroker role of the scene, mode and snapshot selector states (no change to how they work)",
+        "de": "Korrigierte die ioBroker Rolle der Szene, Modus und Snapshot-Selektorzustände (keine Änderung, wie sie funktionieren)",
+        "ru": "Исправлена роль ioBroker в сценах, режимах и состояниях селектора снимка (без изменений в том, как они работают)",
+        "pt": "Corrigido o papel ioBroker da cena, do modo e dos estados seletores de instantâneo (sem alteração de como eles funcionam)",
+        "nl": "Correctie van de rol van ioBroker van de scène, modus en snapshot selector toestanden (geen verandering in hoe ze werken)",
+        "fr": "Correction du rôle ioBroker de la scène, du mode et des états de sélecteur d'instantanés (pas de changement dans leur fonctionnement)",
+        "it": "Corretto il ruolo ioBroker della scena, della modalità e degli stati del selettore di snapshot (nessuna modifica a come funzionano)",
+        "es": "Corregido el papel de ioBroker de la escena, el modo y los estados selectores de instantáneas (sin cambio a cómo funcionan)",
+        "pl": "Poprawił rolę jOBroker sceny, tryb i migawki selekcjonera stanów (bez zmian w sposobie działania)",
+        "uk": "Виправлено роль ioBroker сцени, режим і знімок екрана станів (не змінити, як вони працюють)",
+        "zh-cn": "校正了场景、模式和快照选择器的ioBroker角色状态( 他们的工作方式不变)"
+      },
       "2.14.0": {
         "en": "Wizard and Cloud login-test messages now appear in all admin languages. LAN-only lights record brightness, color and state only when they actually change, keeping their history cleaner.",
         "de": "Wizard- und Cloud-Login-Test-Meldungen erscheinen jetzt in allen Admin-Sprachen. LAN-only-Lampen speichern Helligkeit, Farbe und Status nur bei echter Änderung — sauberere History.",
@@ -80,19 +93,6 @@
         "pl": "Start pokazuje rzeczywisty status LAN (LAN ✗ gdy brak lamp). Lampy bez lokalnego API przełączają się na sterowanie chmurowe zamiast cicho zawodzić.",
         "uk": "Запуск показує реальний статус LAN (LAN ✗ коли лампи недоступні). Лампи без локального API переключаються на хмарне керування замість тихої відмови.",
         "zh-cn": "启动时显示真实LAN状态（无灯具可用时显示 LAN ✗）。没有本地API的灯具现改用云控制，不再静默失败。"
-      },
-      "2.12.2": {
-        "en": "Verified against Node.js 24. Internal cleanup.",
-        "de": "Gegen Node.js 24 verifiziert. Interne Bereinigung.",
-        "ru": "Проверено с Node.js 24. Внутренняя очистка.",
-        "pt": "Verificado com Node.js 24. Limpeza interna.",
-        "nl": "Geverifieerd met Node.js 24. Interne opschoning.",
-        "fr": "Vérifié avec Node.js 24. Nettoyage interne.",
-        "it": "Verificato con Node.js 24. Pulizia interna.",
-        "es": "Verificado con Node.js 24. Limpieza interna.",
-        "pl": "Zweryfikowano z Node.js 24. Wewnętrzne porządki.",
-        "uk": "Перевірено з Node.js 24. Внутрішнє очищення.",
-        "zh-cn": "已验证 Node.js 24 兼容性。内部清理。"
       }
     },
     "titleLang": {

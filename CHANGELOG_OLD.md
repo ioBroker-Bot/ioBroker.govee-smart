@@ -1,4 +1,9 @@
 # Older Changes
+## 2.13.1 (2026-05-22)
+
+- Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)
+- Added H607C Floor Lamp 2 to the device catalog
+
 ## 2.13.0 (2026-05-21)
 
 - Honest LAN status at startup — shows "LAN ✗" when no lights are reachable locally, with instructions to enable the local API

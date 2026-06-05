@@ -91,7 +91,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 2.14.1 (2026-06-05)
 
 - Corrected the ioBroker role of the scene, mode and snapshot selector states (no change to how they work)
 
@@ -111,11 +111,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.13.2 (2026-05-23)
 
 - User-modified state names are no longer overwritten on adapter restart
-
-### 2.13.1 (2026-05-22)
-
-- Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)
-- Added H607C Floor Lamp 2 to the device catalog
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
