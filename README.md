@@ -91,6 +91,10 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Corrected the ioBroker role of the scene, mode and snapshot selector states (no change to how they work)
+
 ### 2.14.0 (2026-06-04)
 
 - The segment-detection wizard and the Cloud login test now show their messages in all admin languages instead of falling back to English or German.

@@ -368,7 +368,7 @@ describe("CapabilityMapper", () => {
 
       // Mode dropdown
       expect(result[0].id).toBe("music_mode");
-      expect(result[0].role).toBe("text");
+      expect(result[0].role).toBe("state");
       // mixed lets users write the mode key ("5") or the label ("Energic")
       expect(result[0].type).toBe("mixed");
       expect(result[0].states).toMatchObject({ 5: "Energic", 3: "Rhythm", 6: "Spectrum" });
@@ -396,7 +396,7 @@ describe("CapabilityMapper", () => {
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("work_mode");
       expect(result[0].type).toBe("mixed");
-      expect(result[0].role).toBe("level.mode");
+      expect(result[0].role).toBe("level.mode.work");
     });
 
     it("should map work_mode STRUCT with workMode field options to dropdown", () => {
