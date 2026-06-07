@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.14.1",
+    "version": "2.15.0",
     "news": {
+      "2.15.0": {
+        "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
+        "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
+        "ru": "Добавлена необязательная отправка ошибок через Sentry: сбои отправляются разработчику, чтобы быстрее их устранять. Работает только при включённой диагностике ioBroker; анонимно.",
+        "pt": "Adicionado relatório de erros opcional via Sentry: as falhas são enviadas ao programador para corrigir problemas mais rápido. Ativo apenas com o diagnóstico do ioBroker ligado; anónimo.",
+        "nl": "Optionele foutrapportage via Sentry toegevoegd: crashes worden naar de ontwikkelaar gestuurd om problemen sneller op te lossen. Alleen actief met ioBroker-diagnostiek ingeschakeld; anoniem.",
+        "fr": "Rapport d'erreurs optionnel via Sentry ajouté : les plantages sont envoyés au développeur pour corriger plus vite. Actif seulement si le diagnostic ioBroker est activé ; anonyme.",
+        "it": "Aggiunta segnalazione errori opzionale via Sentry: gli arresti vengono inviati allo sviluppatore per risolvere prima i problemi. Attivo solo con la diagnostica ioBroker attiva; anonimo.",
+        "es": "Añadido informe de errores opcional mediante Sentry: los fallos se envían al desarrollador para solucionar problemas más rápido. Activo solo con el diagnóstico de ioBroker activado; anónimo.",
+        "pl": "Dodano opcjonalne raportowanie błędów przez Sentry: awarie są wysyłane do dewelopera, aby szybciej rozwiązywać problemy. Aktywne tylko przy włączonej diagnostyce ioBroker; anonimowo.",
+        "uk": "Додано необов'язкову відправку помилок через Sentry: збої надсилаються розробнику, щоб швидше їх виправляти. Працює лише з увімкненою діагностикою ioBroker; анонімно.",
+        "zh-cn": "新增可选的 Sentry 错误上报：崩溃信息会发送给开发者以更快修复问题。仅在启用 ioBroker 诊断时生效；匿名。"
+      },
       "2.14.1": {
         "en": "Corrected the ioBroker role of the scene, mode and snapshot selector states (no change to how they work)",
         "de": "Korrigierte die ioBroker Rolle der Szene, Modus und Snapshot-Selektorzustände (keine Änderung, wie sie funktionieren)",
@@ -80,19 +93,11 @@
         "pl": "Naprawiono brakujące stany LAN, gdy urządzenie chmurowe było później odkryte przez LAN. Dodano H607C Floor Lamp 2 do katalogu.",
         "uk": "Виправлено відсутні LAN-стани, коли хмарний пристрій виявлявся по LAN пізніше. Додано H607C Floor Lamp 2 до каталогу.",
         "zh-cn": "修复了当云端已知设备后来通过局域网被发现时缺失的 LAN 控制状态。已将 H607C Floor Lamp 2 添加到设备目录。"
-      },
-      "2.13.0": {
-        "en": "Startup now shows honest LAN status (LAN ✗ when no lights reachable). Lights without local API fall back to cloud control instead of failing silently.",
-        "de": "Start zeigt jetzt ehrlichen LAN-Status (LAN ✗ wenn keine Lampen erreichbar). Lampen ohne lokale API nutzen Cloud-Steuerung statt still zu scheitern.",
-        "ru": "При запуске отображается реальный статус LAN (LAN ✗ если лампы недоступны). Лампы без локального API переключаются на облачное управление вместо тихого отказа.",
-        "pt": "Inicialização mostra status LAN real (LAN ✗ sem luminárias acessíveis). Luminárias sem API local usam controle por nuvem em vez de falhar silenciosamente.",
-        "nl": "Opstarten toont nu eerlijke LAN-status (LAN ✗ als geen lampen bereikbaar). Lampen zonder lokale API schakelen over naar cloudbesturing in plaats van stil te falen.",
-        "fr": "Le démarrage affiche un statut LAN honnête (LAN ✗ sans lampes accessibles). Les lampes sans API locale basculent sur le contrôle cloud au lieu d'échouer.",
-        "it": "L'avvio mostra lo stato LAN reale (LAN ✗ se nessuna lampada raggiungibile). Le lampade senza API locale usano il controllo cloud invece di fallire.",
-        "es": "El inicio muestra el estado LAN real (LAN ✗ sin lámparas accesibles). Las lámparas sin API local usan control por nube en lugar de fallar silenciosamente.",
-        "pl": "Start pokazuje rzeczywisty status LAN (LAN ✗ gdy brak lamp). Lampy bez lokalnego API przełączają się na sterowanie chmurowe zamiast cicho zawodzić.",
-        "uk": "Запуск показує реальний статус LAN (LAN ✗ коли лампи недоступні). Лампи без локального API переключаються на хмарне керування замість тихої відмови.",
-        "zh-cn": "启动时显示真实LAN状态（无灯具可用时显示 LAN ✗）。没有本地API的灯具现改用云控制，不再静默失败。"
+      }
+    },
+    "plugins": {
+      "sentry": {
+        "dsn": "https://66f27ceff38c1ce1e6cdcc3095ba06d3@o4511524771266560.ingest.de.sentry.io/4511524773560400"
       }
     },
     "titleLang": {

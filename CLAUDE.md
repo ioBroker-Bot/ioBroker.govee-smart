@@ -366,7 +366,7 @@ Run: `npx vitest run` (unit) · `npm test` (unit + package) · `npm run test:int
 ## Konkurrenz-Lage (Stand 2026-05)
 
 - Schwester-Adapter `iobroker.govee` ist veraltet (nur LAN, keine MQTT, keine Sensoren/Appliances) — diese Implementation ist die einzige Govee-Lösung im Latest-Repo mit voller Multi-Channel + ptReal + Wizard.
-- ioBroker.repositories PR #5824 für Latest-Aufnahme offen seit v2.0.0-Ära, wartet auf mcm1957-Review.
+- ioBroker.repositories PR #5824 (Latest-Aufnahme) **MERGED 2026-06-06** — govee-smart ist im Latest-Repo. Live-Stand: `show-pr-status.py`.
 
 ## Befehle
 

@@ -1,4 +1,8 @@
 # Older Changes
+## 2.13.2 (2026-05-23)
+
+- User-modified state names are no longer overwritten on adapter restart
+
 ## 2.13.1 (2026-05-22)
 
 - Fixed race condition where LAN control states (power, brightness, color) were missing when a cloud-known device got LAN-discovered later — previously required adapter restart (Issue #15)
