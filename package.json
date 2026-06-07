@@ -28,8 +28,7 @@
     "url": "https://github.com/krobipd/ioBroker.govee-smart"
   },
   "engines": {
-    "node": ">=22",
-    "npm": ">=10"
+    "node": ">=22"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.3.2",

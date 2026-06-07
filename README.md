@@ -112,7 +112,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - User-modified state names are no longer overwritten on adapter restart
 
-Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
+[Older changelogs can be found there](CHANGELOG_OLD.md)
 
 ## Support
 
