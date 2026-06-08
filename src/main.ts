@@ -2,6 +2,7 @@ import { I18n } from "@iobroker/adapter-core";
 import * as utils from "@iobroker/adapter-core";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { ActionableProblems } from "./lib/actionable-problems";
 import { initDeviceRegistry } from "./lib/device-registry";
 import { DeviceManager, resolveSegmentCount } from "./lib/device-manager";
 import { GoveeApiClient } from "./lib/govee-api-client";
@@ -61,6 +62,9 @@ class GoveeAdapter extends utils.Adapter {
   public mqttClient: GoveeMqttClient | null = null;
   /** Public for handler modules (connection-state). */
   public openapiMqttClient: GoveeOpenapiMqttClient | null = null;
+
+  /** Registry surfacing user-actionable problems (verification, credentials). */
+  public actionableProblems!: ActionableProblems;
   /** Public for handler modules. */
   public cloudClient: GoveeCloudClient | null = null;
   private rateLimiter: RateLimiter | null = null;
@@ -192,6 +196,19 @@ class GoveeAdapter extends utils.Adapter {
         openapi: config.apiKey ? "off" : "n/a",
       };
       installLogPrefix(this.log, () => this.channelStatus);
+
+      // One registry for problems that need the USER to act (verification,
+      // rejected credentials). Surfaces each once — a clear warn + a persistent
+      // ioBroker notification — and a positive resolution line when it clears.
+      // Transient failures never reach here. Spam-free by construction.
+      this.actionableProblems = new ActionableProblems({
+        logWarn: m => this.log.warn(m),
+        logInfo: m => this.log.info(m),
+        notify: m =>
+          this.registerNotification("govee-smart", "userActionRequired", m).catch(e =>
+            this.log.debug(`Could not raise notification: ${errMessage(e)}`),
+          ),
+      });
 
       // info channel + states are declared as instanceObjects in
       // io-package.json, so js-controller materialises them on install /
@@ -422,6 +439,19 @@ class GoveeAdapter extends utils.Adapter {
           // code) we leave the field as-is — the user is about to fill it.
           if (reason === "failed") {
             cloudCreds.clearVerificationCodeSetting(this).catch(() => {});
+            this.actionableProblems.report({
+              key: "mqtt-verification",
+              title: "Govee rejected the verification code for real-time status",
+              action:
+                "request a fresh code in the adapter settings (Govee Account section) and paste the one Govee e-mails you",
+            });
+          } else {
+            this.actionableProblems.report({
+              key: "mqtt-verification",
+              title: "Govee requires a verification code to enable real-time status (lights/sensors stay readable)",
+              action:
+                "open the adapter settings (Govee Account section), request a code, and paste the one Govee e-mails you",
+            });
           }
         });
 
@@ -452,6 +482,10 @@ class GoveeAdapter extends utils.Adapter {
               ack: true,
             }).catch(() => {});
             if (connected) {
+              this.actionableProblems.resolve(
+                "mqtt-verification",
+                "Govee real-time status connected — verification accepted",
+              );
               connectionState.checkAllReady(this);
             }
             connectionState.updateConnectionState(this);

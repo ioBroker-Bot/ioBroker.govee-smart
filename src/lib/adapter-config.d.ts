@@ -26,6 +26,16 @@ declare global {
        */
       mqttVerificationCode: string;
     }
+
+    /**
+     * Custom notification scope for this adapter, declared in io-package.json
+     * `notifications`. Augmenting the built-in `NotificationScopes` lets
+     * `registerNotification("govee-smart", "userActionRequired", …)` type-check
+     * without a cast. The single category surfaces user-actionable problems.
+     */
+    interface NotificationScopes {
+      "govee-smart": "userActionRequired";
+    }
   }
 }
 

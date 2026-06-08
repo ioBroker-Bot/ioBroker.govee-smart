@@ -452,5 +452,70 @@
     "networkInterface": "0.0.0.0",
     "experimentalQuirks": false,
     "mqttVerificationCode": ""
-  }
+  },
+  "notifications": [
+    {
+      "scope": "govee-smart",
+      "name": {
+        "en": "Govee Smart",
+        "de": "Govee Smart",
+        "ru": "Govee Smart",
+        "pt": "Govee Smart",
+        "nl": "Govee Smart",
+        "fr": "Govee Smart",
+        "it": "Govee Smart",
+        "es": "Govee Smart",
+        "pl": "Govee Smart",
+        "uk": "Govee Smart",
+        "zh-cn": "Govee Smart"
+      },
+      "description": {
+        "en": "Govee Smart adapter",
+        "de": "Govee Smart Adapter",
+        "ru": "Адаптер Govee Smart",
+        "pt": "Adaptador Govee Smart",
+        "nl": "Govee Smart-adapter",
+        "fr": "Adaptateur Govee Smart",
+        "it": "Adattatore Govee Smart",
+        "es": "Adaptador Govee Smart",
+        "pl": "Adapter Govee Smart",
+        "uk": "Адаптер Govee Smart",
+        "zh-cn": "Govee Smart 适配器"
+      },
+      "categories": [
+        {
+          "category": "userActionRequired",
+          "name": {
+            "en": "Action required",
+            "de": "Aktion erforderlich",
+            "ru": "Требуется действие",
+            "pt": "Ação necessária",
+            "nl": "Actie vereist",
+            "fr": "Action requise",
+            "it": "Azione richiesta",
+            "es": "Acción requerida",
+            "pl": "Wymagane działanie",
+            "uk": "Потрібна дія",
+            "zh-cn": "需要操作"
+          },
+          "description": {
+            "en": "A problem needs your attention, for example Govee requires a verification code.",
+            "de": "Ein Problem braucht deine Aufmerksamkeit, z. B. verlangt Govee einen Verifizierungscode.",
+            "ru": "Проблема требует вашего внимания, например, Govee запрашивает код подтверждения.",
+            "pt": "Um problema precisa da sua atenção, por exemplo, a Govee requer um código de verificação.",
+            "nl": "Een probleem vereist uw aandacht, bijvoorbeeld Govee vraagt om een verificatiecode.",
+            "fr": "Un problème nécessite votre attention, par exemple Govee demande un code de vérification.",
+            "it": "Un problema richiede la tua attenzione, ad esempio Govee richiede un codice di verifica.",
+            "es": "Un problema requiere tu atención, por ejemplo, Govee solicita un código de verificación.",
+            "pl": "Problem wymaga Twojej uwagi, np. Govee wymaga kodu weryfikacyjnego.",
+            "uk": "Проблема потребує вашої уваги, наприклад, Govee запитує код підтвердження.",
+            "zh-cn": "有问题需要您处理，例如 Govee 需要验证码。"
+          },
+          "severity": "notify",
+          "regex": [],
+          "limit": 1
+        }
+      ]
+    }
+  ]
 }

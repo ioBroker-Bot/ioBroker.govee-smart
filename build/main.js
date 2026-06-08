@@ -25,6 +25,7 @@ var import_adapter_core = require("@iobroker/adapter-core");
 var utils = __toESM(require("@iobroker/adapter-core"));
 var fs = __toESM(require("node:fs"));
 var path = __toESM(require("node:path"));
+var import_actionable_problems = require("./lib/actionable-problems");
 var import_device_registry = require("./lib/device-registry");
 var import_device_manager = require("./lib/device-manager");
 var import_govee_api_client = require("./lib/govee-api-client");
@@ -65,6 +66,8 @@ class GoveeAdapter extends utils.Adapter {
   mqttClient = null;
   /** Public for handler modules (connection-state). */
   openapiMqttClient = null;
+  /** Registry surfacing user-actionable problems (verification, credentials). */
+  actionableProblems;
   /** Public for handler modules. */
   cloudClient = null;
   rateLimiter = null;
@@ -183,6 +186,13 @@ class GoveeAdapter extends utils.Adapter {
         openapi: config.apiKey ? "off" : "n/a"
       };
       (0, import_log_prefix.installLogPrefix)(this.log, () => this.channelStatus);
+      this.actionableProblems = new import_actionable_problems.ActionableProblems({
+        logWarn: (m) => this.log.warn(m),
+        logInfo: (m) => this.log.info(m),
+        notify: (m) => this.registerNotification("govee-smart", "userActionRequired", m).catch(
+          (e) => this.log.debug(`Could not raise notification: ${(0, import_types.errMessage)(e)}`)
+        )
+      });
       await this.setStateAsync("info.connection", { val: false, ack: true });
       await this.setStateAsync("info.mqttConnected", { val: false, ack: true });
       await this.setStateAsync("info.cloudConnected", { val: false, ack: true });
@@ -364,6 +374,17 @@ class GoveeAdapter extends utils.Adapter {
           if (reason === "failed") {
             cloudCreds.clearVerificationCodeSetting(this).catch(() => {
             });
+            this.actionableProblems.report({
+              key: "mqtt-verification",
+              title: "Govee rejected the verification code for real-time status",
+              action: "request a fresh code in the adapter settings (Govee Account section) and paste the one Govee e-mails you"
+            });
+          } else {
+            this.actionableProblems.report({
+              key: "mqtt-verification",
+              title: "Govee requires a verification code to enable real-time status (lights/sensors stay readable)",
+              action: "open the adapter settings (Govee Account section), request a code, and paste the one Govee e-mails you"
+            });
           }
         });
         await cloudCreds.cleanupLegacyMqttNativeOnce(this);
@@ -385,6 +406,10 @@ class GoveeAdapter extends utils.Adapter {
             }).catch(() => {
             });
             if (connected) {
+              this.actionableProblems.resolve(
+                "mqtt-verification",
+                "Govee real-time status connected \u2014 verification accepted"
+              );
               connectionState.checkAllReady(this);
             }
             connectionState.updateConnectionState(this);
