@@ -785,8 +785,8 @@ function buildCloudStateDefs(device, log, localSnapshots, memberDevices) {
   }
   const quirks = (0, import_device_registry.getDeviceQuirks)(device.sku);
   const skipCapabilities = (quirks == null ? void 0 : quirks.brokenPlatformApi) === true;
-  const cloudOnlyLight = device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && !device.lanIp;
-  const stateDefs = skipCapabilities ? [] : mapCapabilities(device.capabilities, log).filter((d) => cloudOnlyLight || !LAN_STATE_IDS.has(d.id));
+  const noLanPhase = !device.lanIp;
+  const stateDefs = skipCapabilities ? [] : mapCapabilities(device.capabilities, log).filter((d) => noLanPhase || !LAN_STATE_IDS.has(d.id));
   if (skipCapabilities) {
     log.debug(`${device.sku}: brokenPlatformApi quirk active \u2014 skipping capability-derived states + dropdowns`);
   }

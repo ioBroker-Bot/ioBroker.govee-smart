@@ -1018,9 +1018,30 @@ describe("CapabilityMapper", () => {
       }
     });
 
-    it("non-light (sensor/appliance) without lanIp: LAN_STATE_IDS stay filtered", () => {
-      const defs = buildCloudStateDefs(baseLight({ type: "devices.types.heater" }));
-      expect(defs.find(d => d.id === "power"), "non-light: power must not leak through the light gate").toBeUndefined();
+    it("cloud appliance (on_off, no lanIp): control.power comes through too", () => {
+      // Appliances never have a LAN phase, so the same LAN_STATE_IDS filter was
+      // silently swallowing their on/off. With no lanIp there is nothing to
+      // double-create — keep it so the heater/humidifier can be switched.
+      const heater = baseLight({
+        type: "devices.types.heater",
+        capabilities: [{ type: "devices.capabilities.on_off", instance: "powerSwitch" }] as CloudCapability[],
+      });
+      const defs = buildCloudStateDefs(heater);
+      const power = defs.find(d => d.id === "power");
+      expect(power, "appliance on/off must be controllable").toBeDefined();
+      expect(power?.write).toBe(true);
+    });
+
+    it("sensor without an on_off cap: still no control.power (nothing to map, not a filter side-effect)", () => {
+      const sensor = baseLight({
+        type: "devices.types.thermometer",
+        capabilities: [
+          { type: "devices.capabilities.property", instance: "sensorTemperature" },
+          { type: "devices.capabilities.property", instance: "sensorHumidity" },
+        ] as CloudCapability[],
+      });
+      const defs = buildCloudStateDefs(sensor);
+      expect(defs.find(d => d.id === "power"), "sensor has no on_off → no power state").toBeUndefined();
     });
   });
 

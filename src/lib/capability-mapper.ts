@@ -1147,18 +1147,20 @@ export function buildCloudStateDefs(
   const quirks = getDeviceQuirks(device.sku);
   const skipCapabilities = quirks?.brokenPlatformApi === true;
 
-  // Capability-derived states. A LAN-owning light lets the LAN phase own the
-  // four control ids (power/brightness/colorRgb/colorTemperature) — they are
-  // filtered out here so they are not double-created in the same channel.
-  // BUT a cloud-only light (a light whose owner never enabled the local API,
-  // so `lanIp` is null) has no LAN phase to provide them: keep the cap-derived
-  // control states so the device stays controllable via the Cloud (the
-  // command-router routes them through `light-no-lan-fallback`). Local-first
-  // stays, local-only does not. Sensors/appliances keep the filter unchanged.
-  const cloudOnlyLight = device.type === GOVEE_DEVICE_TYPE.LIGHT && !device.lanIp;
+  // Capability-derived states. A LAN-owning light (lanIp set) lets the LAN
+  // phase own the four control ids (power/brightness/colorRgb/colorTemperature)
+  // — they are filtered out here so they are not double-created in the same
+  // channel. Without a lanIp there is NO LAN phase to provide them and nothing
+  // to double-create, so keep the cap-derived control states: a cloud-only
+  // light (owner never enabled the local API) stays controllable via the Cloud,
+  // and appliances (which never have a LAN phase) keep their on/off too. The
+  // command-router routes these via Cloud (`no-lan` / `light-no-lan-fallback`).
+  // Local-first stays, local-only does not. Sensors carry no such caps; groups
+  // returned earlier. LAN lights are unchanged.
+  const noLanPhase = !device.lanIp;
   const stateDefs: StateDefinition[] = skipCapabilities
     ? []
-    : mapCapabilities(device.capabilities, log).filter(d => cloudOnlyLight || !LAN_STATE_IDS.has(d.id));
+    : mapCapabilities(device.capabilities, log).filter(d => noLanPhase || !LAN_STATE_IDS.has(d.id));
 
   if (skipCapabilities) {
     log.debug(`${device.sku}: brokenPlatformApi quirk active — skipping capability-derived states + dropdowns`);
