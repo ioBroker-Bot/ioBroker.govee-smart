@@ -45,10 +45,18 @@ Full user documentation lives in the **[Wiki](https://github.com/krobipd/ioBroke
 
 ---
 
+## Sentry / Error reporting
+
+**This adapter uses Sentry libraries to automatically report exceptions and code errors to the developers.** Reporting only happens if you have enabled error reporting in the ioBroker diagnostics (**System settings → Diagnostics and error reporting**). Only an anonymous installation ID is transmitted — no name, e-mail address or IP address.
+
+For details and how to disable it, see the [Sentry plugin documentation](https://github.com/ioBroker/plugin-sentry#plugin-sentry). Error reporting requires js-controller 3.0 or newer.
+
+---
+
 ## Requirements
 
 - Node.js >= 22
-- ioBroker js-controller >= 7.0.7
+- ioBroker js-controller >= 7.1.2
 - ioBroker Admin >= 7.8.23
 - A Govee account and at least one Govee WiFi device. LAN control needs a light with LAN mode enabled in the Govee Home app — see Govee's [LAN-supported device list](https://app-h5.govee.com/user-manual/wlan-guide).
 
@@ -80,18 +88,13 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 ---
 
-## Sentry / Error reporting
-
-This adapter uses [Sentry](https://sentry.io) to automatically report exceptions and errors to the developer, so problems can be found and fixed quickly. Reporting only happens if you have enabled error reporting in the ioBroker diagnostics (**System settings → Diagnostics and error reporting**). Only an anonymous installation ID is transmitted — no name, e-mail address or IP address.
-
-For details and how to disable it, see the [Sentry plugin documentation](https://github.com/ioBroker/plugin-sentry#plugin-sentry). Error reporting requires js-controller 3.0 or newer.
-
 ## Changelog
 
 <!--
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
 ### 2.15.0 (2026-06-07)
 
 - Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.
@@ -156,4 +159,4 @@ SOFTWARE.
 
 ---
 
-*Developed with assistance from Claude.ai*
+_Developed with assistance from Claude.ai_
