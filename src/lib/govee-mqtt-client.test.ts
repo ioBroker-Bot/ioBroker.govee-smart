@@ -191,6 +191,8 @@ describe("GoveeMqttClient", () => {
     it("should report 'login rejected — check email/password' after 3 consecutive AUTH failures", async () => {
       const fake = makeFakeHttps(() => ({ status: 401, message: "wrong password" }));
       const client = new GoveeMqttClient("test@example.com", "secret", mockLog, noopTimers, fake.fn);
+      let authFailedFired = 0;
+      client.setOnAuthFailed(() => authFailedFired++);
       // 3× connect → authFailCount erreicht MAX_AUTH_FAILURES
       await client.connect(
         () => {},
@@ -205,6 +207,9 @@ describe("GoveeMqttClient", () => {
         () => {},
       );
       expect(client.getFailureReason()).toBe("login rejected — check email/password");
+      // The actionable "check email/password" problem must be surfaced once the
+      // credentials are rejected for good (not on transient/verification fails).
+      expect(authFailedFired).toBeGreaterThan(0);
     });
 
     it("should set RATE_LIMIT failure reason on 429", async () => {

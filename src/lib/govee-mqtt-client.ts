@@ -105,6 +105,9 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
   /** Fired on 454 (pending) or 455 (failed) so the adapter can surface the actionable warning + auto-clear the code on failed. */
   private onVerificationFailed: ((reason: "pending" | "failed") => void) | null = null;
 
+  /** Fired when repeated logins are rejected for bad credentials (not 2FA) so the adapter can surface "check email/password". */
+  private onAuthFailed: (() => void) | null = null;
+
   /** Persisted credentials from a previous run; null until setPersistedCredentials() is called. */
   private persisted: PersistedMqttCredentials | null = null;
   /** Hook fired after a successful login so the adapter can persist the new credentials. */
@@ -175,6 +178,16 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
    */
   setOnVerificationFailed(cb: ((reason: "pending" | "failed") => void) | null): void {
     this.onVerificationFailed = cb;
+  }
+
+  /**
+   * Hook called once repeated logins are rejected for bad credentials (not
+   * 2FA) — lets the adapter surface a "check email/password" actionable problem.
+   *
+   * @param cb Callback
+   */
+  setOnAuthFailed(cb: (() => void) | null): void {
+    this.onAuthFailed = cb;
   }
 
   /** Bearer token from login — available after connect, used for undocumented API */
@@ -421,6 +434,7 @@ export class GoveeMqttClient extends ReconnectingMqttClient {
         this.authFailCount++;
         if (this.authFailCount >= MQTT_MAX_AUTH_FAILURES) {
           this.log.warn(`MQTT not connected: login rejected — check email/password`);
+          this.onAuthFailed?.();
           return;
         }
       } else {

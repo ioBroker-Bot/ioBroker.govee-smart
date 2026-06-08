@@ -2,6 +2,7 @@ import { CloudRetryLoop, type CloudRetryHost } from "../cloud-retry";
 import type { DeviceManager } from "../device-manager";
 import type { GoveeCloudClient } from "../govee-cloud-client";
 import type { StateManager } from "../state-manager";
+import type { ActionableProblems } from "../actionable-problems";
 import type { CloudLoadResult } from "../types";
 import { READY_TIMEOUT_MS } from "../timing-constants";
 
@@ -22,6 +23,8 @@ export interface CloudRetryHandlerAdapter {
   clearTimeout: (h: ioBroker.Timeout) => void;
   /** Reload Cloud-state-tree after a recovered connection. */
   loadCloudStates(): Promise<void>;
+  /** Registry to surface a rejected API key as a user-actionable problem. */
+  readonly actionableProblems: ActionableProblems;
 }
 
 /**
@@ -65,6 +68,7 @@ export function buildCloudRetryHost(adapter: CloudRetryHandlerAdapter): CloudRet
     clearTimeout: h => adapter.clearTimeout(h as ioBroker.Timeout),
     loadFromCloud: () => cloudInitWithTimeout(adapter),
     onCloudRestored: async () => {
+      adapter.actionableProblems.resolve("cloud-auth", "Govee Cloud connected — API key accepted");
       adapter.cloudWasConnected = true;
       adapter.setStateAsync("info.cloudConnected", { val: true, ack: true }).catch(() => {});
       adapter.stateManager?.updateGroupsOnline(true).catch(() => {});
@@ -90,6 +94,14 @@ export function ensureCloudRetry(adapter: CloudRetryHandlerAdapter): CloudRetryL
  *
  */
 export function handleCloudFailure(adapter: CloudRetryHandlerAdapter, result: CloudLoadResult): void {
+  if (!result.ok && result.reason === "auth-failed") {
+    adapter.actionableProblems.report({
+      key: "cloud-auth",
+      title: "Govee rejected the Cloud API key",
+      action:
+        "check the API key in the adapter settings (Cloud API section); generate a fresh one in the Govee Home app if needed",
+    });
+  }
   ensureCloudRetry(adapter).handleResult(result);
 }
 

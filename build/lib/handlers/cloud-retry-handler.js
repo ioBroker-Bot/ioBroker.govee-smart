@@ -58,6 +58,7 @@ function buildCloudRetryHost(adapter) {
     loadFromCloud: () => cloudInitWithTimeout(adapter),
     onCloudRestored: async () => {
       var _a;
+      adapter.actionableProblems.resolve("cloud-auth", "Govee Cloud connected \u2014 API key accepted");
       adapter.cloudWasConnected = true;
       adapter.setStateAsync("info.cloudConnected", { val: true, ack: true }).catch(() => {
       });
@@ -75,6 +76,13 @@ function ensureCloudRetry(adapter) {
   return adapter.cloudRetry;
 }
 function handleCloudFailure(adapter, result) {
+  if (!result.ok && result.reason === "auth-failed") {
+    adapter.actionableProblems.report({
+      key: "cloud-auth",
+      title: "Govee rejected the Cloud API key",
+      action: "check the API key in the adapter settings (Cloud API section); generate a fresh one in the Govee Home app if needed"
+    });
+  }
   ensureCloudRetry(adapter).handleResult(result);
 }
 async function reloadCloudStates(adapter) {

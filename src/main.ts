@@ -454,6 +454,13 @@ class GoveeAdapter extends utils.Adapter {
             });
           }
         });
+        this.mqttClient.setOnAuthFailed(() => {
+          this.actionableProblems.report({
+            key: "mqtt-auth",
+            title: "Govee rejected the account login for real-time status",
+            action: "check the Govee e-mail and password in the adapter settings (Govee Account section)",
+          });
+        });
 
         // Re-use cached MQTT credentials across restarts. Stored in the
         // info.mqttCredentials state (NOT in adapter native): writing to
@@ -486,6 +493,7 @@ class GoveeAdapter extends utils.Adapter {
                 "mqtt-verification",
                 "Govee real-time status connected — verification accepted",
               );
+              this.actionableProblems.resolve("mqtt-auth", "Govee account login accepted");
               connectionState.checkAllReady(this);
             }
             connectionState.updateConnectionState(this);

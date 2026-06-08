@@ -99,6 +99,8 @@ class GoveeMqttClient extends import_reconnecting_mqtt_client.ReconnectingMqttCl
   onVerificationConsumed = null;
   /** Fired on 454 (pending) or 455 (failed) so the adapter can surface the actionable warning + auto-clear the code on failed. */
   onVerificationFailed = null;
+  /** Fired when repeated logins are rejected for bad credentials (not 2FA) so the adapter can surface "check email/password". */
+  onAuthFailed = null;
   /** Persisted credentials from a previous run; null until setPersistedCredentials() is called. */
   persisted = null;
   /** Hook fired after a successful login so the adapter can persist the new credentials. */
@@ -158,6 +160,15 @@ class GoveeMqttClient extends import_reconnecting_mqtt_client.ReconnectingMqttCl
    */
   setOnVerificationFailed(cb) {
     this.onVerificationFailed = cb;
+  }
+  /**
+   * Hook called once repeated logins are rejected for bad credentials (not
+   * 2FA) — lets the adapter surface a "check email/password" actionable problem.
+   *
+   * @param cb Callback
+   */
+  setOnAuthFailed(cb) {
+    this.onAuthFailed = cb;
   }
   /** Bearer token from login — available after connect, used for undocumented API */
   get token() {
@@ -220,7 +231,7 @@ class GoveeMqttClient extends import_reconnecting_mqtt_client.ReconnectingMqttCl
    * @param onToken Called with every fresh bearer token (initial + each reconnect-login)
    */
   async connect(onStatus, onConnection, onToken) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
     this.onStatus = onStatus;
     this.onConnection = onConnection;
     if (onToken) {
@@ -338,6 +349,7 @@ class GoveeMqttClient extends import_reconnecting_mqtt_client.ReconnectingMqttCl
         this.authFailCount++;
         if (this.authFailCount >= import_timing_constants.MQTT_MAX_AUTH_FAILURES) {
           this.log.warn(`MQTT not connected: login rejected \u2014 check email/password`);
+          (_k = this.onAuthFailed) == null ? void 0 : _k.call(this);
           return;
         }
       } else {
