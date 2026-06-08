@@ -982,15 +982,16 @@ class StateManager {
   /**
    * Resolver-based info.online sync.
    *
-   * For LED Lights (`type === "devices.types.light"`) the truth-source is
-   * exclusively `device.lastLanReplyAt` — set when the device replies to a
-   * LAN-Discovery multicast or LAN-Unicast devStatus. The 90 s freshness
-   * window tolerates 3 missed 30 s scans against UDP packet loss but still
-   * flips offline reasonably fast on a real outage.
+   * For LAN-capable LED Lights (`type === light` AND `lanIp` set) the
+   * truth-source is exclusively `device.lastLanReplyAt` — set when the device
+   * replies to a LAN-Discovery multicast or LAN-Unicast devStatus. The 90 s
+   * freshness window tolerates 3 missed 30 s scans against UDP packet loss but
+   * still flips offline reasonably fast on a real outage.
    *
-   * For Sensors/Appliances (no LAN protocol) the existing flow is unchanged:
-   * `device.state.online` is set by `applyOnlineCap` from App-API / OpenAPI-
-   * MQTT and read straight through here.
+   * For cloud-only Lights (a light whose owner never enabled the local API, so
+   * `lanIp` is null) and for Sensors/Appliances there is no LAN signal:
+   * `device.state.online` — set by `applyOnlineCap` from App-API / OpenAPI-MQTT
+   * — is read straight through here. Local-first stays, local-only does not.
    *
    * Writes `info.online` only when the resolved value differs from the
    * current state — kills the 2-min ts-rewrite-spam captured 2026-05-13.
@@ -1015,7 +1016,7 @@ class StateManager {
     const prefix = this.devicePrefix(device);
     const stateId = `${prefix}.info.online`;
     let desiredOnline;
-    if (device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
+    if (device.type === import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT && device.lanIp) {
       desiredOnline = !!(device.lastLanReplyAt && Date.now() - device.lastLanReplyAt < 9e4);
     } else {
       desiredOnline = device.state.online === true;

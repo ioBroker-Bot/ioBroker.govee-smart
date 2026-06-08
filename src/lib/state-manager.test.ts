@@ -1040,6 +1040,49 @@ describe("StateManager", () => {
       expect(after).toEqual(before);
     });
 
+    describe("syncInfoOnline — cloud-only lights (local-first, not local-only)", () => {
+      it("cloud-only light (no lanIp): info.online follows the cloud-reported online", async () => {
+        const { adapter, states } = createMockAdapter();
+        const sm = new StateManager(adapter as never);
+        const dev = createTestDevice({
+          lanIp: undefined,
+          lastLanReplyAt: undefined,
+          state: { online: true },
+          channels: { lan: false, mqtt: false, cloud: true },
+        });
+        await createAllStatesForTest(sm, dev, []);
+        await sm.syncInfoOnline(dev);
+        expect(states.get("devices.h6160_0011.info.online")).toMatchObject({ val: true });
+      });
+
+      it("cloud-only light reports offline when the cloud says offline", async () => {
+        const { adapter, states } = createMockAdapter();
+        const sm = new StateManager(adapter as never);
+        const dev = createTestDevice({
+          lanIp: undefined,
+          lastLanReplyAt: undefined,
+          state: { online: false },
+          channels: { lan: false, mqtt: false, cloud: true },
+        });
+        await createAllStatesForTest(sm, dev, []);
+        await sm.syncInfoOnline(dev);
+        expect(states.get("devices.h6160_0011.info.online")).toMatchObject({ val: false });
+      });
+
+      it("LAN-capable light still uses LAN-reply freshness, never stale cloud online (v2.9.0 guard)", async () => {
+        const { adapter, states } = createMockAdapter();
+        const sm = new StateManager(adapter as never);
+        const dev = createTestDevice({
+          lanIp: "192.168.1.100",
+          lastLanReplyAt: undefined,
+          state: { online: true },
+        });
+        await createAllStatesForTest(sm, dev, []);
+        await sm.syncInfoOnline(dev);
+        expect(states.get("devices.h6160_0011.info.online")).toMatchObject({ val: false });
+      });
+    });
+
     it("should not write anything when given an empty update", async () => {
       const { adapter, calls } = createMockAdapter();
       const sm = new StateManager(adapter as never);

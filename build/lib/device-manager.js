@@ -1178,7 +1178,7 @@ class DeviceManager {
             return false;
           }
           (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, caps);
-          if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
+          if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT || !device.lanIp) {
             this.applyOnlineCap(device, caps);
           }
           this.diagnostics.recordApiSuccess(device.deviceId, "/device/rest/devices/v1/list", entry);
@@ -1259,7 +1259,7 @@ class DeviceManager {
       `OpenAPI-MQTT event for ${device.sku}: ${event.capabilities.length} cap(s) [${capSummary}]`
     );
     (_a = this.onCloudCapabilities) == null ? void 0 : _a.call(this, device, event.capabilities);
-    if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT) {
+    if (device.type !== import_govee_constants.GOVEE_DEVICE_TYPE.LIGHT || !device.lanIp) {
       this.applyOnlineCap(device, event.capabilities);
     }
   }

@@ -1407,11 +1407,12 @@ export class DeviceManager {
           // pipeline. Pluck it out and apply it directly — otherwise sensor
           // SKUs like H5179 stay at info.online=false forever even while
           // their readings keep updating.
-          // Lights are excluded: their info.online is driven exclusively by
-          // LAN-direct replies (StateManager.syncInfoOnline). Govee's Cloud
-          // cache lags real LAN reachability by minutes and produced 2×
-          // false-positive `true` writes during the 2026-05-13 outage capture.
-          if (device.type !== GOVEE_DEVICE_TYPE.LIGHT) {
+          // Cloud-only lights (no local API, lanIp === null) have no LAN
+          // reachability signal, so the cloud online cap is their only truth —
+          // apply it like sensors/appliances. LAN-capable lights stay excluded:
+          // their info.online is LAN-driven, and Govee's Cloud cache lags real
+          // LAN reachability (2× false-positive `true` during 2026-05-13).
+          if (device.type !== GOVEE_DEVICE_TYPE.LIGHT || !device.lanIp) {
             this.applyOnlineCap(device, caps);
           }
           this.diagnostics.recordApiSuccess(device.deviceId, "/device/rest/devices/v1/list", entry);
@@ -1501,10 +1502,10 @@ export class DeviceManager {
     // are the only signal we get for appliance state (heater on/off,
     // ice-bucket-full, …) — without this, info.online for those SKUs
     // never flips to true even while events stream in.
-    // Lights are excluded (info.online comes only from LAN-direct replies via
-    // StateManager.syncInfoOnline). Defensive — OpenAPI-MQTT in practice only
-    // carries appliance events, but the guard prevents future regressions.
-    if (device.type !== GOVEE_DEVICE_TYPE.LIGHT) {
+    // Cloud-only lights need the cloud online signal too (see the App-API
+    // path above); LAN-capable lights stay LAN-driven. OpenAPI-MQTT in practice
+    // mostly carries appliance events, but cloud-only lights can ride it too.
+    if (device.type !== GOVEE_DEVICE_TYPE.LIGHT || !device.lanIp) {
       this.applyOnlineCap(device, event.capabilities);
     }
   }

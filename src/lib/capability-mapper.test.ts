@@ -959,6 +959,71 @@ describe("CapabilityMapper", () => {
     });
   });
 
+  describe("cloud-only light control states (local-first, no longer local-only)", () => {
+    // A light whose owner has not enabled the local API (lanIp === null) must
+    // still get control.power/brightness/colorRgb/colorTemperature — built from
+    // its real cloud capabilities and cloud-routed. LAN-capable lights keep
+    // letting the LAN phase own those ids; sensors/appliances are unaffected.
+    function lightCaps(): CloudCapability[] {
+      return [
+        { type: "devices.capabilities.on_off", instance: "powerSwitch" },
+        { type: "devices.capabilities.range", instance: "brightness", parameters: { range: { min: 1, max: 100 } } },
+        { type: "devices.capabilities.color_setting", instance: "colorRgb" },
+        {
+          type: "devices.capabilities.color_setting",
+          instance: "colorTemperatureK",
+          parameters: { range: { min: 2000, max: 9000 } },
+        },
+      ] as CloudCapability[];
+    }
+    function baseLight(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
+      return {
+        sku: "H6058",
+        deviceId: "D5:F7:CC:34:38:39:28:31",
+        name: "Dream2",
+        type: "devices.types.light",
+        capabilities: lightCaps(),
+        scenes: [],
+        diyScenes: [],
+        snapshots: [],
+        sceneLibrary: [],
+        musicLibrary: [],
+        diyLibrary: [],
+        skuFeatures: null,
+        state: { online: false },
+        channels: { lan: false, mqtt: false, cloud: true },
+        segmentCount: 15,
+        ...overrides,
+      };
+    }
+
+    it("cloud-only light (no lanIp): control states come through buildCloudStateDefs", () => {
+      const defs = buildCloudStateDefs(baseLight());
+      for (const id of ["power", "brightness", "colorRgb", "colorTemperature"]) {
+        const def = defs.find(d => d.id === id);
+        expect(def, `cloud-only light must expose control.${id}`).toBeDefined();
+        expect(def?.write, `control.${id} must be writable`).toBe(true);
+        expect(def?.channel ?? "control", `control.${id} lives in the control channel`).toBe("control");
+      }
+      // Cloud-routed: carries the real cloud capability, not the "lan" marker.
+      expect(defs.find(d => d.id === "power")?.capabilityType).toBe("devices.capabilities.on_off");
+      // Range comes from the device's actual capability, not the LAN default.
+      expect(defs.find(d => d.id === "brightness")?.min).toBe(1);
+    });
+
+    it("LAN-capable light (has lanIp): LAN phase owns control, cloud excludes them", () => {
+      const defs = buildCloudStateDefs(baseLight({ lanIp: "192.168.1.50" }));
+      for (const id of ["power", "brightness", "colorRgb", "colorTemperature"]) {
+        expect(defs.find(d => d.id === id), `LAN light: cloud must not duplicate control.${id}`).toBeUndefined();
+      }
+    });
+
+    it("non-light (sensor/appliance) without lanIp: LAN_STATE_IDS stay filtered", () => {
+      const defs = buildCloudStateDefs(baseLight({ type: "devices.types.heater" }));
+      expect(defs.find(d => d.id === "power"), "non-light: power must not leak through the light gate").toBeUndefined();
+    });
+  });
+
   describe("buildLanStateDefs + buildCloudStateDefs dropdown contract (Blockly dual-write)", () => {
     function makeDevice(overrides: Partial<GoveeDevice> = {}): GoveeDevice {
       return {

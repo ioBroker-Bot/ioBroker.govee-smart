@@ -1147,12 +1147,18 @@ export function buildCloudStateDefs(
   const quirks = getDeviceQuirks(device.sku);
   const skipCapabilities = quirks?.brokenPlatformApi === true;
 
-  // Capability-derived states with LAN-default IDs filtered out — the LAN
-  // phase owns those, capability mapper duplicates would land in the same
-  // channel and confuse cleanup. Single source of truth: LAN_STATE_IDS.
+  // Capability-derived states. A LAN-owning light lets the LAN phase own the
+  // four control ids (power/brightness/colorRgb/colorTemperature) — they are
+  // filtered out here so they are not double-created in the same channel.
+  // BUT a cloud-only light (a light whose owner never enabled the local API,
+  // so `lanIp` is null) has no LAN phase to provide them: keep the cap-derived
+  // control states so the device stays controllable via the Cloud (the
+  // command-router routes them through `light-no-lan-fallback`). Local-first
+  // stays, local-only does not. Sensors/appliances keep the filter unchanged.
+  const cloudOnlyLight = device.type === GOVEE_DEVICE_TYPE.LIGHT && !device.lanIp;
   const stateDefs: StateDefinition[] = skipCapabilities
     ? []
-    : mapCapabilities(device.capabilities, log).filter(d => !LAN_STATE_IDS.has(d.id));
+    : mapCapabilities(device.capabilities, log).filter(d => cloudOnlyLight || !LAN_STATE_IDS.has(d.id));
 
   if (skipCapabilities) {
     log.debug(`${device.sku}: brokenPlatformApi quirk active — skipping capability-derived states + dropdowns`);

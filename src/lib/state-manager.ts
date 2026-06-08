@@ -1188,15 +1188,16 @@ export class StateManager {
   /**
    * Resolver-based info.online sync.
    *
-   * For LED Lights (`type === "devices.types.light"`) the truth-source is
-   * exclusively `device.lastLanReplyAt` — set when the device replies to a
-   * LAN-Discovery multicast or LAN-Unicast devStatus. The 90 s freshness
-   * window tolerates 3 missed 30 s scans against UDP packet loss but still
-   * flips offline reasonably fast on a real outage.
+   * For LAN-capable LED Lights (`type === light` AND `lanIp` set) the
+   * truth-source is exclusively `device.lastLanReplyAt` — set when the device
+   * replies to a LAN-Discovery multicast or LAN-Unicast devStatus. The 90 s
+   * freshness window tolerates 3 missed 30 s scans against UDP packet loss but
+   * still flips offline reasonably fast on a real outage.
    *
-   * For Sensors/Appliances (no LAN protocol) the existing flow is unchanged:
-   * `device.state.online` is set by `applyOnlineCap` from App-API / OpenAPI-
-   * MQTT and read straight through here.
+   * For cloud-only Lights (a light whose owner never enabled the local API, so
+   * `lanIp` is null) and for Sensors/Appliances there is no LAN signal:
+   * `device.state.online` — set by `applyOnlineCap` from App-API / OpenAPI-MQTT
+   * — is read straight through here. Local-first stays, local-only does not.
    *
    * Writes `info.online` only when the resolved value differs from the
    * current state — kills the 2-min ts-rewrite-spam captured 2026-05-13.
@@ -1222,9 +1223,16 @@ export class StateManager {
     const stateId = `${prefix}.info.online`;
 
     let desiredOnline: boolean;
-    if (device.type === GOVEE_DEVICE_TYPE.LIGHT) {
+    if (device.type === GOVEE_DEVICE_TYPE.LIGHT && device.lanIp) {
+      // LAN-capable light: LAN-reply freshness is the truth-source (v2.9.0 — the
+      // Cloud cache lagged real reachability and wrote 2× false-positive `true`
+      // during the 2026-05-13 outage capture).
       desiredOnline = !!(device.lastLanReplyAt && Date.now() - device.lastLanReplyAt < 90_000);
     } else {
+      // Cloud-only light (no local API, lanIp === null) + sensors/appliances:
+      // no LAN signal to trust, so the cloud-reported device online
+      // (`state.online`, fed by applyOnlineCap from App-API / OpenAPI-MQTT) is
+      // the right source. Local-first stays — local-only does not.
       desiredOnline = device.state.online === true;
     }
 
