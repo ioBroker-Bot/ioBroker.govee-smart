@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.15.0",
+    "version": "2.16.0",
     "news": {
+      "2.16.0": {
+        "en": "Lights and appliances without a local connection are now controllable via the Cloud, plus clearer one-time alerts and more supported devices.",
+        "de": "Lichter und Geräte ohne lokale Verbindung lassen sich jetzt über die Cloud steuern, dazu klarere einmalige Hinweise und mehr unterstützte Geräte.",
+        "ru": "Светильники и устройства без локального подключения теперь управляются через облако, плюс понятные разовые уведомления и больше поддерживаемых устройств.",
+        "pt": "Luzes e aparelhos sem ligação local agora podem ser controlados pela Cloud, além de avisos únicos mais claros e mais dispositivos suportados.",
+        "nl": "Lampen en apparaten zonder lokale verbinding zijn nu bedienbaar via de Cloud, plus duidelijkere eenmalige meldingen en meer ondersteunde apparaten.",
+        "fr": "Les lumières et appareils sans connexion locale sont désormais pilotables via le Cloud, avec des alertes uniques plus claires et plus d'appareils pris en charge.",
+        "it": "Luci e dispositivi senza connessione locale ora sono controllabili tramite il Cloud, con avvisi singoli più chiari e più dispositivi supportati.",
+        "es": "Las luces y aparatos sin conexión local ahora se pueden controlar por la Cloud, además de avisos únicos más claros y más dispositivos compatibles.",
+        "pl": "Światłami i urządzeniami bez połączenia lokalnego można teraz sterować przez Cloud, plus czytelniejsze jednorazowe powiadomienia i więcej obsługiwanych urządzeń.",
+        "uk": "Освітлення та пристрої без локального підключення тепер керуються через хмару, плюс зрозуміліші одноразові сповіщення та більше підтримуваних пристроїв.",
+        "zh-cn": "无本地连接的灯和设备现在可通过云端控制，并提供更清晰的一次性提醒和更多受支持的设备。"
+      },
       "2.15.0": {
         "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
         "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
@@ -80,19 +93,6 @@
         "pl": "Nazwy stanów zmienione przez użytkownika nie są już nadpisywane przy ponownym uruchomieniu adaptera",
         "uk": "Змінені користувачем назви станів більше не перезаписуються при перезапуску адаптера",
         "zh-cn": "用户修改的状态名称在适配器重启时不再被覆盖"
-      },
-      "2.13.1": {
-        "en": "Fixed missing LAN control states when a cloud-known device got LAN-discovered later. Added H607C Floor Lamp 2 to the device catalog.",
-        "de": "Fehlende LAN-Steuerungszustände behoben, wenn ein Cloud-bekanntes Gerät erst später per LAN entdeckt wurde. H607C Floor Lamp 2 zum Gerätekatalog hinzugefügt.",
-        "ru": "Исправлены отсутствующие LAN-состояния, когда облачное устройство обнаруживалось по LAN позже. Добавлена H607C Floor Lamp 2 в каталог.",
-        "pt": "Corrigidos estados LAN ausentes quando um dispositivo cloud era descoberto por LAN depois. Adicionado H607C Floor Lamp 2 ao catálogo.",
-        "nl": "Ontbrekende LAN-statussen opgelost als een cloud-bekend apparaat later via LAN ontdekt werd. H607C Floor Lamp 2 toegevoegd aan catalogus.",
-        "fr": "Correction des états LAN manquants lorsqu'un appareil cloud était découvert par LAN plus tard. H607C Floor Lamp 2 ajouté au catalogue.",
-        "it": "Corretti stati LAN mancanti quando un dispositivo cloud veniva scoperto via LAN in seguito. Aggiunto H607C Floor Lamp 2 al catalogo.",
-        "es": "Corregidos estados LAN ausentes cuando un dispositivo cloud se descubría por LAN después. Añadido H607C Floor Lamp 2 al catálogo.",
-        "pl": "Naprawiono brakujące stany LAN, gdy urządzenie chmurowe było później odkryte przez LAN. Dodano H607C Floor Lamp 2 do katalogu.",
-        "uk": "Виправлено відсутні LAN-стани, коли хмарний пристрій виявлявся по LAN пізніше. Додано H607C Floor Lamp 2 до каталогу.",
-        "zh-cn": "修复了当云端已知设备后来通过局域网被发现时缺失的 LAN 控制状态。已将 H607C Floor Lamp 2 添加到设备目录。"
       }
     },
     "plugins": {
