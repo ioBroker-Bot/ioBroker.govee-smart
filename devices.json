@@ -290,6 +290,48 @@
       "type": "kettle",
       "status": "seed",
       "since": "2.0.0"
+    },
+    "H5074": {
+      "name": "Thermo-Hygrometer",
+      "type": "thermometer",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H6058": {
+      "name": "WiFi LED Table Lamp",
+      "type": "light",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H6072": {
+      "name": "Lyra Floor Lamp",
+      "type": "light",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H6093": {
+      "name": "Star Light Projector",
+      "type": "light",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H605C": {
+      "name": "Envisual TV Backlight T2",
+      "type": "light",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H70B1": {
+      "name": "Curtain Lights",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
     }
   }
 }
