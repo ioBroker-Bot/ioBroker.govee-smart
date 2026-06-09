@@ -262,8 +262,8 @@
       "since": "2.0.0"
     },
     "H7160": {
-      "name": "Smart Space Heater",
-      "type": "heater",
+      "name": "Smart Humidifier",
+      "type": "humidifier",
       "status": "seed",
       "since": "2.0.0"
     },
@@ -298,7 +298,7 @@
       "since": "2.16.0"
     },
     "H6058": {
-      "name": "WiFi LED Table Lamp",
+      "name": "StarPal Pro Portable Table Lamp",
       "type": "light",
       "status": "reported",
       "since": "2.16.0"
@@ -332,6 +332,96 @@
           "lightScene": "cloud"
         }
       }
+    },
+    "H70B4": {
+      "name": "Curtain Lights 2 (3x2m)",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
+    },
+    "H70B5": {
+      "name": "Curtain Lights 2 (4.5x2m)",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
+    },
+    "H70C4": {
+      "name": "Christmas String Lights 2 (20m)",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
+    },
+    "H70C7": {
+      "name": "Christmas String Lights 2 (50m)",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
+    },
+    "H70C9": {
+      "name": "Christmas String Lights 2 (100m)",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0",
+      "quirks": {
+        "transportOverrides": {
+          "snapshot": "cloud",
+          "lightScene": "cloud"
+        }
+      }
+    },
+    "H7101": {
+      "name": "Smart Tower Fan",
+      "type": "fan",
+      "status": "seed",
+      "since": "2.16.0"
+    },
+    "H7102": {
+      "name": "Smart Tower Fan",
+      "type": "fan",
+      "status": "seed",
+      "since": "2.16.0"
+    },
+    "H7111": {
+      "name": "Smart Air Circulator Fan",
+      "type": "fan",
+      "status": "seed",
+      "since": "2.16.0"
+    },
+    "H7121": {
+      "name": "Smart Air Purifier",
+      "type": "air_purifier",
+      "status": "seed",
+      "since": "2.16.0"
+    },
+    "H619A": {
+      "name": "RGBIC LED Strip",
+      "type": "light",
+      "status": "seed",
+      "since": "2.16.0"
     }
   }
 }
