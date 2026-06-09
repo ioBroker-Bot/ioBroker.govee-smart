@@ -324,7 +324,7 @@
     "H70B1": {
       "name": "Curtain Lights",
       "type": "light",
-      "status": "seed",
+      "status": "reported",
       "since": "2.16.0",
       "quirks": {
         "transportOverrides": {
@@ -336,7 +336,7 @@
     "H70B4": {
       "name": "Curtain Lights 2 (3x2m)",
       "type": "light",
-      "status": "seed",
+      "status": "reported",
       "since": "2.16.0",
       "quirks": {
         "transportOverrides": {
@@ -348,7 +348,7 @@
     "H70B5": {
       "name": "Curtain Lights 2 (4.5x2m)",
       "type": "light",
-      "status": "seed",
+      "status": "reported",
       "since": "2.16.0",
       "quirks": {
         "transportOverrides": {
@@ -421,6 +421,24 @@
       "name": "RGBIC LED Strip",
       "type": "light",
       "status": "seed",
+      "since": "2.16.0"
+    },
+    "H6076": {
+      "name": "RGBICW Smart Corner Floor Lamp",
+      "type": "light",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H66A1": {
+      "name": "TV Backlight 3 Pro",
+      "type": "light",
+      "status": "reported",
+      "since": "2.16.0"
+    },
+    "H6199": {
+      "name": "DreamView T1 TV Backlight",
+      "type": "light",
+      "status": "reported",
       "since": "2.16.0"
     }
   }
