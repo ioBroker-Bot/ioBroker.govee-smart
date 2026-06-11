@@ -1,20 +1,20 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.16.0",
+    "version": "2.16.1",
     "news": {
-      "NEXT": {
-        "en": "Compact mode no longer intercepts errors from other adapters. Cloud command queue is capped during rate limits. Device info entries keep a clean state history.",
-        "de": "Compact Mode fängt keine Fehler fremder Adapter mehr ab. Cloud-Warteschlange ist bei Rate-Limits begrenzt. Geräte-Info-Einträge behalten eine saubere State-History.",
-        "ru": "Компактный режим больше не перехватывает ошибки других адаптеров. Очередь облачных команд ограничена при рейт-лимитах. Записи информации об устройстве сохраняют чистую историю.",
-        "pt": "O modo compacto não intercepta mais erros de outros adaptadores. Fila de comandos na nuvem limitada durante rate limits. Entradas de informação do dispositivo mantêm histórico limpo.",
-        "nl": "Compact mode onderschept geen fouten van andere adapters meer. Cloud-wachtrij is begrensd bij rate limits. Apparaatinfo-items houden een schone state-geschiedenis.",
-        "fr": "Le mode compact n'intercepte plus les erreurs des autres adaptateurs. La file de commandes Cloud est limitée en cas de rate limit. Les infos d'appareil gardent un historique propre.",
-        "it": "La modalità compatta non intercetta più gli errori di altri adattatori. La coda dei comandi cloud è limitata durante i rate limit. Le voci info del dispositivo mantengono una cronologia pulita.",
-        "es": "El modo compacto ya no intercepta errores de otros adaptadores. La cola de comandos en la nube está limitada durante los límites de tasa. Las entradas de información mantienen un historial limpio.",
-        "pl": "Tryb kompaktowy nie przechwytuje już błędów innych adapterów. Kolejka poleceń chmury jest ograniczona przy limitach. Wpisy informacji o urządzeniu zachowują czystą historię.",
-        "uk": "Компактний режим більше не перехоплює помилки інших адаптерів. Чергу хмарних команд обмежено при рейт-лімітах. Записи інформації про пристрій зберігають чисту історію.",
-        "zh-cn": "紧凑模式不再拦截其他适配器的错误。云命令队列在限流期间有上限。设备信息条目保持干净的状态历史。"
+      "2.16.1": {
+        "en": "Compact mode no longer intercepts errors from other adapters, and device info entries keep a clean state history. Cloud commands no longer pile up without limit during rate-limit pauses.",
+        "de": "Compact Mode fängt keine Fehler fremder Adapter mehr ab, und Geräte-Info-Einträge behalten eine saubere State-History. Cloud-Befehle stauen sich bei Rate-Limit-Pausen nicht mehr unbegrenzt.",
+        "ru": "Компактный режим больше не перехватывает ошибки других адаптеров, а записи информации об устройстве сохраняют чистую историю. Облачные команды больше не накапливаются без ограничений при паузах.",
+        "pt": "O modo compacto não intercepta mais erros de outros adaptadores e as entradas de informação mantêm um histórico limpo. Comandos na nuvem não se acumulam mais sem limite durante pausas de limite.",
+        "nl": "Compact mode onderschept geen fouten van andere adapters meer en apparaatinfo-items houden een schone geschiedenis. Cloud-opdrachten stapelen zich niet meer onbeperkt op tijdens rate-limit-pauzes.",
+        "fr": "Le mode compact n'intercepte plus les erreurs des autres adaptateurs et les infos d'appareil gardent un historique propre. Les commandes Cloud ne s'accumulent plus sans limite pendant les pauses.",
+        "it": "La modalità compatta non intercetta più gli errori di altri adattatori e le voci info mantengono una cronologia pulita. I comandi cloud non si accumulano più senza limiti durante le pause.",
+        "es": "El modo compacto ya no intercepta errores de otros adaptadores y las entradas de información mantienen un historial limpio. Los comandos en la nube ya no se acumulan sin límite durante las pausas.",
+        "pl": "Tryb kompaktowy nie przechwytuje już błędów innych adapterów, a wpisy informacji o urządzeniu zachowują czystą historię. Polecenia chmury nie gromadzą się już bez limitu podczas przerw.",
+        "uk": "Компактний режим більше не перехоплює помилки інших адаптерів, а записи інформації про пристрій зберігають чисту історію. Хмарні команди більше не накопичуються без обмежень під час пауз.",
+        "zh-cn": "紧凑模式不再拦截其他适配器的错误，设备信息条目保持干净的状态历史。云命令在限流暂停期间不再无限堆积。"
       },
       "2.16.0": {
         "en": "Lights and appliances without a local connection are now controllable via the Cloud, plus clearer one-time alerts and more supported devices.",

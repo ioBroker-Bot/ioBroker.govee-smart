@@ -1,4 +1,8 @@
 # Older Changes
+## 2.13.4 (2026-05-23)
+
+- Changelog rewritten in user-centric style across all versions.
+
 ## 2.13.3 (2026-05-23)
 
 - Internal cleanup. No user-facing changes.
