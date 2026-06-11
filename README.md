@@ -98,7 +98,7 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 
 - Running in compact mode no longer intercepts errors from other adapters in the same process — error reporting stays correctly attributed per adapter.
 - Cloud commands issued during a long rate-limit window no longer pile up without limit; stale queued calls are dropped with a single warning.
-- Internal cleanup from a full code audit: dead code removed, fewer redundant device-info writes, and greatly expanded test coverage of the command-routing layer.
+- Device info entries (name, model, IP address) no longer rewrite their timestamps on every refresh — state history stays clean.
 
 ### 2.16.0 (2026-06-09)
 

@@ -3,6 +3,19 @@
     "name": "govee-smart",
     "version": "2.16.0",
     "news": {
+      "NEXT": {
+        "en": "Compact mode no longer intercepts errors from other adapters. Cloud command queue is capped during rate limits. Device info entries keep a clean state history.",
+        "de": "Compact Mode fängt keine Fehler fremder Adapter mehr ab. Cloud-Warteschlange ist bei Rate-Limits begrenzt. Geräte-Info-Einträge behalten eine saubere State-History.",
+        "ru": "Компактный режим больше не перехватывает ошибки других адаптеров. Очередь облачных команд ограничена при рейт-лимитах. Записи информации об устройстве сохраняют чистую историю.",
+        "pt": "O modo compacto não intercepta mais erros de outros adaptadores. Fila de comandos na nuvem limitada durante rate limits. Entradas de informação do dispositivo mantêm histórico limpo.",
+        "nl": "Compact mode onderschept geen fouten van andere adapters meer. Cloud-wachtrij is begrensd bij rate limits. Apparaatinfo-items houden een schone state-geschiedenis.",
+        "fr": "Le mode compact n'intercepte plus les erreurs des autres adaptateurs. La file de commandes Cloud est limitée en cas de rate limit. Les infos d'appareil gardent un historique propre.",
+        "it": "La modalità compatta non intercetta più gli errori di altri adattatori. La coda dei comandi cloud è limitata durante i rate limit. Le voci info del dispositivo mantengono una cronologia pulita.",
+        "es": "El modo compacto ya no intercepta errores de otros adaptadores. La cola de comandos en la nube está limitada durante los límites de tasa. Las entradas de información mantienen un historial limpio.",
+        "pl": "Tryb kompaktowy nie przechwytuje już błędów innych adapterów. Kolejka poleceń chmury jest ograniczona przy limitach. Wpisy informacji o urządzeniu zachowują czystą historię.",
+        "uk": "Компактний режим більше не перехоплює помилки інших адаптерів. Чергу хмарних команд обмежено при рейт-лімітах. Записи інформації про пристрій зберігають чисту історію.",
+        "zh-cn": "紧凑模式不再拦截其他适配器的错误。云命令队列在限流期间有上限。设备信息条目保持干净的状态历史。"
+      },
       "2.16.0": {
         "en": "Lights and appliances without a local connection are now controllable via the Cloud, plus clearer one-time alerts and more supported devices.",
         "de": "Lichter und Geräte ohne lokale Verbindung lassen sich jetzt über die Cloud steuern, dazu klarere einmalige Hinweise und mehr unterstützte Geräte.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішнє очищення. Без видимих змін для користувача.",
         "zh-cn": "内部清理。无用户可见的更改。"
-      },
-      "2.13.2": {
-        "en": "User-modified state names are no longer overwritten on adapter restart",
-        "de": "Vom Benutzer geänderte Datenpunktnamen werden beim Adapter-Neustart nicht mehr überschrieben",
-        "ru": "Пользовательские имена состояний больше не перезаписываются при перезапуске адаптера",
-        "pt": "Nomes de estados modificados pelo utilizador já não são substituídos ao reiniciar o adaptador",
-        "nl": "Door de gebruiker gewijzigde statusnamen worden bij herstart van de adapter niet meer overschreven",
-        "fr": "Les noms d'états modifiés par l'utilisateur ne sont plus écrasés au redémarrage de l'adaptateur",
-        "it": "I nomi degli stati modificati dall'utente non vengono più sovrascritti al riavvio dell'adattatore",
-        "es": "Los nombres de estados modificados por el usuario ya no se sobrescriben al reiniciar el adaptador",
-        "pl": "Nazwy stanów zmienione przez użytkownika nie są już nadpisywane przy ponownym uruchomieniu adaptera",
-        "uk": "Змінені користувачем назви станів більше не перезаписуються при перезапуску адаптера",
-        "zh-cn": "用户修改的状态名称在适配器重启时不再被覆盖"
       }
     },
     "plugins": {
