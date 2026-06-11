@@ -46,7 +46,6 @@ import { HttpError } from "./http-client";
 // import these directly from "./device-manager".
 export {
   parseMqttSegmentData,
-  getEffectiveSegmentIndices,
   resolveSegmentCount,
   SEGMENT_HARD_MAX,
   type MqttSegmentData,

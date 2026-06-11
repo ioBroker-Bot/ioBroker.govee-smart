@@ -19,8 +19,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var log_channel_fail_exports = {};
 __export(log_channel_fail_exports, {
   formatChannelFail: () => formatChannelFail,
-  logChannelFail: () => logChannelFail,
-  logChannelRestored: () => logChannelRestored
+  logChannelFail: () => logChannelFail
 });
 module.exports = __toCommonJS(log_channel_fail_exports);
 var import_http_client = require("./http-client");
@@ -41,13 +40,6 @@ function logChannelFail(log, opts) {
   } else {
     log.debug(`${channel} fail detail: ${rawMessage}`);
   }
-}
-function logChannelRestored(log, channel, dedup) {
-  if (dedup.lastCategory === null) {
-    return;
-  }
-  dedup.lastCategory = null;
-  log.info(`${channel}: connection restored`);
 }
 function formatChannelFail(channel, category, err, retryHint, context) {
   var _a;
@@ -88,7 +80,6 @@ function formatChannelFail(channel, category, err, retryHint, context) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   formatChannelFail,
-  logChannelFail,
-  logChannelRestored
+  logChannelFail
 });
 //# sourceMappingURL=log-channel-fail.js.map

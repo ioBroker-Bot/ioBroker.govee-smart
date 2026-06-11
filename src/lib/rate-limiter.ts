@@ -9,6 +9,15 @@ interface QueuedCall {
 }
 
 /**
+ * Upper bound for the call queue. The queue only grows while the Govee
+ * budget is exhausted; without a cap a script hammering writable states
+ * during a rate-limit window would let it grow without limit. 200 covers
+ * every legitimate burst (startup scene-loads for dozens of devices) by a
+ * wide margin — beyond that the calls are stale by the time they'd run.
+ */
+const MAX_QUEUE_LENGTH = 200;
+
+/**
  * Rate limiter for Govee Cloud API calls.
  * Respects per-minute and daily limits, queues excess calls.
  */
@@ -29,6 +38,8 @@ export class RateLimiter {
    * leak one interval per restart.
    */
   private stopped = false;
+  /** Warn-once flag for the queue-full drop — reset when the queue drains. */
+  private warnedQueueFull = false;
 
   /** Max calls per minute */
   private perMinuteLimit: number;
@@ -117,11 +128,24 @@ export class RateLimiter {
 
   /**
    * Enqueue an API call. It will be executed when rate limits allow.
+   * The queue is capped at {@link MAX_QUEUE_LENGTH} — when full, the new
+   * call is dropped (first drop per overflow episode warns, repeats stay
+   * on debug so a hammering script can't spam the log).
    *
    * @param execute The API call to make
    * @param priority Lower = higher priority (0 = control, 1 = status, 2 = scenes)
    */
   enqueue(execute: () => Promise<void>, priority = 1): void {
+    if (this.queue.length >= MAX_QUEUE_LENGTH) {
+      const msg = `Rate limiter queue full (${MAX_QUEUE_LENGTH}) — dropping new Cloud call (priority ${priority})`;
+      if (this.warnedQueueFull) {
+        this.log.debug(msg);
+      } else {
+        this.warnedQueueFull = true;
+        this.log.warn(msg);
+      }
+      return;
+    }
     this.queue.push({ execute, priority });
     // Sort by priority (lower first)
     this.queue.sort((a, b) => a.priority - b.priority);
@@ -185,6 +209,10 @@ export class RateLimiter {
           this.log.debug(`Queued call failed: ${errMessage(err)}`);
         });
       }
+    }
+    if (this.queue.length === 0) {
+      // Queue drained — the next overflow episode warns again.
+      this.warnedQueueFull = false;
     }
   }
 }

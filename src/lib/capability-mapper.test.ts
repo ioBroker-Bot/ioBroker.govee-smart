@@ -1827,31 +1827,6 @@ describe("CapabilityMapper", () => {
       }
     });
 
-    it("diag.tier VALUES are resolved via I18n.translate (plain-string)", () => {
-      const device: GoveeDevice = {
-        sku: "H6172",
-        deviceId: "AA:BB:CC:DD:EE:FF",
-        name: "Test",
-        type: "devices.types.light",
-        scenes: [],
-        diyScenes: [],
-        snapshots: [],
-        sceneLibrary: [],
-        musicLibrary: [],
-        diyLibrary: [],
-        skuFeatures: null,
-        state: { online: true },
-        channels: { lan: false, mqtt: false, cloud: true },
-        capabilities: [],
-      } as never;
-      const defs = buildCloudStateDefs(device);
-      const tier = defs.find(d => d.id === "tier");
-      expect(tier!.states!.verified).toBe(typeof tier!.states!.verified === "string" ? tier!.states!.verified : "");
-      for (const [k, v] of Object.entries(tier!.states!)) {
-        expect(typeof v, `tier states[${k}] must be plain-string`).toBe("string");
-      }
-    });
-
     it("all common.states VALUES across cloud-defs are plain-string", () => {
       const device: GoveeDevice = {
         sku: "H6172",

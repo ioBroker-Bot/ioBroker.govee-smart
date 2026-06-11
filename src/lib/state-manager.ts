@@ -378,8 +378,13 @@ export class StateManager {
       { preserve: { common: ["name"] } },
     );
 
+    // setStateChangedAsync (not setStateAsync) for the info metadata below:
+    // createInfoStates re-runs on every phase callback (cloud refresh,
+    // snapshot save/delete, …) with mostly identical values — only a real
+    // change should write and bump the timestamp. No consumer reads the
+    // ts/lc of these states as a freshness signal (grep-verified).
     await this.ensureState(`${prefix}.info.name`, "Name", "string", "text", false);
-    await this.adapter.setStateAsync(`${prefix}.info.name`, {
+    await this.adapter.setStateChangedAsync(`${prefix}.info.name`, {
       val: device.name,
       ack: true,
     });
@@ -405,19 +410,19 @@ export class StateManager {
       // "heater" (Govee API type without the "devices.types." prefix).
       // Lets scripts filter `*.info.type === "light"` without parsing.
       await this.ensureState(`${prefix}.info.type`, "Device Type", "string", "text", false, undefined, "");
-      await this.adapter.setStateAsync(`${prefix}.info.model`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.model`, {
         val: device.sku,
         ack: true,
       });
-      await this.adapter.setStateAsync(`${prefix}.info.serial`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.serial`, {
         val: device.deviceId,
         ack: true,
       });
-      await this.adapter.setStateAsync(`${prefix}.info.ip`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.ip`, {
         val: device.lanIp ?? "",
         ack: true,
       });
-      await this.adapter.setStateAsync(`${prefix}.info.type`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.type`, {
         val: shortenGoveeType(device.type),
         ack: true,
       });
@@ -430,7 +435,7 @@ export class StateManager {
       // Group members: comma-separated device prefix IDs
       const memberIds = (device.groupMembers ?? []).map(m => treeKey(m.sku, m.deviceId)).join(", ");
       await this.ensureState(`${prefix}.info.members`, "Members", "string", "text", false);
-      await this.adapter.setStateAsync(`${prefix}.info.members`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.members`, {
         val: memberIds,
         ack: true,
       });

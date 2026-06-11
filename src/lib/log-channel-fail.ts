@@ -65,22 +65,6 @@ export function logChannelFail(log: ioBroker.Logger, opts: LogChannelFailOptions
 }
 
 /**
- * Mark a channel as recovered. Resets the dedup tracker and emits a single
- * info line so the user knows the retry succeeded.
- *
- * @param log ioBroker logger
- * @param channel channel name shown in the log
- * @param dedup dedup tracker (same instance used for failures)
- */
-export function logChannelRestored(log: ioBroker.Logger, channel: string, dedup: ChannelDedupState): void {
-  if (dedup.lastCategory === null) {
-    return;
-  }
-  dedup.lastCategory = null;
-  log.info(`${channel}: connection restored`);
-}
-
-/**
  * Pure formatter — exported for tests. Translates an ErrorCategory into a
  * user-facing line. No I/O, no side-effects.
  *

@@ -22,6 +22,7 @@ __export(rate_limiter_exports, {
 });
 module.exports = __toCommonJS(rate_limiter_exports);
 var import_types = require("./types");
+const MAX_QUEUE_LENGTH = 200;
 class RateLimiter {
   log;
   timers;
@@ -39,6 +40,8 @@ class RateLimiter {
    * leak one interval per restart.
    */
   stopped = false;
+  /** Warn-once flag for the queue-full drop — reset when the queue drains. */
+  warnedQueueFull = false;
   /** Max calls per minute */
   perMinuteLimit;
   /** Max calls per day (with safety buffer) */
@@ -109,11 +112,24 @@ class RateLimiter {
   }
   /**
    * Enqueue an API call. It will be executed when rate limits allow.
+   * The queue is capped at {@link MAX_QUEUE_LENGTH} — when full, the new
+   * call is dropped (first drop per overflow episode warns, repeats stay
+   * on debug so a hammering script can't spam the log).
    *
    * @param execute The API call to make
    * @param priority Lower = higher priority (0 = control, 1 = status, 2 = scenes)
    */
   enqueue(execute, priority = 1) {
+    if (this.queue.length >= MAX_QUEUE_LENGTH) {
+      const msg = `Rate limiter queue full (${MAX_QUEUE_LENGTH}) \u2014 dropping new Cloud call (priority ${priority})`;
+      if (this.warnedQueueFull) {
+        this.log.debug(msg);
+      } else {
+        this.warnedQueueFull = true;
+        this.log.warn(msg);
+      }
+      return;
+    }
     this.queue.push({ execute, priority });
     this.queue.sort((a, b) => a.priority - b.priority);
   }
@@ -166,6 +182,9 @@ class RateLimiter {
           this.log.debug(`Queued call failed: ${(0, import_types.errMessage)(err)}`);
         });
       }
+    }
+    if (this.queue.length === 0) {
+      this.warnedQueueFull = false;
     }
   }
 }

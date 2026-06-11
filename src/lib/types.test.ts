@@ -436,16 +436,12 @@ describe("Types utilities", () => {
   });
 
   describe("errMessage", () => {
-    it("should return e.stack for Error with stack", () => {
+    it("should return only e.message for Errors — the stack stays out of warn/error lines (v2.10.1 contract)", () => {
       const e = new Error("boom");
       const out = errMessage(e);
-      expect(out).toContain("boom");
-    });
-
-    it("should return e.message for Error without stack", () => {
-      const e = new Error("oops");
-      delete (e as { stack?: string }).stack;
-      expect(errMessage(e)).toBe("oops");
+      expect(out).toBe("boom");
+      // A stack trace would contain call-site lines ("at ...") — must not leak.
+      expect(out).not.toContain("at ");
     });
 
     it("should return String() for non-Error values", () => {

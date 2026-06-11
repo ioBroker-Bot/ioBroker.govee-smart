@@ -60,16 +60,6 @@ export class CloudRetryLoop {
     }
   }
 
-  /** True once Cloud is (or has been) up. */
-  public isConnected(): boolean {
-    return this.connected;
-  }
-
-  /** True after an auth-failure — no further automatic retries will happen. */
-  public isStopped(): boolean {
-    return this.stopped;
-  }
-
   /** Cancel any pending retry. Called from onUnload. */
   public dispose(): void {
     if (this.retryTimer !== undefined) {

@@ -24,7 +24,6 @@ __export(lookups_exports, {
   SEGMENT_HARD_MAX: () => SEGMENT_HARD_MAX,
   deviceKey: () => deviceKey,
   findDeviceBySkuAndId: () => findDeviceBySkuAndId,
-  getEffectiveSegmentIndices: () => getEffectiveSegmentIndices,
   parseMqttSegmentData: () => parseMqttSegmentData,
   resolveSegmentCount: () => resolveSegmentCount
 });
@@ -81,17 +80,6 @@ function parseMqttSegmentData(commands) {
     }
   }
   return segments;
-}
-function getEffectiveSegmentIndices(device) {
-  var _a;
-  if (device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0) {
-    return device.manualSegments.slice();
-  }
-  const count = (_a = device.segmentCount) != null ? _a : 0;
-  if (count <= 0) {
-    return [];
-  }
-  return Array.from({ length: count }, (_, i) => i);
 }
 function resolveSegmentCount(device) {
   if (typeof device.segmentCount === "number" && device.segmentCount > 0) {
@@ -150,7 +138,6 @@ function findDeviceBySkuAndId(devices, sku, deviceId) {
   SEGMENT_HARD_MAX,
   deviceKey,
   findDeviceBySkuAndId,
-  getEffectiveSegmentIndices,
   parseMqttSegmentData,
   resolveSegmentCount
 });

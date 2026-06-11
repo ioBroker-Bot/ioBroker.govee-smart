@@ -130,8 +130,6 @@ class GoveeAdapter extends utils.Adapter {
   public cloudRetry: CloudRetryLoop | undefined;
   /** Public for handlers/wizard-handler — lazily instantiated by `runWizardStep`. */
   public segmentWizard: SegmentWizard | null = null;
-  private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
-  private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
   /** Per-device timestamp of the last diagnostics export — throttle gate */
   /** Public for handler modules (state-change-router, diagnostics). */
   public diagnosticsLastRun = new Map<string, number>();
@@ -152,20 +150,11 @@ class GoveeAdapter extends utils.Adapter {
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("message", this.onMessage.bind(this));
     this.on("unload", this.onUnload.bind(this));
-    // Last-line-of-defence against unhandled rejections from fire-and-forget
-    // paths inside the adapter (async MQTT reconnects, timer callbacks, etc.).
-    // The per-handler try/catch blocks cover the direct entry points; this
-    // catches whatever slips past them.
-    this.unhandledRejectionHandler = (reason: unknown) => {
-      this.log.error(
-        `Unhandled rejection: ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`,
-      );
-    };
-    this.uncaughtExceptionHandler = (err: Error) => {
-      this.log.error(`Uncaught exception: ${err.stack ?? err.message}`);
-    };
-    process.on("unhandledRejection", this.unhandledRejectionHandler);
-    process.on("uncaughtException", this.uncaughtExceptionHandler);
+    // No process-level unhandledRejection/uncaughtException handlers: in
+    // compact mode they catch OTHER adapters' errors, mislabel them as
+    // govee-smart and suppress Node's default crash-exit. The structural
+    // protection is the boundary try/catch in every async entry point
+    // (onReady/onStateChange/onMessage) plus `.catch()` on all callbacks.
   }
 
   /** Adapter started — initialize all channels */
@@ -797,12 +786,15 @@ class GoveeAdapter extends utils.Adapter {
     try {
       if (this.lanScanTimer) {
         this.clearTimeout(this.lanScanTimer);
+        this.lanScanTimer = undefined;
       }
       if (this.cleanupTimer) {
         this.clearTimeout(this.cleanupTimer);
+        this.cleanupTimer = undefined;
       }
       if (this.readyTimer) {
         this.clearTimeout(this.readyTimer);
+        this.readyTimer = undefined;
       }
       if (this.appApiPollTimer) {
         this.clearInterval(this.appApiPollTimer);
@@ -834,15 +826,6 @@ class GoveeAdapter extends utils.Adapter {
       this.mqttClient?.disconnect();
       this.openapiMqttClient?.disconnect();
       this.rateLimiter?.stop();
-      // Remove process-level handlers so an adapter restart doesn't stack them.
-      if (this.unhandledRejectionHandler) {
-        process.off("unhandledRejection", this.unhandledRejectionHandler);
-        this.unhandledRejectionHandler = null;
-      }
-      if (this.uncaughtExceptionHandler) {
-        process.off("uncaughtException", this.uncaughtExceptionHandler);
-        this.uncaughtExceptionHandler = null;
-      }
       // onUnload MUST be synchronous — don't await, but silence potential
       // promise rejection during teardown to avoid "unhandled rejection" warnings.
       this.setState("info.connection", { val: false, ack: true }).catch(() => {});

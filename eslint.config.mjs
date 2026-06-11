@@ -39,6 +39,8 @@ export default [
       "*.config.mjs",
       "vitest.config.ts",
       "build",
+      // Generated coverage report (npm run coverage) — never lint it.
+      "coverage",
       "admin",
       "node_modules",
       // Catches macOS-Finder duplicate-on-restore artifacts like "node_modules 2/" —

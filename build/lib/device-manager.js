@@ -32,7 +32,6 @@ __export(device_manager_exports, {
   SEGMENT_HARD_MAX: () => import_lookups2.SEGMENT_HARD_MAX,
   buildCapabilitiesFromAppEntry: () => import_mapping2.buildCapabilitiesFromAppEntry,
   cloudDeviceToGoveeDevice: () => import_mapping2.cloudDeviceToGoveeDevice,
-  getEffectiveSegmentIndices: () => import_lookups2.getEffectiveSegmentIndices,
   parseMqttSegmentData: () => import_lookups2.parseMqttSegmentData,
   resolveSegmentCount: () => import_lookups2.resolveSegmentCount
 });
@@ -1270,7 +1269,6 @@ class DeviceManager {
   SEGMENT_HARD_MAX,
   buildCapabilitiesFromAppEntry,
   cloudDeviceToGoveeDevice,
-  getEffectiveSegmentIndices,
   parseMqttSegmentData,
   resolveSegmentCount
 });

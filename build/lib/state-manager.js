@@ -314,7 +314,7 @@ class StateManager {
       { preserve: { common: ["name"] } }
     );
     await this.ensureState(`${prefix}.info.name`, "Name", "string", "text", false);
-    await this.adapter.setStateAsync(`${prefix}.info.name`, {
+    await this.adapter.setStateChangedAsync(`${prefix}.info.name`, {
       val: device.name,
       ack: true
     });
@@ -332,19 +332,19 @@ class StateManager {
       await this.ensureState(`${prefix}.info.serial`, "Serial Number", "string", "text", false, void 0, "");
       await this.ensureState(`${prefix}.info.ip`, "IP Address", "string", "info.ip", false, void 0, "");
       await this.ensureState(`${prefix}.info.type`, "Device Type", "string", "text", false, void 0, "");
-      await this.adapter.setStateAsync(`${prefix}.info.model`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.model`, {
         val: device.sku,
         ack: true
       });
-      await this.adapter.setStateAsync(`${prefix}.info.serial`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.serial`, {
         val: device.deviceId,
         ack: true
       });
-      await this.adapter.setStateAsync(`${prefix}.info.ip`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.ip`, {
         val: (_a = device.lanIp) != null ? _a : "",
         ack: true
       });
-      await this.adapter.setStateAsync(`${prefix}.info.type`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.type`, {
         val: (0, import_device_icons.shortenGoveeType)(device.type),
         ack: true
       });
@@ -352,7 +352,7 @@ class StateManager {
     } else {
       const memberIds = ((_b = device.groupMembers) != null ? _b : []).map((m) => (0, import_device_key.treeKey)(m.sku, m.deviceId)).join(", ");
       await this.ensureState(`${prefix}.info.members`, "Members", "string", "text", false);
-      await this.adapter.setStateAsync(`${prefix}.info.members`, {
+      await this.adapter.setStateChangedAsync(`${prefix}.info.members`, {
         val: memberIds,
         ack: true
       });

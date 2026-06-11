@@ -44,14 +44,6 @@ class CloudRetryLoop {
       this.retryTimer = void 0;
     }
   }
-  /** True once Cloud is (or has been) up. */
-  isConnected() {
-    return this.connected;
-  }
-  /** True after an auth-failure — no further automatic retries will happen. */
-  isStopped() {
-    return this.stopped;
-  }
   /** Cancel any pending retry. Called from onUnload. */
   dispose() {
     if (this.retryTimer !== void 0) {

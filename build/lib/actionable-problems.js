@@ -18,19 +18,9 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var actionable_problems_exports = {};
 __export(actionable_problems_exports, {
-  ACTIONABLE_CATEGORIES: () => ACTIONABLE_CATEGORIES,
-  ActionableProblems: () => ActionableProblems,
-  isActionable: () => isActionable
+  ActionableProblems: () => ActionableProblems
 });
 module.exports = __toCommonJS(actionable_problems_exports);
-const ACTIONABLE_CATEGORIES = /* @__PURE__ */ new Set([
-  "VERIFICATION_PENDING",
-  "VERIFICATION_FAILED",
-  "AUTH"
-]);
-function isActionable(category) {
-  return ACTIONABLE_CATEGORIES.has(category);
-}
 class ActionableProblems {
   /**
    * @param host side-effect surface (logger + notification raiser)
@@ -71,23 +61,9 @@ class ActionableProblems {
     this.active.delete(key);
     this.host.logInfo(resolutionMessage != null ? resolutionMessage : `Resolved: ${problem.title}`);
   }
-  /**
-   * True if the given problem is currently active.
-   *
-   * @param key the problem key to check
-   */
-  isActive(key) {
-    return this.active.has(key);
-  }
-  /** Keys of all currently-active problems (diagnostics / tests). */
-  activeKeys() {
-    return [...this.active.keys()];
-  }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  ACTIONABLE_CATEGORIES,
-  ActionableProblems,
-  isActionable
+  ActionableProblems
 });
 //# sourceMappingURL=actionable-problems.js.map

@@ -133,8 +133,6 @@ class GoveeAdapter extends utils.Adapter {
   cloudRetry;
   /** Public for handlers/wizard-handler — lazily instantiated by `runWizardStep`. */
   segmentWizard = null;
-  unhandledRejectionHandler = null;
-  uncaughtExceptionHandler = null;
   /** Per-device timestamp of the last diagnostics export — throttle gate */
   /** Public for handler modules (state-change-router, diagnostics). */
   diagnosticsLastRun = /* @__PURE__ */ new Map();
@@ -154,18 +152,6 @@ class GoveeAdapter extends utils.Adapter {
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("message", this.onMessage.bind(this));
     this.on("unload", this.onUnload.bind(this));
-    this.unhandledRejectionHandler = (reason) => {
-      var _a;
-      this.log.error(
-        `Unhandled rejection: ${reason instanceof Error ? (_a = reason.stack) != null ? _a : reason.message : String(reason)}`
-      );
-    };
-    this.uncaughtExceptionHandler = (err) => {
-      var _a;
-      this.log.error(`Uncaught exception: ${(_a = err.stack) != null ? _a : err.message}`);
-    };
-    process.on("unhandledRejection", this.unhandledRejectionHandler);
-    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
   /** Adapter started — initialize all channels */
   async onReady() {
@@ -648,12 +634,15 @@ class GoveeAdapter extends utils.Adapter {
     try {
       if (this.lanScanTimer) {
         this.clearTimeout(this.lanScanTimer);
+        this.lanScanTimer = void 0;
       }
       if (this.cleanupTimer) {
         this.clearTimeout(this.cleanupTimer);
+        this.cleanupTimer = void 0;
       }
       if (this.readyTimer) {
         this.clearTimeout(this.readyTimer);
+        this.readyTimer = void 0;
       }
       if (this.appApiPollTimer) {
         this.clearInterval(this.appApiPollTimer);
@@ -685,14 +674,6 @@ class GoveeAdapter extends utils.Adapter {
       (_d = this.mqttClient) == null ? void 0 : _d.disconnect();
       (_e = this.openapiMqttClient) == null ? void 0 : _e.disconnect();
       (_f = this.rateLimiter) == null ? void 0 : _f.stop();
-      if (this.unhandledRejectionHandler) {
-        process.off("unhandledRejection", this.unhandledRejectionHandler);
-        this.unhandledRejectionHandler = null;
-      }
-      if (this.uncaughtExceptionHandler) {
-        process.off("uncaughtException", this.uncaughtExceptionHandler);
-        this.uncaughtExceptionHandler = null;
-      }
       this.setState("info.connection", { val: false, ack: true }).catch(() => {
       });
       this.setState("info.mqttConnected", { val: false, ack: true }).catch(() => {

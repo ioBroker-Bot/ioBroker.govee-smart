@@ -90,9 +90,12 @@ describe("CloudRetryLoop", () => {
         reason: "auth-failed",
         message: "HTTP 403",
       });
-      expect(loop.isStopped()).toBe(true);
       expect(host.timers).toHaveLength(0);
       expect(host.lastWarn()).toContain("authentication failed");
+      // Stopped-for-good is observable behaviour: a later transient result
+      // must not schedule a retry either.
+      loop.handleResult({ ok: false, reason: "transient" });
+      expect(host.timers).toHaveLength(0);
     });
 
     it("should stop even if called twice", () => {
@@ -106,7 +109,6 @@ describe("CloudRetryLoop", () => {
         reason: "auth-failed",
         message: "x",
       });
-      expect(loop.isStopped()).toBe(true);
       expect(host.timers).toHaveLength(0);
     });
 
@@ -118,7 +120,6 @@ describe("CloudRetryLoop", () => {
         reason: "auth-failed",
         message: "x",
       });
-      expect(loop.isStopped()).toBe(true);
       // clearTimeout should have been called on the pending timer
       expect(host.clearedTimers).toBeGreaterThan(0);
     });
@@ -204,14 +205,18 @@ describe("CloudRetryLoop", () => {
   });
 
   describe("successful retry", () => {
-    it("should call onCloudRestored and flip connected=true", async () => {
+    it("should call onCloudRestored and stop retrying once connected", async () => {
       queueResults(host, { ok: true });
       loop.handleResult({ ok: false, reason: "transient" });
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
       expect(host.restoredCalls).toBe(1);
-      expect(loop.isConnected()).toBe(true);
+      // Connected-state is observable behaviour: a later transient result
+      // must not re-arm the loop while the connection is up.
+      const timersBefore = host.timers.length;
+      loop.handleResult({ ok: false, reason: "transient" });
+      expect(host.timers).toHaveLength(timersBefore);
     });
 
     it("should log 'Govee Cloud connection restored' on success", async () => {
@@ -235,7 +240,7 @@ describe("CloudRetryLoop", () => {
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
-      expect(loop.isConnected()).toBe(true);
+      expect(host.restoredCalls).toBe(1);
     });
   });
 
@@ -336,7 +341,7 @@ describe("CloudRetryLoop", () => {
       host.fireLatestTimer();
       await Promise.resolve();
       await Promise.resolve();
-      expect(loop.isConnected()).toBe(true);
+      expect(host.restoredCalls).toBe(1);
 
       // Later, the host notices the connection dropped
       loop.setConnected(false);

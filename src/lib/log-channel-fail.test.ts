@@ -1,5 +1,5 @@
 import { HttpError } from "./http-client";
-import { formatChannelFail, logChannelFail, logChannelRestored, type ChannelDedupState } from "./log-channel-fail";
+import { formatChannelFail, logChannelFail, type ChannelDedupState } from "./log-channel-fail";
 
 interface CapturedLog {
   level: "debug" | "info" | "warn" | "error";
@@ -103,22 +103,3 @@ describe("logChannelFail (dedup wrapper)", () => {
   });
 });
 
-describe("logChannelRestored", () => {
-  it("emits info + resets dedup state when channel had previously failed", () => {
-    const { log, entries } = makeLog();
-    const dedup: ChannelDedupState = { lastCategory: "TIMEOUT" };
-    logChannelRestored(log, "Cloud REST", dedup);
-
-    expect(dedup.lastCategory).toBeNull();
-    const infos = entries.filter(e => e.level === "info");
-    expect(infos).toHaveLength(1);
-    expect(infos[0].msg).toBe("Cloud REST: connection restored");
-  });
-
-  it("no-op when channel was already healthy (lastCategory null)", () => {
-    const { log, entries } = makeLog();
-    const dedup: ChannelDedupState = { lastCategory: null };
-    logChannelRestored(log, "Cloud REST", dedup);
-    expect(entries).toHaveLength(0);
-  });
-});

@@ -673,37 +673,7 @@ describe("CommandRouter", () => {
     });
   });
 
-  describe("transportOverrides — devices.json consistency (mini-validator)", () => {
-    // Pure file-content audit — every transportOverrides key/value in
-    // devices.json must be a known command + valid TransportTarget.
-    // Catches typos in PRs before runtime ever sees them.
-    it("all keys/values in devices.json are valid", () => {
-      const fs = require("node:fs") as typeof import("node:fs");
-      const path = require("node:path") as typeof import("node:path");
-      const raw = fs.readFileSync(path.resolve(__dirname, "..", "..", "devices.json"), "utf-8");
-      const parsed = JSON.parse(raw) as {
-        devices: Record<string, { quirks?: { transportOverrides?: Record<string, string> } }>;
-      };
-      const validKeys = [
-        "power",
-        "brightness",
-        "colorRgb",
-        "colorTemperature",
-        "lightScene",
-        "diyScene",
-        "snapshot",
-        "gradientToggle",
-        "segmentBatch",
-      ];
-      const validValues = ["cloud", "lan"];
-      for (const [sku, entry] of Object.entries(parsed.devices)) {
-        const overrides = entry.quirks?.transportOverrides;
-        if (!overrides) continue;
-        for (const [cmd, target] of Object.entries(overrides)) {
-          expect(validKeys, `${sku}.transportOverrides key "${cmd}"`).toContain(cmd);
-          expect(validValues, `${sku}.transportOverrides["${cmd}"] value "${target}"`).toContain(target);
-        }
-      }
-    });
-  });
+  // The devices.json transportOverrides mini-validator lives in
+  // device-registry.test.ts (the registry owns the catalog contract) —
+  // an identical copy here was removed in v2.16.1.
 });

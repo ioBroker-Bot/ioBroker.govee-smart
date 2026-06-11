@@ -944,10 +944,10 @@ export function applySceneSpeed(scenceParam: string, speedLevel: number, speedCo
   try {
     configEntries = JSON.parse(speedConfig);
   } catch {
-    // Govee's speedInfo.config schema can drift — surface the failure on
-    // debug so a "scene speed has no effect" complaint is traceable.
-    // Returning the un-modified scenceParam keeps the feature partially
-    // working (default speed) instead of failing the activation.
+    // Govee's speedInfo.config schema can drift — this is a pure helper
+    // without a logger, so a malformed config falls back silently: the
+    // un-modified scenceParam keeps the activation working at default
+    // speed instead of failing the whole scene command.
     return scenceParam;
   }
 

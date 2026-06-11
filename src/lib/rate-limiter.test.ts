@@ -229,3 +229,46 @@ describe("RateLimiter — timer-driven behaviour", () => {
     expect(ms).toBeLessThanOrEqual(86_400_000);
   });
 });
+
+describe("RateLimiter — queue cap (v2.16.1)", () => {
+  it("drops new calls once the queue is full — warn on the first drop, debug on repeats", () => {
+    const warns: string[] = [];
+    const debugs: string[] = [];
+    const log = {
+      ...mockLog,
+      warn: (m: string) => warns.push(m),
+      debug: (m: string) => debugs.push(m),
+    } as ioBroker.Logger;
+    const rl = new RateLimiter(log, mockTimers, 0, 100); // limit 0 → everything queues
+    for (let i = 0; i < 200; i++) {
+      rl.enqueue(async () => {});
+    }
+    expect((rl as any).queue).toHaveLength(200);
+    rl.enqueue(async () => {}); // 201st → dropped + warn
+    rl.enqueue(async () => {}); // 202nd → dropped + debug (dedup)
+    expect((rl as any).queue).toHaveLength(200);
+    expect(warns.filter(m => m.includes("queue full"))).toHaveLength(1);
+    expect(debugs.filter(m => m.includes("queue full"))).toHaveLength(1);
+  });
+
+  it("a drained queue re-arms the overflow warning for the next episode", async () => {
+    const warns: string[] = [];
+    const log = { ...mockLog, warn: (m: string) => warns.push(m) } as ioBroker.Logger;
+    const t = makeCapturingTimers();
+    const rl = new RateLimiter(log, t.timers, 300, 1000);
+    rl.start();
+    for (let i = 0; i < 200; i++) {
+      rl.enqueue(async () => {});
+    }
+    rl.enqueue(async () => {}); // overflow #1 → warn
+    expect(warns).toHaveLength(1);
+    t.intervals[1](); // queue-process tick drains everything (budget 300)
+    await Promise.resolve();
+    expect((rl as any).queue).toHaveLength(0);
+    for (let i = 0; i < 201; i++) {
+      rl.enqueue(async () => {}); // overflow #2 → warns again
+    }
+    expect(warns).toHaveLength(2);
+    rl.stop();
+  });
+});

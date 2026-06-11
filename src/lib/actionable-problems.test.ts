@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ACTIONABLE_CATEGORIES,
-  ActionableProblems,
-  type ActionableProblemsHost,
-  isActionable,
-} from "./actionable-problems";
-import type { ErrorCategory } from "./types";
+import { ActionableProblems, type ActionableProblemsHost } from "./actionable-problems";
 
 function makeHost(): ActionableProblemsHost & {
   warns: string[];
@@ -26,21 +20,6 @@ function makeHost(): ActionableProblemsHost & {
 }
 
 describe("ActionableProblems", () => {
-  describe("isActionable — classification", () => {
-    it("actionable categories require user action", () => {
-      for (const c of ["VERIFICATION_PENDING", "VERIFICATION_FAILED", "AUTH"] as ErrorCategory[]) {
-        expect(isActionable(c), `${c} must be actionable`).toBe(true);
-        expect(ACTIONABLE_CATEGORIES.has(c)).toBe(true);
-      }
-    });
-
-    it("transient categories self-heal and are NOT actionable", () => {
-      for (const c of ["NETWORK", "TIMEOUT", "RATE_LIMIT", "UNKNOWN"] as ErrorCategory[]) {
-        expect(isActionable(c), `${c} must be transient`).toBe(false);
-      }
-    });
-  });
-
   const problem = {
     key: "mqtt-verification",
     title: "Govee requires a verification code",
@@ -53,7 +32,6 @@ describe("ActionableProblems", () => {
     mgr.report(problem);
     expect(host.warns).toEqual(["Govee requires a verification code → request one in the adapter settings (Govee Account)"]);
     expect(host.notifications).toEqual(host.warns);
-    expect(mgr.isActive("mqtt-verification")).toBe(true);
   });
 
   it("re-reporting the same active problem is a no-op (no spam)", () => {
@@ -85,8 +63,9 @@ describe("ActionableProblems", () => {
     mgr.report(problem);
     mgr.resolve("mqtt-verification", "Govee verification accepted — real-time status connected");
     expect(host.infos).toEqual(["Govee verification accepted — real-time status connected"]);
-    expect(mgr.isActive("mqtt-verification")).toBe(false);
-    expect(mgr.activeKeys()).toEqual([]);
+    // Cleared-state is observable behaviour: a second resolve is silent.
+    mgr.resolve("mqtt-verification");
+    expect(host.infos).toHaveLength(1);
   });
 
   it("resolving an unknown / already-cleared problem is a no-op", () => {

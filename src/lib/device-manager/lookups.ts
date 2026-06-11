@@ -93,24 +93,6 @@ export function parseMqttSegmentData(commands: string[]): MqttSegmentData[] {
 }
 
 /**
- * Effective physical segment indices for a device.
- * Uses `device.manualSegments` when `device.manualMode=true` (cut strip override),
- * falls back to `0..segmentCount-1` otherwise. Empty if device has no segments.
- *
- * @param device Target device
- */
-export function getEffectiveSegmentIndices(device: GoveeDevice): number[] {
-  if (device.manualMode && Array.isArray(device.manualSegments) && device.manualSegments.length > 0) {
-    return device.manualSegments.slice();
-  }
-  const count = device.segmentCount ?? 0;
-  if (count <= 0) {
-    return [];
-  }
-  return Array.from({ length: count }, (_, i) => i);
-}
-
-/**
  * Resolve the authoritative segment count for a device.
  *
  * Priority:

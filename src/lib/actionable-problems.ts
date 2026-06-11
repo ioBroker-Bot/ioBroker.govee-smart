@@ -1,30 +1,3 @@
-import type { ErrorCategory } from "./types";
-
-/**
- * Error categories that require the USER to act — they will NOT self-heal:
- * the adapter can retry forever and stay blocked until the user does something
- * (request a verification code, fix credentials/API key). These are the only
- * categories that earn a persistent, surfaced "this needs your attention".
- *
- * Everything else (NETWORK, TIMEOUT, RATE_LIMIT, UNKNOWN) is transient — it
- * keeps the warn-once-then-debug policy in `log-channel-fail.ts` and never
- * reaches this registry.
- */
-export const ACTIONABLE_CATEGORIES: ReadonlySet<ErrorCategory> = new Set<ErrorCategory>([
-  "VERIFICATION_PENDING",
-  "VERIFICATION_FAILED",
-  "AUTH",
-]);
-
-/**
- * True when a classified error needs the user to act (vs. self-healing).
- *
- * @param category the classified error category
- */
-export function isActionable(category: ErrorCategory): boolean {
-  return ACTIONABLE_CATEGORIES.has(category);
-}
-
 /** A single user-actionable problem: what is wrong + what the user must do. */
 export interface ActionableProblem {
   /**
@@ -59,6 +32,14 @@ export interface ActionableProblemsHost {
 /**
  * Central registry for user-actionable problems (Govee verification needed,
  * rejected credentials, …). One mechanism every error site can feed.
+ *
+ * Which problems belong here: error classes the USER must fix because they
+ * never self-heal — verification pending/failed and rejected credentials
+ * (the AUTH-shaped failures). Transient classes (NETWORK, TIMEOUT,
+ * RATE_LIMIT, UNKNOWN) keep the warn-once-then-debug policy in
+ * `log-channel-fail.ts` and never reach this registry — enforced by where
+ * `report()` is wired (only at verification/auth failure sites), not by a
+ * runtime gate.
  *
  * Behaviour (the "intelligent, no-spam" contract):
  *  - **report** a NEW problem → surface it ONCE: a clear "what → what to do"
@@ -113,19 +94,5 @@ export class ActionableProblems {
     }
     this.active.delete(key);
     this.host.logInfo(resolutionMessage ?? `Resolved: ${problem.title}`);
-  }
-
-  /**
-   * True if the given problem is currently active.
-   *
-   * @param key the problem key to check
-   */
-  isActive(key: string): boolean {
-    return this.active.has(key);
-  }
-
-  /** Keys of all currently-active problems (diagnostics / tests). */
-  activeKeys(): string[] {
-    return [...this.active.keys()];
   }
 }
