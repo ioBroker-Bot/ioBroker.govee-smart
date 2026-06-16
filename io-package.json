@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "govee-smart",
-    "version": "2.16.1",
+    "version": "2.16.2",
     "news": {
+      "2.16.2": {
+        "en": "On hosts with multiple network interfaces, LAN device discovery now uses the selected interface for outgoing traffic, so it no longer misses devices by scanning on the wrong one.",
+        "de": "Auf Hosts mit mehreren Netzwerkschnittstellen nutzt die LAN-Erkennung jetzt die gewählte Schnittstelle für ausgehenden Verkehr und verpasst so keine Geräte mehr durch Scannen über die falsche.",
+        "ru": "На хостах с несколькими сетевыми интерфейсами LAN-обнаружение теперь использует выбранный интерфейс для исходящего трафика и больше не пропускает устройства из-за неверного.",
+        "pt": "Em hosts com várias interfaces de rede, a deteção de dispositivos LAN agora usa a interface selecionada para o tráfego de saída e deixa de perder dispositivos por procurar na errada.",
+        "nl": "Op hosts met meerdere netwerkinterfaces gebruikt LAN-detectie nu de geselecteerde interface voor uitgaand verkeer en mist zo geen apparaten meer door op de verkeerde te scannen.",
+        "fr": "Sur les hôtes à plusieurs interfaces réseau, la détection LAN utilise désormais l'interface sélectionnée pour le trafic sortant et ne manque plus d'appareils en analysant la mauvaise.",
+        "it": "Sugli host con più interfacce di rete, il rilevamento LAN ora usa l'interfaccia selezionata per il traffico in uscita e non perde più dispositivi cercando su quella sbagliata.",
+        "es": "En hosts con varias interfaces de red, la detección de dispositivos LAN ahora usa la interfaz seleccionada para el tráfico saliente y ya no pierde dispositivos al buscar en la incorrecta.",
+        "pl": "Na hostach z wieloma interfejsami sieciowymi wykrywanie urządzeń LAN używa teraz wybranego interfejsu dla ruchu wychodzącego i nie pomija już urządzeń przez skanowanie przez zły.",
+        "uk": "На хостах із кількома мережевими інтерфейсами LAN-виявлення тепер використовує вибраний інтерфейс для вихідного трафіку й не пропускає пристрої через неправильний.",
+        "zh-cn": "在具有多个网络接口的主机上，LAN 设备发现现在使用所选接口发送流量，不再因在错误接口上扫描而漏掉设备。"
+      },
       "2.16.1": {
         "en": "Compact mode no longer intercepts errors from other adapters, and device info entries keep a clean state history. Cloud commands no longer pile up without limit during rate-limit pauses.",
         "de": "Compact Mode fängt keine Fehler fremder Adapter mehr ab, und Geräte-Info-Einträge behalten eine saubere State-History. Cloud-Befehle stauen sich bei Rate-Limit-Pausen nicht mehr unbegrenzt.",
@@ -80,19 +93,6 @@
         "pl": "Dziennik zmian przepisany w stylu zorientowanym na użytkownika we wszystkich wersjach.",
         "uk": "Журнал змін переписано у стилі, орієнтованому на користувача, для всіх версій.",
         "zh-cn": "更新日志在所有版本中以面向用户的风格重写。"
-      },
-      "2.13.3": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine für den Benutzer sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Нет видимых пользователю изменений.",
-        "pt": "Limpeza interna. Sem alterações visíveis ao utilizador.",
-        "nl": "Interne opschoning. Geen zichtbare wijzigingen voor de gebruiker.",
-        "fr": "Nettoyage interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile all'utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє очищення. Без видимих змін для користувача.",
-        "zh-cn": "内部清理。无用户可见的更改。"
       }
     },
     "plugins": {

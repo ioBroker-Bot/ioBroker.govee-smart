@@ -145,6 +145,9 @@ class GoveeLanClient {
     this.sendSocket.on("error", (err) => {
       this.log.debug(`LAN send socket error: ${err.message}`);
     });
+    if (bindAddr) {
+      this.sendSocket.bind(0, bindAddr);
+    }
     this.listenSocket = dgram.createSocket({ type: "udp4", reuseAddr: true });
     this.listenSocket.on("message", (msg, rinfo) => {
       this.handleMessage(msg, rinfo.address);
@@ -167,7 +170,7 @@ class GoveeLanClient {
         this.log.debug(`LAN scan socket error: ${err.message}`);
       });
       this.scanSocket.bind(0, bindAddr, () => {
-        var _a, _b;
+        var _a, _b, _c;
         if (this.stopped) {
           return;
         }
@@ -178,6 +181,15 @@ class GoveeLanClient {
           this.log.info(
             `LAN: could not join multicast group on ${bindAddr != null ? bindAddr : "default interface"} \u2014 discovery may be incomplete`
           );
+        }
+        if (bindAddr) {
+          try {
+            (_c = this.scanSocket) == null ? void 0 : _c.setMulticastInterface(bindAddr);
+          } catch {
+            this.log.info(
+              `LAN: could not pin multicast egress to ${bindAddr} \u2014 outgoing discovery may use the default interface`
+            );
+          }
         }
         this.sendScan();
       });

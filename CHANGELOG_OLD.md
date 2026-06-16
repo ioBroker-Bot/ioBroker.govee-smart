@@ -1,4 +1,9 @@
 # Older Changes
+## 2.14.0 (2026-06-04)
+
+- The segment-detection wizard and the Cloud login test now show their messages in all admin languages instead of falling back to English or German.
+- For LAN-only lights, brightness, color and state are now recorded only when they actually change, keeping their history cleaner.
+
 ## 2.13.4 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.

@@ -157,6 +157,14 @@ export class GoveeLanClient {
     this.sendSocket.on("error", err => {
       this.log.debug(`LAN send socket error: ${err.message}`);
     });
+    // Pin the command socket's source to the chosen interface so unicast
+    // commands/devStatus egress it AND devices reply to bindAddr:4002 (where
+    // listenSocket is bound). Without binding, the OS auto-selects the source on
+    // a multi-homed host and replies can miss the listen socket. Skipped for the
+    // all-interfaces default (bindAddr undefined) — behaviour unchanged there.
+    if (bindAddr) {
+      this.sendSocket.bind(0, bindAddr);
+    }
 
     // Listen socket for responses (port 4002) — must be ready before first scan
     this.listenSocket = dgram.createSocket({ type: "udp4", reuseAddr: true });
@@ -207,6 +215,21 @@ export class GoveeLanClient {
           this.log.info(
             `LAN: could not join multicast group on ${bindAddr ?? "default interface"} — discovery may be incomplete`,
           );
+        }
+        // Pin OUTGOING multicast to the chosen interface. Binding the socket to
+        // bindAddr only sets the source address — the multicast egress interface
+        // is controlled by IP_MULTICAST_IF (setMulticastInterface); without it the
+        // OS picks via its default route, so the discovery scan can leave the
+        // wrong interface on a multi-homed host despite an explicit selection
+        // (Node dgram docs). Skipped for the all-interfaces default.
+        if (bindAddr) {
+          try {
+            this.scanSocket?.setMulticastInterface(bindAddr);
+          } catch {
+            this.log.info(
+              `LAN: could not pin multicast egress to ${bindAddr} — outgoing discovery may use the default interface`,
+            );
+          }
         }
         this.sendScan();
       });

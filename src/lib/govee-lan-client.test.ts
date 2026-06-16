@@ -11,6 +11,35 @@ import {
 } from "./govee-lan-client";
 import type { LanDevice, LanStatus } from "./types";
 
+// dgram is mocked so the interface-pinning behaviour in start() (setMulticastInterface
+// on the scan socket + bind on the command socket) is unit-testable. The rest of the
+// suite never calls start(), so these mocks stay inert for those tests.
+const dgramMock = vi.hoisted(() => {
+  const sockets: Array<{ binds: Array<[unknown, unknown]>; mcastIf: unknown[] }> = [];
+  const make = (): unknown => {
+    const s = {
+      binds: [] as Array<[unknown, unknown]>,
+      mcastIf: [] as unknown[],
+      on: () => {},
+      bind: (a: unknown, b: unknown, c: unknown) => {
+        s.binds.push([a, b]);
+        if (typeof b === "function") (b as () => void)();
+        else if (typeof c === "function") (c as () => void)();
+      },
+      setBroadcast: () => {},
+      addMembership: () => {},
+      dropMembership: () => {},
+      setMulticastInterface: (iface: unknown) => s.mcastIf.push(iface),
+      send: () => {},
+      close: () => {},
+    };
+    sockets.push(s);
+    return s;
+  };
+  return { sockets, make };
+});
+vi.mock("node:dgram", () => ({ createSocket: () => dgramMock.make() }));
+
 const lanLog = {
   silly: () => {},
   debug: () => {},
@@ -447,5 +476,42 @@ describe("GoveeLanClient — handleMessage (LAN reply parsing)", () => {
     const seen = (client as any).seenDeviceIps as Set<string>;
     expect(seen.has("AA:BB:192.168.1.99")).toBe(true);
     expect(seen.has("AA:BB:192.168.1.50")).toBe(false); // stale entry evicted
+  });
+});
+
+describe("GoveeLanClient — network interface pinning (multi-homed)", () => {
+  beforeEach(() => {
+    dgramMock.sockets.length = 0;
+  });
+
+  // createSocket order in start(): [0]=sendSocket, [1]=listenSocket, [2]=scanSocket
+  it("pins multicast egress and binds the command socket when a concrete interface is selected", () => {
+    const client = new GoveeLanClient(lanLog, lanTimers);
+    client.start(
+      () => {},
+      () => {},
+      30_000,
+      "10.0.0.5",
+    );
+    const sendSock = dgramMock.sockets[0];
+    const scanSock = dgramMock.sockets[2];
+    expect(sendSock.binds).toContainEqual([0, "10.0.0.5"]); // command socket source-bound to the interface
+    expect(scanSock.mcastIf).toContain("10.0.0.5"); // outgoing multicast pinned to the interface
+    client.stop();
+  });
+
+  it("leaves egress at the OS default for the all-interfaces setting (0.0.0.0)", () => {
+    const client = new GoveeLanClient(lanLog, lanTimers);
+    client.start(
+      () => {},
+      () => {},
+      30_000,
+      "0.0.0.0",
+    );
+    const sendSock = dgramMock.sockets[0];
+    const scanSock = dgramMock.sockets[2];
+    expect(sendSock.binds).toHaveLength(0); // command socket not explicitly bound
+    expect(scanSock.mcastIf).toHaveLength(0); // no multicast pinning
+    client.stop();
   });
 });

@@ -94,6 +94,9 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 2.16.2 (2026-06-16)
+- On hosts with multiple network interfaces, LAN device discovery now uses the selected interface for outgoing traffic, so it no longer misses devices by scanning on the wrong one.
+
 ### 2.16.1 (2026-06-11)
 
 - Running in compact mode no longer intercepts errors from other adapters in the same process — error reporting stays correctly attributed per adapter.
@@ -114,11 +117,6 @@ This adapter's MQTT authentication and BLE-over-LAN (ptReal) protocol implementa
 ### 2.14.1 (2026-06-05)
 
 - Corrected the ioBroker role of the scene, mode and snapshot selector states (no change to how they work)
-
-### 2.14.0 (2026-06-04)
-
-- The segment-detection wizard and the Cloud login test now show their messages in all admin languages instead of falling back to English or German.
-- For LAN-only lights, brightness, color and state are now recorded only when they actually change, keeping their history cleaner.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
